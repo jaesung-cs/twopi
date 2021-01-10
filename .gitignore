@@ -1,0 +1,7 @@
+lib/
+bin/
+resources/
+
+vs/.vs/
+vs/*/Debug/
+vs/*/Release/

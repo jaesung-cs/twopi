@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{cbe71807-a094-4dd8-bf2f-8825b8a88aed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi">
+      <UniqueIdentifier>{bfe9a4d0-5aab-48fd-8cb5-7eee9bf9ac39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{3f3e8ca9-a05a-4e78-85ae-ab1c15032465}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\glad">
+      <UniqueIdentifier>{3d71e005-95f5-4bd4-8b61-1bcacae13130}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\ovr">
+      <UniqueIdentifier>{f8dcedc7-1b01-4e3c-af37-37adee861c70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\application">
+      <UniqueIdentifier>{00cc14bb-c5d2-4471-b297-6bd3e9c0abca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\engine">
+      <UniqueIdentifier>{4b41acf5-00bf-49cb-a786-373c5e41c3f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\shaders">
+      <UniqueIdentifier>{f2f82d2c-6246-481f-b7c9-17aeaba96bc9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{f8eb12f9-5a48-43f6-9a63-3d3c950396e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\tinyobjloader">
+      <UniqueIdentifier>{f1e93c6b-eb25-47f2-9f64-e50a6dbdfb4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="git">
+      <UniqueIdentifier>{3b8d9e8c-307d-4e43-b71e-6e4b05074e4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\vk">
+      <UniqueIdentifier>{67c551e1-befc-452f-8e71-5c458587d8be}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\lib\glad.c">
+      <Filter>lib\glad</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\lib\glad_wgl.c">
+      <Filter>lib\glad</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\application\application.cc">
+      <Filter>src\twopi\application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\application\application_gl.cc">
+      <Filter>src\twopi\application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\application\application_vk.cc">
+      <Filter>src\twopi\application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\application\application_impl.cc">
+      <Filter>src\twopi\application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\engine\engine.cc">
+      <Filter>src\twopi\engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vulkan_engine.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.cc">
+      <Filter>src\twopi\ovr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.cc">
+      <Filter>src\twopi\ovr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main.cc">
+      <Filter>src\twopi</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\lib\glad\glad.h">
+      <Filter>lib\glad</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lib\KHR\khrplatform.h">
+      <Filter>lib\glad</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lib\glad\glad_wgl.h">
+      <Filter>lib\glad</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\application\application.h">
+      <Filter>src\twopi\application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\application\application_gl.h">
+      <Filter>src\twopi\application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\application\application_vk.h">
+      <Filter>src\twopi\application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\application\application_impl.h">
+      <Filter>src\twopi\application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\engine\engine.h">
+      <Filter>src\twopi\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lib\tinyobjloader\tiny_obj_loader.h">
+      <Filter>lib\tinyobjloader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vulkan_engine.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.h">
+      <Filter>src\twopi\ovr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.h">
+      <Filter>src\twopi\ovr</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\shaders\mesh.frag">
+      <Filter>src\shaders</Filter>
+    </None>
+    <None Include="..\..\src\shaders\mesh.vert">
+      <Filter>src\shaders</Filter>
+    </None>
+    <None Include="..\..\src\shaders\compile.bat">
+      <Filter>src\shaders</Filter>
+    </None>
+    <None Include="..\..\.gitignore">
+      <Filter>git</Filter>
+    </None>
+  </ItemGroup>
+</Project>
