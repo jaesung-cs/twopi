@@ -150,11 +150,14 @@
   <ItemGroup>
     <ClCompile Include="..\..\lib\glad.c" />
     <ClCompile Include="..\..\src\twopi\application\application.cc" />
+    <ClCompile Include="..\..\src\twopi\geometry\image.cc" />
+    <ClCompile Include="..\..\src\twopi\geometry\image_loader.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\mesh.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_engine.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_geometry.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_texture.cc" />
     <ClCompile Include="..\..\src\twopi\main.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
@@ -175,11 +178,14 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h" />
     <ClInclude Include="..\..\src\twopi\core\error.h" />
+    <ClInclude Include="..\..\src\twopi\geometry\image.h" />
+    <ClInclude Include="..\..\src\twopi\geometry\image_loader.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh_loader.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_engine.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_geometry.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_shader.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_texture.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />

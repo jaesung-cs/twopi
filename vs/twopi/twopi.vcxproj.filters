@@ -111,6 +111,15 @@
     <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc">
       <Filter>src\twopi\geometry</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\gl\gl_texture.cc">
+      <Filter>src\twopi\gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\geometry\image.cc">
+      <Filter>src\twopi\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\geometry\image_loader.cc">
+      <Filter>src\twopi\geometry</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -180,6 +189,15 @@
       <Filter>src\twopi\geometry</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\geometry\mesh.h">
+      <Filter>src\twopi\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\gl\gl_texture.h">
+      <Filter>src\twopi\gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\geometry\image.h">
+      <Filter>src\twopi\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\geometry\image_loader.h">
       <Filter>src\twopi\geometry</Filter>
     </ClInclude>
   </ItemGroup>
