@@ -23,6 +23,7 @@ public:
   void Close() override;
   bool ShouldClose() const override;
   std::vector<std::shared_ptr<Event>> PollEvents() override;
+  std::vector<std::shared_ptr<Event>> PollEvents(core::Timestamp timestamp) override;
   void SwapBuffers() override;
 
 private:

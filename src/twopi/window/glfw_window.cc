@@ -75,7 +75,16 @@ public:
     event_queue_.clear();
     glfwPollEvents();
 
-    return event_queue_;
+    return std::move(event_queue_);
+  }
+
+  std::vector<std::shared_ptr<Event>> PollEvents(core::Timestamp timestamp)
+  {
+    const auto event_queue = PollEvents();
+    for (const auto event : event_queue)
+      event->SetTimestamp(timestamp);
+
+    return event_queue;
   }
 
   void SwapBuffers()
@@ -135,6 +144,13 @@ public:
     case GLFW_RELEASE:
       event_action = KeyState::RELEASED;
       break;
+
+    case GLFW_REPEAT:
+      event_action = KeyState::REPEAT;
+      break;
+
+    default:
+      event_action = KeyState::UNDEFINED;
     }
 
     const auto event = std::make_shared<KeyboardEvent>(key, event_action);
@@ -163,6 +179,8 @@ private:
   GLFWwindow* window_;
 
   std::vector<std::shared_ptr<Event>> event_queue_;
+
+  core::Timestamp timestamp_;
 };
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -211,6 +229,11 @@ bool GlfwWindow::ShouldClose() const
 std::vector<std::shared_ptr<Event>> GlfwWindow::PollEvents()
 {
   return impl_->PollEvents();
+}
+
+std::vector<std::shared_ptr<Event>> GlfwWindow::PollEvents(core::Timestamp timestamp)
+{
+  return impl_->PollEvents(timestamp);
 }
 
 void GlfwWindow::SwapBuffers()

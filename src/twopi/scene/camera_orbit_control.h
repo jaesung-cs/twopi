@@ -29,6 +29,10 @@ public:
   void ZoomByPixels(int dx, int dy);
   void ZoomByWheel(int scroll);
 
+  void MoveForward(float dt);
+  void MoveRight(float dt);
+  void MoveUp(float dt);
+
 private:
   std::unique_ptr<impl::CameraOrbitControlImpl> impl_;
 };

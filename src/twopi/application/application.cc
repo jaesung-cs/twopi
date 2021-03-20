@@ -24,6 +24,8 @@ class ApplicationImpl
 public:
   ApplicationImpl()
   {
+    std::memset(key_pressed_, false, sizeof key_pressed_);
+
     window_ = std::make_shared<window::GlfwWindow>();
 
     gl_engine_ = std::make_shared<gl::Engine>();
@@ -41,21 +43,30 @@ public:
 
   void Run()
   {
+    core::Timestamp previous_timestamp = core::Clock::now();
+
     while (!ShouldTerminate())
     {
-      PollEvents();
+      const auto current_timestamp = core::Clock::now();
+
+      PollEvents(current_timestamp);
+
+      const auto dt = std::chrono::duration<double>(current_timestamp - previous_timestamp).count();
+      UpdateKeyboard(dt);
 
       gl_engine_->UpdateCamera(camera_);
       gl_engine_->Draw();
 
       SwapBuffers();
+
+      previous_timestamp = current_timestamp;
     }
   }
 
 private:
-  void PollEvents()
+  void PollEvents(core::Timestamp timestamp)
   {
-    const auto events = window_->PollEvents();
+    const auto events = window_->PollEvents(timestamp);
 
     for (const auto event : events)
     {
@@ -114,10 +125,38 @@ private:
       {
         if (keyboard_event->Key() == '`' && keyboard_event->State() == window::KeyState::PRESSED)
           window_->Close();
+
+        else
+        {
+          switch (keyboard_event->State())
+          {
+          case window::KeyState::PRESSED:
+            key_pressed_[keyboard_event->Key()] = true;
+            break;
+          case window::KeyState::RELEASED:
+            key_pressed_[keyboard_event->Key()] = false;
+            break;
+          }
+        }
       }
     }
 
     camera_control_->Update();
+  }
+
+  void UpdateKeyboard(double dt)
+  {
+    // Move camera
+    if (key_pressed_['W'])
+      camera_control_->MoveForward(dt);
+    if (key_pressed_['S'])
+      camera_control_->MoveForward(-dt);
+    if (key_pressed_['A'])
+      camera_control_->MoveRight(-dt);
+    if (key_pressed_['D'])
+      camera_control_->MoveRight(dt);
+    if (key_pressed_[' '])
+      camera_control_->MoveUp(dt);
   }
 
   void SwapBuffers()
@@ -138,6 +177,9 @@ private:
   int mouse_last_x_ = 0;
   int mouse_last_y_ = 0;
   int mouse_buttons_[3] = { 0, 0, 0 };
+
+  // Keyboard
+  bool key_pressed_[512];
 
   // Camera
   std::shared_ptr<scene::Camera> camera_;

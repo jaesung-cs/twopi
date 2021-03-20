@@ -178,6 +178,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h" />
     <ClInclude Include="..\..\src\twopi\core\error.h" />
+    <ClInclude Include="..\..\src\twopi\core\timestamp.h" />
     <ClInclude Include="..\..\src\twopi\geometry\image.h" />
     <ClInclude Include="..\..\src\twopi\geometry\image_loader.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh.h" />

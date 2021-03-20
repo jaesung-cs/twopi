@@ -200,6 +200,9 @@
     <ClInclude Include="..\..\src\twopi\geometry\image_loader.h">
       <Filter>src\twopi\geometry</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\core\timestamp.h">
+      <Filter>src\twopi\core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\twopi\shader\mesh.frag">

@@ -26,6 +26,7 @@ enum class KeyState : uint8_t
 {
   RELEASED,
   PRESSED,
+  REPEAT,
   UNDEFINED,
 };
 }

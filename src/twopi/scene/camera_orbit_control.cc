@@ -68,6 +68,33 @@ public:
     radius_ /= std::pow(1.f + zoom_multiplier_, zoom_wheel_sensitivity_ * scroll);
   }
 
+  void MoveForward(float dt)
+  {
+    const auto cos_theta = std::cos(theta_);
+    const auto sin_theta = std::sin(theta_);
+    const auto cos_phi = std::cos(phi_);
+    const auto sin_phi = std::sin(phi_);
+
+    const auto forward = radius_ * -glm::vec3(cos_theta * cos_phi, sin_theta * cos_phi, sin_phi);
+
+    center_ += move_speed_ * forward * dt;
+  }
+
+  void MoveRight(float dt)
+  {
+    const auto cos_theta = std::cos(theta_);
+    const auto sin_theta = std::sin(theta_);
+
+    const glm::vec3 x = radius_ * glm::vec3(-sin_theta, cos_theta, 0.f);
+
+    center_ += move_speed_ * x * dt;
+  }
+
+  void MoveUp(float dt)
+  {
+    center_ += move_speed_ * (radius_ * up_) * dt;
+  }
+
 private:
   template <typename T>
   T clamp(T value, T min, T max)
@@ -89,6 +116,7 @@ private:
   float zoom_sensitivity_ = 0.1f;
   float zoom_wheel_sensitivity_ = 5.f;
   float zoom_multiplier_ = 0.01f;
+  float move_speed_ = 1.f;
 };
 }
 
@@ -123,6 +151,21 @@ void CameraOrbitControl::ZoomByPixels(int dx, int dy)
 void CameraOrbitControl::ZoomByWheel(int scroll)
 {
   return impl_->ZoomByWheel(scroll);
+}
+
+void CameraOrbitControl::MoveForward(float distance)
+{
+  impl_->MoveForward(distance);
+}
+
+void CameraOrbitControl::MoveRight(float distance)
+{
+  impl_->MoveRight(distance);
+}
+
+void CameraOrbitControl::MoveUp(float distance)
+{
+  impl_->MoveUp(distance);
 }
 }
 }
