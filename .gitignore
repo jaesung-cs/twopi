@@ -1,7 +1,12 @@
 lib/
 bin/
 resources/
+build/
 
 vs/.vs/
 vs/*/x64/Debug/
 vs/*/x64/Release/
+
+.vscode/
+
+vcpkg/
