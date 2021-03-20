@@ -2,127 +2,205 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="src">
-      <UniqueIdentifier>{cbe71807-a094-4dd8-bf2f-8825b8a88aed}</UniqueIdentifier>
+      <UniqueIdentifier>{0ecc468e-6284-4b56-8f42-0263bc671e79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource">
+      <UniqueIdentifier>{3b959fc0-c2f4-4fd9-8f0d-86b3a1ebce72}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\twopi">
-      <UniqueIdentifier>{bfe9a4d0-5aab-48fd-8cb5-7eee9bf9ac39}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{3f3e8ca9-a05a-4e78-85ae-ab1c15032465}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib\glad">
-      <UniqueIdentifier>{3d71e005-95f5-4bd4-8b61-1bcacae13130}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\twopi\ovr">
-      <UniqueIdentifier>{f8dcedc7-1b01-4e3c-af37-37adee861c70}</UniqueIdentifier>
+      <UniqueIdentifier>{173128e7-b3f7-47d5-801c-5d0ec3e4a14f}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\twopi\application">
-      <UniqueIdentifier>{00cc14bb-c5d2-4471-b297-6bd3e9c0abca}</UniqueIdentifier>
+      <UniqueIdentifier>{2dca195e-95dd-4d38-a91f-c978395a799d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\twopi\engine">
-      <UniqueIdentifier>{4b41acf5-00bf-49cb-a786-373c5e41c3f6}</UniqueIdentifier>
+    <Filter Include="src\twopi\window">
+      <UniqueIdentifier>{a6cb3271-3bb4-49a9-bb27-8fe830aac052}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\shaders">
-      <UniqueIdentifier>{f2f82d2c-6246-481f-b7c9-17aeaba96bc9}</UniqueIdentifier>
+    <Filter Include="src\twopi\core">
+      <UniqueIdentifier>{1814cbad-e84f-4437-968d-2bf3c19a06c8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="resources">
-      <UniqueIdentifier>{f8eb12f9-5a48-43f6-9a63-3d3c950396e5}</UniqueIdentifier>
+    <Filter Include="src\twopi\gl">
+      <UniqueIdentifier>{f89f58ff-c9ff-4950-a4ff-7563227df70e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\tinyobjloader">
-      <UniqueIdentifier>{f1e93c6b-eb25-47f2-9f64-e50a6dbdfb4b}</UniqueIdentifier>
+    <Filter Include="lib">
+      <UniqueIdentifier>{349a0d4c-fdd3-43f6-9a11-6e7a52f4928c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="git">
-      <UniqueIdentifier>{3b8d9e8c-307d-4e43-b71e-6e4b05074e4f}</UniqueIdentifier>
+    <Filter Include="lib\glad">
+      <UniqueIdentifier>{df455c95-ee7b-452c-afe9-097f21280d67}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\twopi\vk">
-      <UniqueIdentifier>{67c551e1-befc-452f-8e71-5c458587d8be}</UniqueIdentifier>
+    <Filter Include="src\twopi\shader">
+      <UniqueIdentifier>{a6f72518-8c6a-4ad1-832e-bb8abc525609}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\window\event">
+      <UniqueIdentifier>{8cac3e7a-958a-42ce-a994-14604d7e2bab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\scene">
+      <UniqueIdentifier>{cdfe40e8-d125-4d13-b6e7-7e2f07d7139d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\geometry">
+      <UniqueIdentifier>{facba208-12bb-4fd8-a890-635b06856462}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\lib\glad.c">
-      <Filter>lib\glad</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\lib\glad_wgl.c">
-      <Filter>lib\glad</Filter>
+    <ClCompile Include="..\..\src\twopi\main.cc">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\application\application.cc">
       <Filter>src\twopi\application</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\application\application_gl.cc">
-      <Filter>src\twopi\application</Filter>
+    <ClCompile Include="..\..\src\twopi\window\window.cc">
+      <Filter>src\twopi\window</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\application\application_vk.cc">
-      <Filter>src\twopi\application</Filter>
+    <ClCompile Include="..\..\src\twopi\window\win32_window.cc">
+      <Filter>src\twopi\window</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\application\application_impl.cc">
-      <Filter>src\twopi\application</Filter>
+    <ClCompile Include="..\..\src\twopi\window\glfw_window.cc">
+      <Filter>src\twopi\window</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\engine\engine.cc">
-      <Filter>src\twopi\engine</Filter>
+    <ClCompile Include="..\..\src\twopi\gl\gl_engine.cc">
+      <Filter>src\twopi\gl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vulkan_engine.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\lib\glad.c">
+      <Filter>lib\glad</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.cc">
-      <Filter>src\twopi\ovr</Filter>
+    <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc">
+      <Filter>src\twopi\gl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.cc">
-      <Filter>src\twopi\ovr</Filter>
+    <ClCompile Include="..\..\src\twopi\gl\gl_geometry.cc">
+      <Filter>src\twopi\gl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\main.cc">
-      <Filter>src\twopi</Filter>
+    <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\window\event\event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\camera.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\camera_control.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_move_event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_wheel_event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\camera_orbit_control.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\scene.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\scene_node.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\color_material.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\material.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\geometry\mesh.cc">
+      <Filter>src\twopi\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc">
+      <Filter>src\twopi\geometry</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\lib\glad\glad.h">
-      <Filter>lib\glad</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\lib\KHR\khrplatform.h">
-      <Filter>lib\glad</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\lib\glad\glad_wgl.h">
-      <Filter>lib\glad</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\application\application.h">
       <Filter>src\twopi\application</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\application\application_gl.h">
-      <Filter>src\twopi\application</Filter>
+    <ClInclude Include="..\..\src\twopi\window\win32_window.h">
+      <Filter>src\twopi\window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\application\application_vk.h">
-      <Filter>src\twopi\application</Filter>
+    <ClInclude Include="..\..\src\twopi\window\window.h">
+      <Filter>src\twopi\window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\application\application_impl.h">
-      <Filter>src\twopi\application</Filter>
+    <ClInclude Include="..\..\src\twopi\window\glfw_window.h">
+      <Filter>src\twopi\window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\engine\engine.h">
-      <Filter>src\twopi\engine</Filter>
+    <ClInclude Include="..\..\src\twopi\core\error.h">
+      <Filter>src\twopi\core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\lib\tinyobjloader\tiny_obj_loader.h">
-      <Filter>lib\tinyobjloader</Filter>
+    <ClInclude Include="..\..\src\twopi\gl\gl_engine.h">
+      <Filter>src\twopi\gl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vulkan_engine.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\gl\gl_shader.h">
+      <Filter>src\twopi\gl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.h">
-      <Filter>src\twopi\ovr</Filter>
+    <ClInclude Include="..\..\src\twopi\gl\gl_geometry.h">
+      <Filter>src\twopi\gl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.h">
-      <Filter>src\twopi\ovr</Filter>
+    <ClInclude Include="..\..\src\twopi\window\event\keyboard_event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\types.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\camera.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\camera_control.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_move_event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_wheel_event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\scene.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\scene_node.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\color_material.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\material.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\geometry\mesh_loader.h">
+      <Filter>src\twopi\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\geometry\mesh.h">
+      <Filter>src\twopi\geometry</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\shaders\mesh.frag">
-      <Filter>src\shaders</Filter>
+    <None Include="..\..\src\twopi\shader\mesh.frag">
+      <Filter>src\twopi\shader</Filter>
     </None>
-    <None Include="..\..\src\shaders\mesh.vert">
-      <Filter>src\shaders</Filter>
+    <None Include="..\..\src\twopi\shader\mesh.vert">
+      <Filter>src\twopi\shader</Filter>
     </None>
-    <None Include="..\..\src\shaders\compile.bat">
-      <Filter>src\shaders</Filter>
+    <None Include="..\..\src\twopi\shader\color.frag">
+      <Filter>src\twopi\shader</Filter>
     </None>
-    <None Include="..\..\.gitignore">
-      <Filter>git</Filter>
+    <None Include="..\..\src\twopi\shader\color.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle.vert">
+      <Filter>src\twopi\shader</Filter>
     </None>
   </ItemGroup>
 </Project>

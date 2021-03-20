@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -18,43 +18,10 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\lib\glad.c" />
-    <ClCompile Include="..\..\lib\glad_wgl.c" />
-    <ClCompile Include="..\..\src\main.cc" />
-    <ClCompile Include="..\..\src\twopi\application\application.cc" />
-    <ClCompile Include="..\..\src\twopi\application\application_gl.cc" />
-    <ClCompile Include="..\..\src\twopi\application\application_impl.cc" />
-    <ClCompile Include="..\..\src\twopi\application\application_vk.cc" />
-    <ClCompile Include="..\..\src\twopi\engine\engine.cc" />
-    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.cc" />
-    <ClCompile Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vulkan_engine.cc" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\lib\glad\glad.h" />
-    <ClInclude Include="..\..\lib\glad\glad_wgl.h" />
-    <ClInclude Include="..\..\lib\KHR\khrplatform.h" />
-    <ClInclude Include="..\..\lib\tinyobjloader\tiny_obj_loader.h" />
-    <ClInclude Include="..\..\src\twopi\application\application.h" />
-    <ClInclude Include="..\..\src\twopi\application\application_gl.h" />
-    <ClInclude Include="..\..\src\twopi\application\application_impl.h" />
-    <ClInclude Include="..\..\src\twopi\application\application_vk.h" />
-    <ClInclude Include="..\..\src\twopi\engine\engine.h" />
-    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_gl.h" />
-    <ClInclude Include="..\..\src\twopi\ovr\ovr_swap_chain_vk.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vulkan_engine.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\.gitignore" />
-    <None Include="..\..\src\shaders\compile.bat" />
-    <None Include="..\..\src\shaders\mesh.frag" />
-    <None Include="..\..\src\shaders\mesh.vert" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{549d22f9-119f-4ce5-b7f2-92783bbc2a9d}</ProjectGuid>
+    <ProjectGuid>{53caca6b-93ec-4c40-8bef-1fc7abe7e3bf}</ProjectGuid>
     <RootNamespace>twopi</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -112,13 +79,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
-    <IntDir>$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
-    <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -152,20 +117,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;C:\lib\glm;C:\lib\ovr_sdk_win_23.0.0\LibOVR\Include;../../lib;../../src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>C:\lib\ovr_sdk_win_23.0.0\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\LibOVR.lib;$(VULKAN_SDK)\Lib\vulkan-1.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../../lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc142-mt.lib;glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib</AdditionalLibraryDirectories>
     </Link>
-    <PostBuildEvent>
-      <Command>powershell ../../src/shaders/compile.bat mesh</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -173,23 +134,77 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;C:\lib\glm;C:\lib\ovr_sdk_win_23.0.0\LibOVR\Include;../../lib;../../src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>C:\lib\ovr_sdk_win_23.0.0\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\LibOVR.lib;$(VULKAN_SDK)\Lib\vulkan-1.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../../lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc142-mt.lib;glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib</AdditionalLibraryDirectories>
     </Link>
-    <PostBuildEvent>
-      <Command>powershell ../../src/shaders/compile.bat mesh</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\lib\glad.c" />
+    <ClCompile Include="..\..\src\twopi\application\application.cc" />
+    <ClCompile Include="..\..\src\twopi\geometry\mesh.cc" />
+    <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_geometry.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc" />
+    <ClCompile Include="..\..\src\twopi\main.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\camera.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\camera_orbit_control.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\color_material.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\material.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_move_event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\mouse_wheel_event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\glfw_window.cc" />
+    <ClCompile Include="..\..\src\twopi\window\window.cc" />
+    <ClCompile Include="..\..\src\twopi\window\win32_window.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\twopi\application\application.h" />
+    <ClInclude Include="..\..\src\twopi\core\error.h" />
+    <ClInclude Include="..\..\src\twopi\geometry\mesh.h" />
+    <ClInclude Include="..\..\src\twopi\geometry\mesh_loader.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_engine.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_geometry.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_shader.h" />
+    <ClInclude Include="..\..\src\twopi\scene\camera.h" />
+    <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
+    <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />
+    <ClInclude Include="..\..\src\twopi\scene\color_material.h" />
+    <ClInclude Include="..\..\src\twopi\scene\material.h" />
+    <ClInclude Include="..\..\src\twopi\scene\scene.h" />
+    <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\keyboard_event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_move_event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\mouse_wheel_event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\types.h" />
+    <ClInclude Include="..\..\src\twopi\window\glfw_window.h" />
+    <ClInclude Include="..\..\src\twopi\window\window.h" />
+    <ClInclude Include="..\..\src\twopi\window\win32_window.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\twopi\shader\color.frag" />
+    <None Include="..\..\src\twopi\shader\color.vert" />
+    <None Include="..\..\src\twopi\shader\mesh.frag" />
+    <None Include="..\..\src\twopi\shader\mesh.vert" />
+    <None Include="..\..\src\twopi\shader\triangle.frag" />
+    <None Include="..\..\src\twopi\shader\triangle.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

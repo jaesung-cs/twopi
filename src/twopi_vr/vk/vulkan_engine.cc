@@ -1081,6 +1081,7 @@ void VulkanEngine::CreateImage(uint32_t width, uint32_t height, uint32_t mip_lev
   vkGetImageMemoryRequirements(device_, image, &mem_requirements);
 
   VkMemoryAllocateInfo alloc_info{};
+
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_requirements.size;
   alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, properties);

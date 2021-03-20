@@ -3,5 +3,5 @@ bin/
 resources/
 
 vs/.vs/
-vs/*/Debug/
-vs/*/Release/
+vs/*/x64/Debug/
+vs/*/x64/Release/
