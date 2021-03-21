@@ -25,12 +25,24 @@ public:
   {
     auto lateral_offset = (ipd_ / 2.f) * (idx == 0 ? -1 : 1);
 
-    const auto& eye = base_->Eye();
+    const auto& eye = static_cast<Camera*>(base_)->Eye();
     const auto direction = glm::normalize(base_->Center() - eye);
     const auto up = glm::normalize(base_->Up());
     const auto lateral = glm::cross(direction, up);
 
     return glm::lookAt(eye + lateral * lateral_offset, eye + direction * lens_spacing_, up);
+  }
+
+  glm::vec3 Eye(int idx) const
+  {
+    auto lateral_offset = (ipd_ / 2.f) * (idx == 0 ? -1 : 1);
+
+    const auto& eye = static_cast<Camera*>(base_)->Eye();
+    const auto direction = glm::normalize(base_->Center() - eye);
+    const auto up = glm::normalize(base_->Up());
+    const auto lateral = glm::cross(direction, up);
+
+    return eye + lateral * lateral_offset;
   }
 
   float Ipd() const
@@ -63,6 +75,11 @@ VrCamera::~VrCamera() = default;
 glm::mat4 VrCamera::ViewMatrix(int idx) const
 {
   return impl_->ViewMatrix(idx);
+}
+
+glm::vec3 VrCamera::Eye(int idx) const
+{
+  return impl_->Eye(idx);
 }
 
 float VrCamera::Ipd() const

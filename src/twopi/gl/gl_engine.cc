@@ -14,6 +14,7 @@
 #include <twopi/gl/gl_renderbuffer.h>
 #include <twopi/scene/camera.h>
 #include <twopi/scene/vr_camera.h>
+#include <twopi/scene/light.h>
 #include <twopi/geometry/mesh.h>
 #include <twopi/geometry/mesh_loader.h>
 #include <twopi/geometry/image.h>
@@ -35,11 +36,12 @@ public:
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
+    glEnable(GL_CULL_FACE);
 
     // TODO: shader path
     const std::string dirpath = "C:\\workspace\\twopi\\src\\twopi\\shader\\";
     mesh_shader_ = std::make_shared<Shader>(dirpath + "mesh.vert", dirpath + "mesh.frag");
-    mesh_shader_->Uniform1i("tex_sampler", 0);
+    mesh_shader_->Uniform1i("material.diffuse_sampler", 0);
 
     screen_shader_ = std::make_shared<Shader>(dirpath + "screen.vert", dirpath + "screen.frag");
     screen_shader_->Uniform1i("tex_sampler", 0);
@@ -60,6 +62,11 @@ public:
     mesh_geometry_->SetAttribute(2, 2, mesh->TexCoords());
     mesh_geometry_->SetElements(mesh->Indices());
     mesh_geometry_->SetTriangles();
+
+    mesh_shader_->Uniform3f("material.ambient", glm::vec3(0.5f, 0.5f, 0.5f));
+    mesh_shader_->Uniform1i("material.has_diffuse_texture", 1);
+    mesh_shader_->Uniform3f("material.specular", glm::vec3(0.2f, 0.2f, 0.2f));
+    mesh_shader_->Uniform1f("material.shininess", 80.f);
 
     // TODO: texture filepath from mesh
     const auto texture_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
@@ -115,9 +122,12 @@ public:
   {
     if (!vr_mode_)
     {
+      auto model_matrix = glm::mat4(1.f);
       mesh_shader_->UniformMatrix4f("projection", projection_matrix_);
       mesh_shader_->UniformMatrix4f("view", view_matrices_[0]);
-      mesh_shader_->UniformMatrix4f("model", glm::mat4(1.f));
+      mesh_shader_->UniformMatrix4f("model", model_matrix);
+      mesh_shader_->UniformMatrix3f("model_inverse_transpose", glm::transpose(glm::inverse(glm::mat3(model_matrix))));
+      mesh_shader_->Uniform3f("eye", eyes_[0]);
 
       screen_framebuffers_multisample_[0]->Bind();
 
@@ -143,10 +153,12 @@ public:
     {
       mesh_shader_->UniformMatrix4f("projection", projection_matrix_);
       mesh_shader_->UniformMatrix4f("model", glm::mat4(1.f));
+      mesh_shader_->UniformMatrix3f("model_inverse_transpose", glm::mat3(1.f));
 
       for (int i = 0; i < 2; i++)
       {
         mesh_shader_->UniformMatrix4f("view", view_matrices_[i]);
+        mesh_shader_->Uniform3f("eye", eyes_[i]);
 
         screen_framebuffers_multisample_[i]->Bind();
 
@@ -179,13 +191,30 @@ public:
     if (auto vr_camera = std::dynamic_pointer_cast<scene::VrCamera>(camera))
     {
       vr_mode_ = true;
+      eyes_[0] = vr_camera->Eye(0);
+      eyes_[1] = vr_camera->Eye(1);
       view_matrices_[0] = vr_camera->ViewMatrix(0);
       view_matrices_[1] = vr_camera->ViewMatrix(1);
     }
     else
     {
       vr_mode_ = false;
+      eyes_[0] = camera->Eye();
       view_matrices_[0] = camera->ViewMatrix();
+    }
+  }
+
+  void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+  {
+    // TODO: update light models to uniform block
+    mesh_shader_->Uniform1i("num_lights", lights.size());
+    for (int i = 0; i < lights.size(); i++)
+    {
+      const auto light_name = "lights[" + std::to_string(i) + "]";
+      mesh_shader_->Uniform3f(light_name + ".position", lights[i]->Position());
+      mesh_shader_->Uniform3f(light_name + ".ambient", lights[i]->Ambient());
+      mesh_shader_->Uniform3f(light_name + ".diffuse", lights[i]->Diffuse());
+      mesh_shader_->Uniform3f(light_name + ".specular", lights[i]->Specular());
     }
   }
 
@@ -195,6 +224,7 @@ private:
 
   bool vr_mode_ = false;
 
+  glm::vec3 eyes_[2];
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrices_[2];
   
@@ -230,6 +260,11 @@ void Engine::SetViewport(int x, int y, int width, int height)
 void Engine::Draw()
 {
   impl_->Draw();
+}
+
+void Engine::UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+{
+  impl_->UpdateLights(lights);
 }
 
 void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)

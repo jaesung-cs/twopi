@@ -27,6 +27,9 @@ public:
   void Use();
 
   void Uniform1i(const std::string& name, int i);
+  void Uniform1f(const std::string& name, float v);
+  void Uniform3f(const std::string& name, const glm::vec3& v);
+  void UniformMatrix3f(const std::string& name, const glm::mat3& m);
   void UniformMatrix4f(const std::string& name, const glm::mat4& m);
 
 private:

@@ -107,7 +107,7 @@ private:
   // pos = center + radius * (cos theta cos phi, sin theta cos phi, sin phi)
   glm::vec3 center_{ 0.f, 0.f, 0.f };
   const glm::vec3 up_{ 0.f, 0.f, 1.f };
-  float radius_ = 10.f;
+  float radius_ = 5.f;
   float theta_ = 0.f;
   float phi_ = 0.f;
 

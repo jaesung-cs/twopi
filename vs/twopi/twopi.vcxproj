@@ -119,7 +119,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm;C:\lib\eigen</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -136,7 +136,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../src;../../lib;C:\lib\assimp\include;C:\lib\glfw\include;C:\lib\glm;C:\lib\eigen</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -161,10 +161,13 @@
     <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_texture.cc" />
     <ClCompile Include="..\..\src\twopi\main.cc" />
+    <ClCompile Include="..\..\src\twopi\physics\cloth\mesh_cloth.cc" />
+    <ClCompile Include="..\..\src\twopi\physics\physics_engine.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_orbit_control.cc" />
     <ClCompile Include="..\..\src\twopi\scene\color_material.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\light.cc" />
     <ClCompile Include="..\..\src\twopi\scene\material.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
@@ -193,10 +196,13 @@
     <ClInclude Include="..\..\src\twopi\gl\gl_renderbuffer.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_shader.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_texture.h" />
+    <ClInclude Include="..\..\src\twopi\physics\cloth\mesh_cloth.h" />
+    <ClInclude Include="..\..\src\twopi\physics\physics_engine.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\color_material.h" />
+    <ClInclude Include="..\..\src\twopi\scene\light.h" />
     <ClInclude Include="..\..\src\twopi\scene\material.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
@@ -213,14 +219,10 @@
     <ClInclude Include="..\..\src\twopi\window\win32_window.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\twopi\shader\color.frag" />
-    <None Include="..\..\src\twopi\shader\color.vert" />
     <None Include="..\..\src\twopi\shader\mesh.frag" />
     <None Include="..\..\src\twopi\shader\mesh.vert" />
     <None Include="..\..\src\twopi\shader\screen.frag" />
     <None Include="..\..\src\twopi\shader\screen.vert" />
-    <None Include="..\..\src\twopi\shader\triangle.frag" />
-    <None Include="..\..\src\twopi\shader\triangle.vert" />
     <None Include="..\..\src\twopi\shader\vr_screen.frag" />
     <None Include="..\..\src\twopi\shader\vr_screen.vert" />
   </ItemGroup>

@@ -40,6 +40,12 @@
     <Filter Include="src\twopi\geometry">
       <UniqueIdentifier>{facba208-12bb-4fd8-a890-635b06856462}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\twopi\physics">
+      <UniqueIdentifier>{889bb3e5-65c6-465e-9820-9f61eeaa905b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\physics\cloth">
+      <UniqueIdentifier>{85569ac3-32e8-4903-8033-a73f0b5e32a9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -130,6 +136,15 @@
       <Filter>src\twopi\window\event</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\physics\physics_engine.cc">
+      <Filter>src\twopi\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\physics\cloth\mesh_cloth.cc">
+      <Filter>src\twopi\physics\cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\light.cc">
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
   </ItemGroup>
@@ -227,24 +242,21 @@
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h">
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\physics\physics_engine.h">
+      <Filter>src\twopi\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\physics\cloth\mesh_cloth.h">
+      <Filter>src\twopi\physics\cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\light.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\twopi\shader\mesh.frag">
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\mesh.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\color.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\color.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\screen.frag">

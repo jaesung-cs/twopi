@@ -13,7 +13,10 @@
 #include <twopi/scene/camera.h>
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
+#include <twopi/scene/light.h>
 #include <twopi/gl/gl_engine.h>
+
+#include <glm/glm.hpp>
 
 namespace twopi
 {
@@ -43,6 +46,13 @@ public:
 
     current_camera_ = camera_;
     camera_control_->SetCamera(current_camera_);
+
+    auto light = std::make_shared<scene::Light>();
+    light->SetPosition(glm::vec3{ 0.f, 0.f, 1.f });
+    light->SetAmbient(glm::vec3{ 0.2f, 0.2f, 0.2f });
+    light->SetDiffuse(glm::vec3{ 0.8f, 0.8f, 0.8f });
+    light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });
+    lights_.emplace_back(std::move(light));
   }
 
   ~ApplicationImpl() = default;
@@ -60,6 +70,10 @@ public:
       const auto dt = std::chrono::duration<double>(current_timestamp - previous_timestamp).count();
       UpdateKeyboard(dt);
 
+      // Light position updated to camera eye
+      lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
+
+      gl_engine_->UpdateLights(lights_);
       gl_engine_->UpdateCamera(current_camera_);
       gl_engine_->Draw();
 
@@ -224,6 +238,9 @@ private:
   std::shared_ptr<scene::VrCamera> vr_camera_;
   std::shared_ptr<scene::Camera> current_camera_;
   std::shared_ptr<scene::CameraOrbitControl> camera_control_;
+
+  // Light
+  std::vector<std::shared_ptr<scene::Light>> lights_;
 };
 }
 

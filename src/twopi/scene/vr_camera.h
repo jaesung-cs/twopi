@@ -23,6 +23,7 @@ public:
   ~VrCamera() override;
 
   glm::mat4 ViewMatrix(int idx) const;
+  glm::vec3 Eye(int idx) const;
 
   float Ipd() const;
   float LensSpacing() const;

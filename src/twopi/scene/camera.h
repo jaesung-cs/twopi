@@ -33,9 +33,10 @@ public:
   glm::mat4 ProjectionMatrix() const;
   glm::mat4 ViewMatrix() const;
 
-protected:
   const glm::vec3& Eye() const;
   const glm::vec3& Center() const;
+
+protected:
   const glm::vec3& Up() const;
 
 private:

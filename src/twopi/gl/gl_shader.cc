@@ -45,6 +45,21 @@ public:
     glProgramUniform1i(program_, glGetUniformLocation(program_, name.c_str()), i);
   }
 
+  void Uniform1f(const std::string& name, float v)
+  {
+    glProgramUniform1f(program_, glGetUniformLocation(program_, name.c_str()), v);
+  }
+
+  void Uniform3f(const std::string& name, const glm::vec3& v)
+  {
+    glProgramUniform3fv(program_, glGetUniformLocation(program_, name.c_str()), 1, glm::value_ptr(v));
+  }
+
+  void UniformMatrix3f(const std::string& name, const glm::mat3& m)
+  {
+    glProgramUniformMatrix3fv(program_, glGetUniformLocation(program_, name.c_str()), 1, GL_FALSE, glm::value_ptr(m));
+  }
+
   void UniformMatrix4f(const std::string& name, const glm::mat4& m)
   {
     glProgramUniformMatrix4fv(program_, glGetUniformLocation(program_, name.c_str()), 1, GL_FALSE, glm::value_ptr(m));
@@ -142,6 +157,21 @@ void Shader::Use()
 void Shader::Uniform1i(const std::string& name, int i)
 {
   impl_->Uniform1i(name, i);
+}
+
+void Shader::Uniform1f(const std::string& name, float v)
+{
+  impl_->Uniform1f(name, v);
+}
+
+void Shader::Uniform3f(const std::string& name, const glm::vec3& v)
+{
+  impl_->Uniform3f(name, v);
+}
+
+void Shader::UniformMatrix3f(const std::string& name, const glm::mat3& m)
+{
+  impl_->UniformMatrix3f(name, m);
 }
 
 void Shader::UniformMatrix4f(const std::string& name, const glm::mat4& m)
