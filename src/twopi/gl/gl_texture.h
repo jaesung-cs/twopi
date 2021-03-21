@@ -29,6 +29,7 @@ public:
   void Load(std::shared_ptr<geometry::Image<T>> image);
 
   void Storage(int width, int height, int comp = 4);
+  void StorageMultisample(int width, int height, int comp = 4);
 
   void Bind(int unit);
 

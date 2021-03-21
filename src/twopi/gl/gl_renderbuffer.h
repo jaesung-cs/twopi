@@ -20,6 +20,7 @@ public:
   ~Renderbuffer();
 
   void DepthStencilStorage(int width, int height);
+  void DepthStencilStorageMultisample(int width, int height);
 
   unsigned int Id() const;
 

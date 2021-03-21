@@ -87,20 +87,26 @@ public:
     height_ = height;
 
     // Framebuffer
-    screen_depth_renderbuffer_ = std::make_shared<Renderbuffer>();
-    screen_depth_renderbuffer_->DepthStencilStorage(width, height);
+    screen_depth_renderbuffer_multisample_ = std::make_shared<Renderbuffer>();
+    screen_depth_renderbuffer_multisample_->DepthStencilStorageMultisample(width, height);
+
+    screen_color_texture_multisample_ = std::make_shared<Texture>();
+    screen_color_texture_multisample_->StorageMultisample(width, height);
+
+    screen_framebuffer_multisample_ = std::make_shared<Framebuffer>(width, height);
+    screen_framebuffer_multisample_->AttachColor(0, screen_color_texture_multisample_);
+    screen_framebuffer_multisample_->AttachDepthStencil(screen_depth_renderbuffer_multisample_);
 
     screen_color_texture_ = std::make_shared<Texture>();
     screen_color_texture_->Storage(width, height);
 
-    screen_framebuffer_ = std::make_shared<Framebuffer>();
+    screen_framebuffer_ = std::make_shared<Framebuffer>(width, height);
     screen_framebuffer_->AttachColor(0, screen_color_texture_);
-    screen_framebuffer_->AttachDepthStencil(screen_depth_renderbuffer_);
   } 
 
   void Draw()
   {
-    screen_framebuffer_->Bind();
+    screen_framebuffer_multisample_->Bind();
 
     glClearColor(0.8f, 0.8f, 0.8f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -109,7 +115,9 @@ public:
     mesh_texture_->Bind(0);
     mesh_geometry_->Draw();
 
-    screen_framebuffer_->Unbind();
+    screen_framebuffer_multisample_->BlitTo(screen_framebuffer_);
+
+    Framebuffer::Unbind();
 
     glClearColor(0.8f, 0.8f, 0.8f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -135,15 +143,20 @@ private:
   int height_ = 1;
 
   std::shared_ptr<Shader> color_shader_;
+
   std::shared_ptr<Shader> mesh_shader_;
   std::shared_ptr<Geometry> mesh_geometry_;
   std::shared_ptr<Texture> mesh_texture_;
 
   std::shared_ptr<Shader> screen_shader_;
   std::shared_ptr<Geometry> screen_geometry_;
+
+  std::shared_ptr<Framebuffer> screen_framebuffer_multisample_;
+  std::shared_ptr<Texture> screen_color_texture_multisample_;
+  std::shared_ptr<Renderbuffer> screen_depth_renderbuffer_multisample_;
+
   std::shared_ptr<Framebuffer> screen_framebuffer_;
   std::shared_ptr<Texture> screen_color_texture_;
-  std::shared_ptr<Renderbuffer> screen_depth_renderbuffer_;
 };
 }
 

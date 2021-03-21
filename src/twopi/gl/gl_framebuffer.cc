@@ -20,7 +20,8 @@ public:
   }
 
 public:
-  FramebufferImpl()
+  FramebufferImpl(int width, int height)
+    : width_(width), height_(height)
   {
     glCreateFramebuffers(1, &framebuffer_);
   }
@@ -29,6 +30,9 @@ public:
   {
     glDeleteFramebuffers(1, &framebuffer_);
   }
+
+  int Width() const { return width_; }
+  int Height() const { return height_; }
 
   void AttachColor(int attachment, std::shared_ptr<Texture> texture)
   {
@@ -45,12 +49,30 @@ public:
     glNamedFramebufferRenderbuffer(framebuffer_, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer->Id());
   }
 
+  bool IsComplete() const
+  {
+    return glCheckNamedFramebufferStatus(framebuffer_, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  }
+
   void Bind()
   {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
   }
 
+  void BlitTo(std::shared_ptr<Framebuffer> framebuffer)
+  {
+    glBlitNamedFramebuffer(framebuffer_, framebuffer->Id(), 0, 0, width_, height_, 0, 0, framebuffer->Width(), framebuffer->Height(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  }
+
+  auto Id() const
+  {
+    return framebuffer_;
+  }
+
 private:
+  int width_ = 1;
+  int height_ = 1;
+
   GLuint framebuffer_ = 0;
 };
 }
@@ -60,12 +82,22 @@ void Framebuffer::Unbind()
   impl::FramebufferImpl::Unbind();
 }
 
-Framebuffer::Framebuffer()
+Framebuffer::Framebuffer(int width, int height)
 {
-  impl_ = std::make_unique<impl::FramebufferImpl>();
+  impl_ = std::make_unique<impl::FramebufferImpl>(width, height);
 }
 
 Framebuffer::~Framebuffer() = default;
+
+int Framebuffer::Width() const
+{
+  return impl_->Width();
+}
+
+int Framebuffer::Height() const
+{
+  return impl_->Height();
+}
 
 void Framebuffer::AttachColor(int attachment, std::shared_ptr<Texture> texture)
 {
@@ -82,9 +114,24 @@ void Framebuffer::AttachDepthStencil(std::shared_ptr<Renderbuffer> renderbuffer)
   impl_->AttachDepthStencil(renderbuffer);
 }
 
+bool Framebuffer::IsComplete() const
+{
+  return impl_->IsComplete();
+}
+
 void Framebuffer::Bind()
 {
   impl_->Bind();
+}
+
+void Framebuffer::BlitTo(std::shared_ptr<Framebuffer> framebuffer)
+{
+  impl_->BlitTo(framebuffer);
+}
+
+GLuint Framebuffer::Id() const
+{
+  return impl_->Id();
 }
 }
 }

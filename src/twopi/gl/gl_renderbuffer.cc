@@ -26,6 +26,11 @@ public:
     glNamedRenderbufferStorage(renderbuffer_, GL_DEPTH24_STENCIL8, width, height);
   }
 
+  void DepthStencilStorageMultisample(int width, int height)
+  {
+    glNamedRenderbufferStorageMultisample(renderbuffer_, 4, GL_DEPTH24_STENCIL8, width, height);
+  }
+
   auto Id() const
   {
     return renderbuffer_;
@@ -46,6 +51,11 @@ Renderbuffer::~Renderbuffer() = default;
 void Renderbuffer::DepthStencilStorage(int width, int height)
 {
   impl_->DepthStencilStorage(width, height);
+}
+
+void Renderbuffer::DepthStencilStorageMultisample(int width, int height)
+{
+  impl_->DepthStencilStorageMultisample(width, height);
 }
 
 GLuint Renderbuffer::Id() const

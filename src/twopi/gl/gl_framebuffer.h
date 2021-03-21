@@ -18,18 +18,30 @@ class FramebufferImpl;
 
 class Framebuffer
 {
+  friend class impl::FramebufferImpl;
+
 public:
   static void Unbind();
 
 public:
-  Framebuffer();
+  Framebuffer() = delete;
+  Framebuffer(int width, int height);
   ~Framebuffer();
+
+  int Width() const;
+  int Height() const;
 
   void AttachColor(int attachment, std::shared_ptr<Texture> texture);
   void AttachDepthStencil(std::shared_ptr<Texture> texture);
   void AttachDepthStencil(std::shared_ptr<Renderbuffer> texture);
+  bool IsComplete() const;
 
   void Bind();
+
+  void BlitTo(std::shared_ptr<Framebuffer> framebuffer);
+
+private:
+  unsigned int Id() const;
 
 private:
   std::unique_ptr<impl::FramebufferImpl> impl_;
