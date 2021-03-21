@@ -21,7 +21,6 @@ public:
   void Run();
 
 private:
-
   std::unique_ptr<impl::ApplicationImpl> impl_;
 };
 }

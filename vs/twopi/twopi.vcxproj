@@ -168,6 +168,7 @@
     <ClCompile Include="..\..\src\twopi\scene\material.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc" />
@@ -199,6 +200,7 @@
     <ClInclude Include="..\..\src\twopi\scene\material.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
+    <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
     <ClInclude Include="..\..\src\twopi\window\event\event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\keyboard_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h" />
@@ -219,6 +221,8 @@
     <None Include="..\..\src\twopi\shader\screen.vert" />
     <None Include="..\..\src\twopi\shader\triangle.frag" />
     <None Include="..\..\src\twopi\shader\triangle.vert" />
+    <None Include="..\..\src\twopi\shader\vr_screen.frag" />
+    <None Include="..\..\src\twopi\shader\vr_screen.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -61,6 +61,13 @@ public:
 
   void BlitTo(std::shared_ptr<Framebuffer> framebuffer)
   {
+    BlitTo(0, framebuffer, 0);
+  }
+
+  void BlitTo(int read_attachment, std::shared_ptr<Framebuffer> framebuffer, int draw_attachment)
+  {
+    glNamedFramebufferDrawBuffer(framebuffer_, GL_COLOR_ATTACHMENT0 + read_attachment);
+    glNamedFramebufferDrawBuffer(framebuffer->Id(), GL_COLOR_ATTACHMENT0 + draw_attachment);
     glBlitNamedFramebuffer(framebuffer_, framebuffer->Id(), 0, 0, width_, height_, 0, 0, framebuffer->Width(), framebuffer->Height(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
   }
 
@@ -127,6 +134,11 @@ void Framebuffer::Bind()
 void Framebuffer::BlitTo(std::shared_ptr<Framebuffer> framebuffer)
 {
   impl_->BlitTo(framebuffer);
+}
+
+void Framebuffer::BlitTo(int read_attachment, std::shared_ptr<Framebuffer> framebuffer, int draw_attachment)
+{
+  impl_->BlitTo(read_attachment, framebuffer, draw_attachment);
 }
 
 GLuint Framebuffer::Id() const

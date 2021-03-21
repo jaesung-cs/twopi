@@ -129,6 +129,9 @@
     <ClCompile Include="..\..\src\twopi\window\event\resize_event.cc">
       <Filter>src\twopi\window\event</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -221,6 +224,9 @@
     <ClInclude Include="..\..\src\twopi\window\event\resize_event.h">
       <Filter>src\twopi\window\event</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\vr_camera.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\twopi\shader\mesh.frag">
@@ -245,6 +251,12 @@
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\screen.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vr_screen.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vr_screen.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
   </ItemGroup>

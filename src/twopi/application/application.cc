@@ -11,6 +11,7 @@
 #include <twopi/window/event/keyboard_event.h>
 #include <twopi/window/event/resize_event.h>
 #include <twopi/scene/camera.h>
+#include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/gl/gl_engine.h>
 
@@ -35,9 +36,13 @@ public:
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
 
+    vr_camera_ = std::make_shared<scene::VrCamera>();
+    vr_camera_->SetScreenSize(window_->Width(), window_->Height());
+
     camera_control_ = std::make_shared<scene::CameraOrbitControl>();
 
-    camera_control_->SetCamera(camera_);
+    current_camera_ = camera_;
+    camera_control_->SetCamera(current_camera_);
   }
 
   ~ApplicationImpl() = default;
@@ -55,7 +60,7 @@ public:
       const auto dt = std::chrono::duration<double>(current_timestamp - previous_timestamp).count();
       UpdateKeyboard(dt);
 
-      gl_engine_->UpdateCamera(camera_);
+      gl_engine_->UpdateCamera(current_camera_);
       gl_engine_->Draw();
 
       SwapBuffers();
@@ -142,6 +147,20 @@ private:
             key_pressed_[keyboard_event->Key()] = false;
             break;
           }
+
+          if (keyboard_event->State() == window::KeyState::PRESSED)
+          {
+            if (keyboard_event->Key() == '1')
+            {
+              current_camera_ = camera_;
+              camera_control_->SetCamera(current_camera_);
+            }
+            else if (keyboard_event->Key() == '2')
+            {
+              current_camera_ = vr_camera_;
+              camera_control_->SetCamera(current_camera_);
+            }
+          }
         }
       }
 
@@ -155,7 +174,8 @@ private:
 
     if (resized)
     {
-      camera_->SetScreenSize(window_->Width(), window_->Height());
+      camera_->SetScreenSize(resize_width, resize_height);
+      vr_camera_->SetScreenSize(resize_width, resize_height);
       gl_engine_->SetViewport(0, 0, resize_width, resize_height);
     }
 
@@ -201,6 +221,8 @@ private:
 
   // Camera
   std::shared_ptr<scene::Camera> camera_;
+  std::shared_ptr<scene::VrCamera> vr_camera_;
+  std::shared_ptr<scene::Camera> current_camera_;
   std::shared_ptr<scene::CameraOrbitControl> camera_control_;
 };
 }

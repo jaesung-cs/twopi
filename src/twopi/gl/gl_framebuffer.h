@@ -39,6 +39,7 @@ public:
   void Bind();
 
   void BlitTo(std::shared_ptr<Framebuffer> framebuffer);
+  void BlitTo(int read_attachment, std::shared_ptr<Framebuffer> framebuffer, int draw_attachment);
 
 private:
   unsigned int Id() const;

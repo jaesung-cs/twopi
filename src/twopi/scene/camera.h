@@ -18,7 +18,7 @@ class Camera
 {
 public:
   Camera();
-  ~Camera();
+  virtual ~Camera();
 
   void SetPerspective();
   void SetOrtho();
@@ -32,6 +32,11 @@ public:
 
   glm::mat4 ProjectionMatrix() const;
   glm::mat4 ViewMatrix() const;
+
+protected:
+  const glm::vec3& Eye() const;
+  const glm::vec3& Center() const;
+  const glm::vec3& Up() const;
 
 private:
   std::unique_ptr<impl::CameraImpl> impl_;

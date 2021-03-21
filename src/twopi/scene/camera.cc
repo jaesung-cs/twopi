@@ -1,7 +1,5 @@
 #include <twopi/scene/camera.h>
 
-#include <iostream>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -61,7 +59,9 @@ public:
 
   void LookAt(const glm::vec3& eye, const glm::vec3& center, const glm::vec3& up)
   {
-    view_ = glm::lookAt(eye, center, up);
+    eye_ = eye;
+    center_ = center;
+    up_ = up;
   }
 
   glm::mat4 ProjectionMatrix() const
@@ -79,8 +79,12 @@ public:
 
   glm::mat4 ViewMatrix() const
   {
-    return view_;
+    return glm::lookAt(eye_, center_, up_);
   }
+
+  const auto& Eye() const { return eye_; }
+  const auto& Center() const { return center_; }
+  const auto& Up() const { return up_; }
 
 private:
   Type type_ = Type::PERSPECTIVE;
@@ -95,7 +99,9 @@ private:
 
   float zoom_ = 1.f;
 
-  glm::mat4 view_{ 1.f };
+  glm::vec3 eye_;
+  glm::vec3 center_;
+  glm::vec3 up_;
 };
 }
 
@@ -149,6 +155,21 @@ glm::mat4 Camera::ProjectionMatrix() const
 glm::mat4 Camera::ViewMatrix() const
 {
   return impl_->ViewMatrix();
+}
+
+const glm::vec3& Camera::Eye() const
+{
+  return impl_->Eye();
+}
+
+const glm::vec3& Camera::Center() const
+{
+  return impl_->Center();
+}
+
+const glm::vec3& Camera::Up() const
+{
+  return impl_->Up();
 }
 }
 }
