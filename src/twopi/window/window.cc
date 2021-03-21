@@ -13,8 +13,14 @@ public:
 
   ~WindowImpl() = default;
 
-  const auto Width() const { return width_; }
-  const auto Height() const { return height_; }
+  auto Width() const { return width_; }
+  auto Height() const { return height_; }
+
+  void Resized(int width, int height)
+  {
+    width_ = width;
+    height_ = height;
+  }
 
 private:
   int width_ = 1600;
@@ -37,6 +43,11 @@ int Window::Width() const
 int Window::Height() const
 {
   return impl_->Height();
+}
+
+void Window::Resized(int width, int height)
+{
+  impl_->Resized(width, height);
 }
 }
 }

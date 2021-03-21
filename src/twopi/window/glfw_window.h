@@ -16,6 +16,8 @@ class GlfwWindowImpl;
 
 class GlfwWindow : public Window
 {
+  friend class impl::GlfwWindowImpl;
+
 public:
   GlfwWindow();
   ~GlfwWindow() override;

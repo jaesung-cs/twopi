@@ -32,6 +32,9 @@ public:
   virtual std::vector<std::shared_ptr<Event>> PollEvents(core::Timestamp timestamp) = 0;
   virtual void SwapBuffers() = 0;
 
+protected:
+  void Resized(int width, int height);
+
 private:
   std::unique_ptr<impl::WindowImpl> impl_;
 };

@@ -9,7 +9,8 @@ layout(location = 1) in vec3 color;
 
 layout(location = 0) out vec3 frag_color;
 
-void main() {
+void main()
+{
   gl_Position = projection * view * model * vec4(position, 1.0);
   frag_color = color;
 }

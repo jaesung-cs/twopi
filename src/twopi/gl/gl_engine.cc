@@ -10,6 +10,8 @@
 #include <twopi/gl/gl_shader.h>
 #include <twopi/gl/gl_geometry.h>
 #include <twopi/gl/gl_texture.h>
+#include <twopi/gl/gl_framebuffer.h>
+#include <twopi/gl/gl_renderbuffer.h>
 #include <twopi/scene/camera.h>
 #include <twopi/geometry/mesh.h>
 #include <twopi/geometry/mesh_loader.h>
@@ -36,7 +38,12 @@ public:
     // TODO: shader path
     const std::string dirpath = "C:\\workspace\\twopi\\src\\twopi\\shader\\";
     color_shader_ = std::make_shared<Shader>(dirpath + "color.vert", dirpath + "color.frag");
+
     mesh_shader_ = std::make_shared<Shader>(dirpath + "mesh.vert", dirpath + "mesh.frag");
+    mesh_shader_->Uniform1i("tex_sampler", 0);
+
+    screen_shader_ = std::make_shared<Shader>(dirpath + "screen.vert", dirpath + "screen.frag");
+    screen_shader_->Uniform1i("tex_sampler", 0);
 
     // Load mesh
     // TODO: mesh path
@@ -58,6 +65,16 @@ public:
 
     mesh_texture_ = std::make_shared<Texture>();
     mesh_texture_->Load(image);
+
+    screen_geometry_ = std::make_shared<Geometry>();
+    screen_geometry_->SetAttribute(0, 2, {
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
+    });
+    screen_geometry_->SetElements({ 0, 1, 2, 1, 3, 2 });
+    screen_geometry_->SetTriangles();
   }
 
   ~EngineImpl() = default;
@@ -65,16 +82,41 @@ public:
   void SetViewport(int x, int y, int width, int height)
   {
     glViewport(x, y, width, height);
+
+    width_ = width;
+    height_ = height;
+
+    // Framebuffer
+    screen_depth_renderbuffer_ = std::make_shared<Renderbuffer>();
+    screen_depth_renderbuffer_->DepthStencilStorage(width, height);
+
+    screen_color_texture_ = std::make_shared<Texture>();
+    screen_color_texture_->Storage(width, height);
+
+    screen_framebuffer_ = std::make_shared<Framebuffer>();
+    screen_framebuffer_->AttachColor(0, screen_color_texture_);
+    screen_framebuffer_->AttachDepthStencil(screen_depth_renderbuffer_);
   } 
 
   void Draw()
   {
+    screen_framebuffer_->Bind();
+
     glClearColor(0.8f, 0.8f, 0.8f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     mesh_shader_->Use();
     mesh_texture_->Bind(0);
     mesh_geometry_->Draw();
+
+    screen_framebuffer_->Unbind();
+
+    glClearColor(0.8f, 0.8f, 0.8f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    screen_shader_->Use();
+    screen_color_texture_->Bind(0);
+    screen_geometry_->Draw();
   }
 
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
@@ -89,10 +131,19 @@ public:
   }
 
 private:
+  int width_ = 1;
+  int height_ = 1;
+
   std::shared_ptr<Shader> color_shader_;
   std::shared_ptr<Shader> mesh_shader_;
   std::shared_ptr<Geometry> mesh_geometry_;
   std::shared_ptr<Texture> mesh_texture_;
+
+  std::shared_ptr<Shader> screen_shader_;
+  std::shared_ptr<Geometry> screen_geometry_;
+  std::shared_ptr<Framebuffer> screen_framebuffer_;
+  std::shared_ptr<Texture> screen_color_texture_;
+  std::shared_ptr<Renderbuffer> screen_depth_renderbuffer_;
 };
 }
 

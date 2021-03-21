@@ -40,6 +40,11 @@ public:
     glUseProgram(program_);
   }
 
+  void Uniform1i(const std::string& name, int i)
+  {
+    glProgramUniform1i(program_, glGetUniformLocation(program_, name.c_str()), i);
+  }
+
   void UniformMatrix4f(const std::string& name, const glm::mat4& m)
   {
     glProgramUniformMatrix4fv(program_, glGetUniformLocation(program_, name.c_str()), 1, GL_FALSE, glm::value_ptr(m));
@@ -132,6 +137,11 @@ Shader::~Shader()
 void Shader::Use()
 {
   impl_->Use();
+}
+
+void Shader::Uniform1i(const std::string& name, int i)
+{
+  impl_->Uniform1i(name, i);
 }
 
 void Shader::UniformMatrix4f(const std::string& name, const glm::mat4& m)

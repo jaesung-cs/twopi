@@ -11,6 +11,7 @@
 #include <twopi/window/event/mouse_button_event.h>
 #include <twopi/window/event/mouse_move_event.h>
 #include <twopi/window/event/mouse_wheel_event.h>
+#include <twopi/window/event/resize_event.h>
 #include <twopi/core/error.h>
 
 namespace twopi
@@ -23,6 +24,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void cursor_pos_callback(GLFWwindow* window, double x, double y);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void resize_callback(GLFWwindow* window, int width, int height);
 
 class GlfwWindowImpl
 {
@@ -49,6 +51,7 @@ public:
     glfwSetCursorPosCallback(window_, cursor_pos_callback);
     glfwSetKeyCallback(window_, key_callback);
     glfwSetScrollCallback(window_, scroll_callback);
+    glfwSetWindowSizeCallback(window_, resize_callback);
 
     glfwSetWindowPos(window_, 100, 100);
 
@@ -170,12 +173,20 @@ public:
   {
     const auto scrolli = static_cast<int>(scroll);
 
-    const auto event = std::make_shared<MouseWheelEvent>(scroll);
+    const auto event = std::make_shared<MouseWheelEvent>(scrolli);
+    event_queue_.push_back(event);
+  }
+
+  void Resize(int width, int height)
+  {
+    base_->Resized(width, height);
+
+    const auto event = std::make_shared<ResizeEvent>(width, height);
     event_queue_.push_back(event);
   }
 
 private:
-  const GlfwWindow* base_;
+  GlfwWindow* base_;
   GLFWwindow* window_;
 
   std::vector<std::shared_ptr<Event>> event_queue_;
@@ -205,6 +216,12 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
   auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
   module_window->Scroll(yoffset);
+}
+
+void resize_callback(GLFWwindow* window, int width, int height)
+{
+  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
+  module_window->Resize(width, height);
 }
 }
 

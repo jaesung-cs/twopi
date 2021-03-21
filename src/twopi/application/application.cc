@@ -9,6 +9,7 @@
 #include <twopi/window/event/mouse_move_event.h>
 #include <twopi/window/event/mouse_wheel_event.h>
 #include <twopi/window/event/keyboard_event.h>
+#include <twopi/window/event/resize_event.h>
 #include <twopi/scene/camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/gl/gl_engine.h>
@@ -67,6 +68,10 @@ private:
   void PollEvents(core::Timestamp timestamp)
   {
     const auto events = window_->PollEvents(timestamp);
+
+    bool resized = false;
+    int resize_width = 1600;
+    int resize_height = 900;
 
     for (const auto event : events)
     {
@@ -139,6 +144,19 @@ private:
           }
         }
       }
+
+      else if (auto resize_event = std::dynamic_pointer_cast<window::ResizeEvent>(event))
+      {
+        resized = true;
+        resize_width = resize_event->Width();
+        resize_height = resize_event->Height();
+      }
+    }
+
+    if (resized)
+    {
+      camera_->SetScreenSize(window_->Width(), window_->Height());
+      gl_engine_->SetViewport(0, 0, resize_width, resize_height);
     }
 
     camera_control_->Update();

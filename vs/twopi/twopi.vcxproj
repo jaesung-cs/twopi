@@ -155,7 +155,9 @@
     <ClCompile Include="..\..\src\twopi\geometry\mesh.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_framebuffer.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_geometry.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\gl_renderbuffer.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_texture.cc" />
     <ClCompile Include="..\..\src\twopi\main.cc" />
@@ -171,6 +173,7 @@
     <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\mouse_move_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\mouse_wheel_event.cc" />
+    <ClCompile Include="..\..\src\twopi\window\event\resize_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\glfw_window.cc" />
     <ClCompile Include="..\..\src\twopi\window\window.cc" />
     <ClCompile Include="..\..\src\twopi\window\win32_window.cc" />
@@ -184,7 +187,9 @@
     <ClInclude Include="..\..\src\twopi\geometry\mesh.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh_loader.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_engine.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_framebuffer.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_geometry.h" />
+    <ClInclude Include="..\..\src\twopi\gl\gl_renderbuffer.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_shader.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_texture.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera.h" />
@@ -199,6 +204,7 @@
     <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\mouse_move_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\mouse_wheel_event.h" />
+    <ClInclude Include="..\..\src\twopi\window\event\resize_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\types.h" />
     <ClInclude Include="..\..\src\twopi\window\glfw_window.h" />
     <ClInclude Include="..\..\src\twopi\window\window.h" />
@@ -209,6 +215,8 @@
     <None Include="..\..\src\twopi\shader\color.vert" />
     <None Include="..\..\src\twopi\shader\mesh.frag" />
     <None Include="..\..\src\twopi\shader\mesh.vert" />
+    <None Include="..\..\src\twopi\shader\screen.frag" />
+    <None Include="..\..\src\twopi\shader\screen.vert" />
     <None Include="..\..\src\twopi\shader\triangle.frag" />
     <None Include="..\..\src\twopi\shader\triangle.vert" />
   </ItemGroup>

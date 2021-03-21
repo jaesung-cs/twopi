@@ -120,6 +120,15 @@
     <ClCompile Include="..\..\src\twopi\geometry\image_loader.cc">
       <Filter>src\twopi\geometry</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\gl\gl_framebuffer.cc">
+      <Filter>src\twopi\gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\gl\gl_renderbuffer.cc">
+      <Filter>src\twopi\gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\window\event\resize_event.cc">
+      <Filter>src\twopi\window\event</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -203,6 +212,15 @@
     <ClInclude Include="..\..\src\twopi\core\timestamp.h">
       <Filter>src\twopi\core</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\gl\gl_framebuffer.h">
+      <Filter>src\twopi\gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\gl\gl_renderbuffer.h">
+      <Filter>src\twopi\gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\window\event\resize_event.h">
+      <Filter>src\twopi\window\event</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\twopi\shader\mesh.frag">
@@ -221,6 +239,12 @@
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\triangle.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\screen.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\screen.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
   </ItemGroup>

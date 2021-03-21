@@ -28,7 +28,11 @@ public:
   template <typename T>
   void Load(std::shared_ptr<geometry::Image<T>> image);
 
+  void Storage(int width, int height, int comp = 4);
+
   void Bind(int unit);
+
+  unsigned int Id() const;
 
 private:
   std::unique_ptr<impl::TextureImpl> impl_;

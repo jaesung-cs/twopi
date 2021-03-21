@@ -19,7 +19,7 @@ class MouseWheelEvent : public Event
 public:
   MouseWheelEvent() = delete;
 
-  MouseWheelEvent(int scroll);
+  explicit MouseWheelEvent(int scroll);
 
   ~MouseWheelEvent() override;
 

@@ -26,6 +26,7 @@ public:
 
   void Use();
 
+  void Uniform1i(const std::string& name, int i);
   void UniformMatrix4f(const std::string& name, const glm::mat4& m);
 
 private:
