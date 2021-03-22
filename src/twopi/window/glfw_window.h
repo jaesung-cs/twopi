@@ -9,15 +9,8 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class GlfwWindowImpl;
-}
-
 class GlfwWindow : public Window
 {
-  friend class impl::GlfwWindowImpl;
-
 public:
   GlfwWindow();
   ~GlfwWindow() override;
@@ -29,7 +22,8 @@ public:
   void SwapBuffers() override;
 
 private:
-  std::unique_ptr<impl::GlfwWindowImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

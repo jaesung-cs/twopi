@@ -6,28 +6,45 @@ namespace twopi
 {
 namespace physics
 {
-namespace impl
-{
-class PhysicsEngineImpl
+class PhysicsEngine::Impl
 {
 public:
-  PhysicsEngineImpl()
+  Impl()
   {
     cloth_ = std::make_shared<MeshCloth>(100);
   }
 
-  ~PhysicsEngineImpl() = default;
+  ~Impl() = default;
+
+  void Run()
+  {
+  }
+
+  void AcquireScene()
+  {
+  }
 
 private:
+  double timestep_ = 1. / 60.;
+
   std::shared_ptr<MeshCloth> cloth_;
 };
-}
 
 PhysicsEngine::PhysicsEngine()
 {
-  impl_ = std::make_unique<impl::PhysicsEngineImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 PhysicsEngine::~PhysicsEngine() = default;
+
+void PhysicsEngine::Run()
+{
+  impl_->Run();
+}
+
+void PhysicsEngine::AcquireScene()
+{
+  impl_->AcquireScene();
+}
 }
 }

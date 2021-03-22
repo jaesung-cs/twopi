@@ -7,11 +7,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class MaterialImpl;
-}
-
 class Material
 {
 public:
@@ -19,7 +14,8 @@ public:
   virtual ~Material();
 
 private:
-  std::unique_ptr<impl::MaterialImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

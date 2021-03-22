@@ -24,12 +24,10 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class EngineImpl
+class Engine::Impl
 {
 public:
-  EngineImpl()
+  Impl()
   {
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
       throw core::Error("Failed to load GL loader via glad.");
@@ -87,7 +85,7 @@ public:
     screen_geometry_->SetTriangles();
   }
 
-  ~EngineImpl() = default;
+  ~Impl() = default;
 
   void SetViewport(int x, int y, int width, int height)
   {
@@ -243,11 +241,10 @@ private:
   std::shared_ptr<Framebuffer> screen_framebuffer_;
   std::shared_ptr<Texture> screen_color_textures_[2];
 };
-}
 
 Engine::Engine()
 {
-  impl_ = std::make_unique<impl::EngineImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Engine::~Engine() = default;

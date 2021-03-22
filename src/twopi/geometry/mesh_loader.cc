@@ -13,16 +13,14 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
-class MeshLoaderImpl
+class MeshLoader::Impl
 {
 public:
-  MeshLoaderImpl()
+  Impl()
   {
   }
 
-  ~MeshLoaderImpl() = default;
+  ~Impl() = default;
 
   std::shared_ptr<Mesh> Load(const std::string& filepath)
   {
@@ -143,11 +141,10 @@ private:
 
   std::string dirpath_;
 };
-}
 
 MeshLoader::MeshLoader()
 {
-  impl_ = std::make_unique<impl::MeshLoaderImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 MeshLoader::~MeshLoader() = default;

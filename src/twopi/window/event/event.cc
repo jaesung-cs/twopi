@@ -4,17 +4,15 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class EventImpl
+class Event::Impl
 {
 public:
-  EventImpl()
+  Impl()
   {
     timestamp_ = core::Clock::now();
   }
 
-  ~EventImpl() = default;
+  ~Impl() = default;
 
   void SetTimestamp(core::Timestamp timestamp)
   {
@@ -29,11 +27,10 @@ public:
 private:
   core::Timestamp timestamp_;
 };
-}
 
 Event::Event()
 {
-  impl_ = std::make_unique<impl::EventImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Event::~Event() = default;

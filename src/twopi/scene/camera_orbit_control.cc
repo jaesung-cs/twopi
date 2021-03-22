@@ -2,29 +2,28 @@
 
 #include <iostream>
 
-#include <twopi/scene/camera.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+
+#include <twopi/scene/camera.h>
 
 namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class CameraOrbitControlImpl
+class CameraOrbitControl::Impl
 {
 public:
-  CameraOrbitControlImpl() = delete;
+  Impl() = delete;
 
-  CameraOrbitControlImpl(CameraOrbitControl* base)
+  Impl(CameraOrbitControl* base)
     : base_(base)
   {
   }
 
-  ~CameraOrbitControlImpl() = default;
+  ~Impl() = default;
 
-  void Update(std::shared_ptr<Camera> camera)
+  void Update(std::shared_ptr<scene::Camera> camera)
   {
     const auto cos_theta = std::cos(theta_);
     const auto sin_theta = std::sin(theta_);
@@ -118,12 +117,11 @@ private:
   float zoom_multiplier_ = 0.01f;
   float move_speed_ = 1.f;
 };
-}
 
 CameraOrbitControl::CameraOrbitControl()
   : CameraControl()
 {
-  impl_ = std::make_unique<impl::CameraOrbitControlImpl>(this);
+  impl_ = std::make_unique<Impl>(this);
 }
 
 CameraOrbitControl::~CameraOrbitControl() = default;

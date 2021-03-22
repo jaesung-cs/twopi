@@ -9,15 +9,8 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class VrCameraImpl;
-}
-
 class VrCamera : public Camera
 {
-  friend class impl::VrCameraImpl;
-
 public:
   VrCamera();
   ~VrCamera() override;
@@ -29,7 +22,8 @@ public:
   float LensSpacing() const;
 
 private:
-  std::unique_ptr<impl::VrCameraImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

@@ -14,11 +14,6 @@ class Image;
 
 namespace gl
 {
-namespace impl
-{
-class TextureImpl;
-}
-
 class Texture
 {
 public:
@@ -36,7 +31,8 @@ public:
   unsigned int Id() const;
 
 private:
-  std::unique_ptr<impl::TextureImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

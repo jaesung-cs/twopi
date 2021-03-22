@@ -14,11 +14,6 @@ class Light;
 
 namespace gl
 {
-namespace impl
-{
-class EngineImpl;
-}
-
 class Engine
 {
 public:
@@ -32,7 +27,8 @@ public:
   void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 
 private:
-  std::unique_ptr<impl::EngineImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

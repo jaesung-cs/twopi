@@ -6,16 +6,14 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class SceneNodeImpl
+class SceneNode::Impl
 {
 public:
-  SceneNodeImpl()
+  Impl()
   {
   }
 
-  ~SceneNodeImpl() = default;
+  ~Impl() = default;
 
   const glm::mat4& Transform() const
   {
@@ -30,11 +28,10 @@ public:
 private:
   glm::mat4 transform_{ 1.f };
 };
-}
 
 SceneNode::SceneNode()
 {
-  impl_ = std::make_unique<impl::SceneNodeImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 SceneNode::~SceneNode() = default;

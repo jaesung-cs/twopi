@@ -4,19 +4,17 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class ResizeEventImpl
+class ResizeEvent::Impl
 {
 public:
-  ResizeEventImpl() = delete;
+  Impl() = delete;
 
-  ResizeEventImpl(int width, int height)
+  Impl(int width, int height)
     : width_(width), height_(height)
   {
   }
 
-  ~ResizeEventImpl() = default;
+  ~Impl() = default;
 
   auto Width() const { return width_; }
   auto Height() const { return height_; }
@@ -25,12 +23,11 @@ private:
   int width_ = 1;
   int height_ = 1;
 };
-}
 
 ResizeEvent::ResizeEvent(int width, int height)
   : Event()
 {
-  impl_ = std::make_unique<impl::ResizeEventImpl>(width, height);
+  impl_ = std::make_unique<Impl>(width, height);
 }
 
 ResizeEvent::~ResizeEvent() = default;

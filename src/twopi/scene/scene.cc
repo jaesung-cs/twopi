@@ -6,17 +6,15 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class SceneImpl
+class Scene::Impl
 {
 public:
-  SceneImpl()
+  Impl()
   {
     root_ = std::make_shared<SceneNode>();
   }
 
-  ~SceneImpl() = default;
+  ~Impl() = default;
 
   std::shared_ptr<SceneNode> Root() const
   {
@@ -26,11 +24,10 @@ public:
 private:
   std::shared_ptr<SceneNode> root_;
 };
-}
 
 Scene::Scene()
 {
-  impl_ = std::make_unique<impl::SceneImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Scene::~Scene() = default;

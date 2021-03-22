@@ -4,26 +4,23 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class MaterialImpl
+class Material::Impl
 {
 public:
-  MaterialImpl()
+  Impl()
   {
   }
 
-  ~MaterialImpl()
+  ~Impl()
   {
   }
 
 private:
 };
-}
 
 Material::Material()
 {
-  impl_ = std::make_unique<impl::MaterialImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Material::~Material() = default;

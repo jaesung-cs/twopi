@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class MouseWheelEventImpl;
-}
-
 class MouseWheelEvent : public Event
 {
 public:
@@ -26,7 +21,8 @@ public:
   int Scroll() const;
 
 private:
-  std::unique_ptr<impl::MouseWheelEventImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

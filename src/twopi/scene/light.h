@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class LightImpl;
-}
-
 class Light
 {
 public:
@@ -31,7 +26,8 @@ public:
   const glm::vec3& Specular() const;
 
 private:
-  std::unique_ptr<impl::LightImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

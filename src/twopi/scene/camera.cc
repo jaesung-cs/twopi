@@ -7,9 +7,7 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class CameraImpl
+class Camera::Impl
 {
 private:
   enum class Type
@@ -19,11 +17,11 @@ private:
   };
 
 public:
-  CameraImpl()
+  Impl()
   {
   }
 
-  ~CameraImpl() = default;
+  ~Impl() = default;
 
   void SetPerspective()
   {
@@ -103,11 +101,10 @@ private:
   glm::vec3 center_;
   glm::vec3 up_;
 };
-}
 
 Camera::Camera()
 {
-  impl_ = std::make_unique<impl::CameraImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Camera::~Camera() = default;

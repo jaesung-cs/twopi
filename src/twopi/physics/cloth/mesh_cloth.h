@@ -7,11 +7,6 @@ namespace twopi
 {
 namespace physics
 {
-namespace impl
-{
-class MeshClothImpl;
-}
-
 class MeshCloth
 {
 public:
@@ -22,7 +17,8 @@ public:
   ~MeshCloth();
 
 private:
-  std::unique_ptr<impl::MeshClothImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

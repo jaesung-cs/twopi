@@ -6,16 +6,14 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class ColorMaterialImpl
+class ColorMaterial::Impl
 {
 public:
-  ColorMaterialImpl()
+  Impl()
   {
   }
 
-  ~ColorMaterialImpl()
+  ~Impl()
   {
   }
 
@@ -27,12 +25,11 @@ public:
 private:
   glm::vec3 color_{ 0.5f, 0.5f, 0.5f };
 };
-}
 
 ColorMaterial::ColorMaterial()
   : Material()
 {
-  impl_ = std::make_unique<impl::ColorMaterialImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 ColorMaterial::~ColorMaterial() = default;

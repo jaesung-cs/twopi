@@ -8,14 +8,12 @@ namespace twopi
 {
 namespace physics
 {
-namespace impl
-{
-class MeshClothImpl
+class MeshCloth::Impl
 {
 public:
-  MeshClothImpl() = delete;
+  Impl() = delete;
 
-  explicit MeshClothImpl(int subdivision)
+  explicit Impl(int subdivision)
     : subdivision_(subdivision)
   {
     positions_.resize(subdivision + 1);
@@ -36,18 +34,17 @@ public:
     }
   }
 
-  ~MeshClothImpl() = default;
+  ~Impl() = default;
 
 private:
   int subdivision_ = 1;
 
   std::vector<std::vector<Eigen::Vector3d>> positions_;
 };
-}
 
 MeshCloth::MeshCloth(int subdivision)
 {
-  impl_ = std::make_unique<impl::MeshClothImpl>(subdivision);
+  impl_ = std::make_unique<Impl>(subdivision);
 }
 
 MeshCloth::~MeshCloth() = default;

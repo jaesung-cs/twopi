@@ -18,20 +18,43 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
+class GlfwWindow::Impl
 {
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void cursor_pos_callback(GLFWwindow* window, double x, double y);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-void resize_callback(GLFWwindow* window, int width, int height);
+private:
+  static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+  {
+    auto module_window = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+    module_window->MouseButton(button, action, mods);
+  }
 
-class GlfwWindowImpl
-{
+  static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+  {
+    auto module_window = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+    module_window->Key(key, scancode, action, mods);
+  }
+
+  static void cursor_pos_callback(GLFWwindow* window, double x, double y)
+  {
+    auto module_window = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+    module_window->CursorPos(x, y);
+  }
+
+  static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+  {
+    auto module_window = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+    module_window->Scroll(yoffset);
+  }
+
+  static void resize_callback(GLFWwindow* window, int width, int height)
+  {
+    auto module_window = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+    module_window->Resize(width, height);
+  }
+
 public:
-  GlfwWindowImpl() = delete;
+  Impl() = delete;
 
-  GlfwWindowImpl(GlfwWindow* base)
+  Impl(GlfwWindow* base)
     : base_(base)
   {
     if (!glfwInit())
@@ -58,7 +81,7 @@ public:
     glfwMakeContextCurrent(window_);
   }
 
-  ~GlfwWindowImpl()
+  ~Impl()
   {
     glfwTerminate();
   }
@@ -194,41 +217,10 @@ private:
   core::Timestamp timestamp_;
 };
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-{
-  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
-  module_window->MouseButton(button, action, mods);
-}
-
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
-  module_window->Key(key, scancode, action, mods);
-}
-
-void cursor_pos_callback(GLFWwindow* window, double x, double y)
-{
-  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
-  module_window->CursorPos(x, y);
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
-  module_window->Scroll(yoffset);
-}
-
-void resize_callback(GLFWwindow* window, int width, int height)
-{
-  auto module_window = static_cast<GlfwWindowImpl*>(glfwGetWindowUserPointer(window));
-  module_window->Resize(width, height);
-}
-}
-
 GlfwWindow::GlfwWindow()
   : Window()
 {
-  impl_ = std::make_unique<impl::GlfwWindowImpl>(this);
+  impl_ = std::make_unique<Impl>(this);
 }
 
 GlfwWindow::~GlfwWindow() = default;

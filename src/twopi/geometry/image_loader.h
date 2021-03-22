@@ -11,11 +11,6 @@ namespace geometry
 template <typename T>
 class Image;
 
-namespace impl
-{
-class ImageLoaderImpl;
-}
-
 class ImageLoader
 {
 public:
@@ -26,7 +21,8 @@ public:
   std::shared_ptr<Image<T>> Load(const std::string& filepath);
 
 private:
-  std::unique_ptr<impl::ImageLoaderImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

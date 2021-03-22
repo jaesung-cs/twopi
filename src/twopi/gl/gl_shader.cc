@@ -14,12 +14,10 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class ShaderImpl
+class Shader::Impl
 {
 public:
-  ShaderImpl(const std::string& vertex_shader_filepath, const std::string& fragment_shader_filepath)
+  Impl(const std::string& vertex_shader_filepath, const std::string& fragment_shader_filepath)
   {
     GLuint vertex_shader = CreateShader(vertex_shader_filepath, GL_VERTEX_SHADER);
     GLuint fragment_shader = CreateShader(fragment_shader_filepath, GL_FRAGMENT_SHADER);
@@ -30,7 +28,7 @@ public:
     DeleteShader(fragment_shader);
   }
 
-  ~ShaderImpl()
+  ~Impl()
   {
     glDeleteProgram(program_);
   }
@@ -138,11 +136,10 @@ private:
 
   GLuint program_ = 0;
 };
-}
 
 Shader::Shader(const std::string& vertex_shader_filepath, const std::string& fragment_shader_filepath)
 {
-  impl_ = std::make_unique<impl::ShaderImpl>(vertex_shader_filepath, fragment_shader_filepath);
+  impl_ = std::make_unique<Impl>(vertex_shader_filepath, fragment_shader_filepath);
 }
 
 Shader::~Shader()

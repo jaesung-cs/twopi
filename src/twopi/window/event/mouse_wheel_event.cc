@@ -4,31 +4,28 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class MouseWheelEventImpl
+class MouseWheelEvent::Impl
 {
 public:
-  MouseWheelEventImpl() = delete;
+  Impl() = delete;
 
-  MouseWheelEventImpl(int scroll)
+  Impl(int scroll)
     : scroll_(scroll)
   {
   }
 
-  ~MouseWheelEventImpl() = default;
+  ~Impl() = default;
 
   auto Scroll() const { return scroll_; }
 
 private:
   int scroll_ = 0;
 };
-}
 
 MouseWheelEvent::MouseWheelEvent(int scroll)
   : Event()
 {
-  impl_ = std::make_unique<impl::MouseWheelEventImpl>(scroll);
+  impl_ = std::make_unique<Impl>(scroll);
 }
 
 MouseWheelEvent::~MouseWheelEvent() = default;

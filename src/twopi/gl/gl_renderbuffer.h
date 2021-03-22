@@ -8,11 +8,6 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class RenderbufferImpl;
-}
-
 class Renderbuffer
 {
 public:
@@ -25,7 +20,8 @@ public:
   unsigned int Id() const;
 
 private:
-  std::unique_ptr<impl::RenderbufferImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

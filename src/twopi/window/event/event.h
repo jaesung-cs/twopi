@@ -10,11 +10,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class EventImpl;
-}
-
 class Event
 {
 public:
@@ -26,7 +21,8 @@ public:
   core::Timestamp Timestamp() const;
 
 private:
-  std::unique_ptr<impl::EventImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

@@ -7,19 +7,19 @@ namespace twopi
 {
 namespace physics
 {
-namespace impl
-{
-class PhysicsEngineImpl;
-}
-
 class PhysicsEngine
 {
 public:
   PhysicsEngine();
   ~PhysicsEngine();
 
+  void Run();
+
+  void AcquireScene();
+
 private:
-  std::unique_ptr<impl::PhysicsEngineImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

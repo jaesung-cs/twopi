@@ -10,11 +10,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class MouseButtonEventImpl;
-}
-
 class MouseButtonEvent : public Event
 {
 public:
@@ -31,7 +26,8 @@ public:
   int Y() const;
 
 private:
-  std::unique_ptr<impl::MouseButtonEventImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

@@ -11,15 +11,8 @@ namespace gl
 class Texture;
 class Renderbuffer;
 
-namespace impl
-{
-class FramebufferImpl;
-}
-
 class Framebuffer
 {
-  friend class impl::FramebufferImpl;
-
 public:
   static void Unbind();
 
@@ -45,7 +38,8 @@ private:
   unsigned int Id() const;
 
 private:
-  std::unique_ptr<impl::FramebufferImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

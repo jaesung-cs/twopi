@@ -9,9 +9,7 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class FramebufferImpl
+class Framebuffer::Impl
 {
 public:
   static void Unbind()
@@ -20,13 +18,13 @@ public:
   }
 
 public:
-  FramebufferImpl(int width, int height)
+  Impl(int width, int height)
     : width_(width), height_(height)
   {
     glCreateFramebuffers(1, &framebuffer_);
   }
 
-  ~FramebufferImpl()
+  ~Impl()
   {
     glDeleteFramebuffers(1, &framebuffer_);
   }
@@ -82,16 +80,15 @@ private:
 
   GLuint framebuffer_ = 0;
 };
-}
 
 void Framebuffer::Unbind()
 {
-  impl::FramebufferImpl::Unbind();
+  Impl::Unbind();
 }
 
 Framebuffer::Framebuffer(int width, int height)
 {
-  impl_ = std::make_unique<impl::FramebufferImpl>(width, height);
+  impl_ = std::make_unique<Impl>(width, height);
 }
 
 Framebuffer::~Framebuffer() = default;

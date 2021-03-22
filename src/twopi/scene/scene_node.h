@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class SceneNodeImpl;
-}
-
 class SceneNode
 {
 public:
@@ -24,7 +19,8 @@ public:
   glm::mat4& Transform();
 
 private:
-  std::unique_ptr<impl::SceneNodeImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

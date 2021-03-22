@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class Win32WindowImpl;
-}
-
 class Win32Window : public Window
 {
 public:
@@ -21,7 +16,8 @@ public:
   ~Win32Window() override;
 
 private:
-  std::unique_ptr<impl::Win32WindowImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

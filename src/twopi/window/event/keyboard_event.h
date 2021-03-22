@@ -10,11 +10,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class KeyboardEventImpl;
-}
-
 class KeyboardEvent : public Event
 {
 public:
@@ -28,7 +23,8 @@ public:
   KeyState State() const;
 
 private:
-  std::unique_ptr<impl::KeyboardEventImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

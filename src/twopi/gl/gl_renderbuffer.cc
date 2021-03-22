@@ -6,17 +6,15 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class RenderbufferImpl
+class Renderbuffer::Impl
 {
 public:
-  RenderbufferImpl()
+  Impl()
   {
     glCreateRenderbuffers(1, &renderbuffer_);
   }
 
-  ~RenderbufferImpl()
+  ~Impl()
   {
     glDeleteRenderbuffers(1, &renderbuffer_);
   }
@@ -39,11 +37,10 @@ public:
 private:
   GLuint renderbuffer_ = 0;
 };
-}
 
 Renderbuffer::Renderbuffer()
 {
-  impl_ = std::make_unique<impl::RenderbufferImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Renderbuffer::~Renderbuffer() = default;

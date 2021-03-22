@@ -6,23 +6,20 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class Win32WindowImpl
+class Win32Window::Impl
 {
 public:
-  Win32WindowImpl() = default;
+  Impl() = default;
 
-  ~Win32WindowImpl() = default;
+  ~Impl() = default;
 
 private:
 };
-}
 
 Win32Window::Win32Window()
   : Window()
 {
-  impl_ = std::make_unique<impl::Win32WindowImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Win32Window::~Win32Window() = default;

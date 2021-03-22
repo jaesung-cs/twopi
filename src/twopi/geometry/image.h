@@ -8,12 +8,6 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
-template <typename T>
-class ImageImpl;
-}
-
 template <typename T>
 class Image
 {
@@ -30,7 +24,8 @@ public:
   const std::vector<T>& Buffer() const;
 
 private:
-  std::unique_ptr<impl::ImageImpl<T>> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

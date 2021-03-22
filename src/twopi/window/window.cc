@@ -4,14 +4,12 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class WindowImpl
+class Window::Impl
 {
 public:
-  WindowImpl() = default;
+  Impl() = default;
 
-  ~WindowImpl() = default;
+  ~Impl() = default;
 
   auto Width() const { return width_; }
   auto Height() const { return height_; }
@@ -26,11 +24,10 @@ private:
   int width_ = 1600;
   int height_ = 900;
 };
-}
 
 Window::Window()
 {
-  impl_ = std::make_unique<impl::WindowImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Window::~Window() = default;

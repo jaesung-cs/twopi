@@ -6,16 +6,14 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class LightImpl
+class Light::Impl
 {
 public:
-  LightImpl()
+  Impl()
   {
   }
 
-  ~LightImpl() = default;
+  ~Impl() = default;
 
   void SetPosition(const glm::vec3& position) { position_ = position; }
   void SetAmbient(const glm::vec3& ambient) { ambient_ = ambient; }
@@ -33,11 +31,10 @@ private:
   glm::vec3 diffuse_{ 0.f, 0.f, 0.f };
   glm::vec3 specular_{ 0.f, 0.f, 0.f };
 };
-}
 
 Light::Light()
 {
-  impl_ = std::make_unique<impl::LightImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Light::~Light() = default;

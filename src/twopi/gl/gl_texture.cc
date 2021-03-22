@@ -8,9 +8,7 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class TextureImpl
+class Texture::Impl
 {
 private:
   static constexpr GLenum InternalFormat(int comp)
@@ -26,11 +24,11 @@ private:
   }
 
 public:
-  TextureImpl()
+  Impl()
   {
   }
 
-  ~TextureImpl()
+  ~Impl()
   {
     if (texture_)
       glDeleteTextures(1, &texture_);
@@ -99,11 +97,10 @@ public:
 private:
   GLuint texture_ = 0;
 };
-}
 
 Texture::Texture()
 {
-  impl_ = std::make_unique<impl::TextureImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Texture::~Texture() = default;

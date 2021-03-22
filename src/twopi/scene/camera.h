@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class CameraImpl;
-}
-
 class Camera
 {
 public:
@@ -40,7 +35,8 @@ protected:
   const glm::vec3& Up() const;
 
 private:
-  std::unique_ptr<impl::CameraImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

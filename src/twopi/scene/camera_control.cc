@@ -4,27 +4,25 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class CameraControlImpl
+class CameraControl::Impl
 {
 public:
-  CameraControlImpl()
+  Impl()
   {
   }
 
-  ~CameraControlImpl() = default;
+  ~Impl() = default;
 
   void Update()
   {
   }
 
-  void SetCamera(std::shared_ptr<Camera> camera)
+  void SetCamera(std::shared_ptr<scene::Camera> camera)
   {
     camera_ = camera;
   }
 
-  std::shared_ptr<Camera> Camera() const
+  std::shared_ptr<scene::Camera> Camera() const
   {
     return camera_;
   }
@@ -32,11 +30,10 @@ public:
 private:
   std::shared_ptr<scene::Camera> camera_;
 };
-}
 
 CameraControl::CameraControl()
 {
-  impl_ = std::make_unique<impl::CameraControlImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 CameraControl::~CameraControl() = default;

@@ -9,11 +9,6 @@ namespace scene
 {
 class SceneNode;
 
-namespace impl
-{
-class SceneImpl;
-}
-
 class Scene
 {
 public:
@@ -23,7 +18,8 @@ public:
   std::shared_ptr<SceneNode> Root() const;
 
 private:
-  std::unique_ptr<impl::SceneImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

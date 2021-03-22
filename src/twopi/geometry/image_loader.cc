@@ -9,16 +9,14 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
-class ImageLoaderImpl
+class ImageLoader::Impl
 {
 public:
-  ImageLoaderImpl()
+  Impl()
   {
   }
 
-  ~ImageLoaderImpl() = default;
+  ~Impl() = default;
 
   template <typename T>
   std::shared_ptr<Image<T>> Load(const std::string& filepath);
@@ -41,11 +39,10 @@ public:
 
 private:
 };
-}
 
 ImageLoader::ImageLoader()
 {
-  impl_ = std::make_unique<impl::ImageLoaderImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 ImageLoader::~ImageLoader() = default;

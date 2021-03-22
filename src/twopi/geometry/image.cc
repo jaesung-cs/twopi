@@ -7,22 +7,20 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
 template <typename T>
-class ImageImpl
+class Image<T>::Impl
 {
 public:
-  ImageImpl()
+  Impl()
   {
   }
 
-  ImageImpl(int width, int height, int comp)
+  Impl(int width, int height, int comp)
     : width_(width), height_(height), comp_(comp)
   {
   }
 
-  ~ImageImpl()
+  ~Impl()
   {
   }
 
@@ -63,18 +61,17 @@ private:
 
   std::vector<T> buffer_;
 };
-}
 
 template <typename T>
 Image<T>::Image()
 {
-  impl_ = std::make_unique<impl::ImageImpl<T>>();
+  impl_ = std::make_unique<Impl>();
 }
 
 template <typename T>
 Image<T>::Image(int width, int height, int comp)
 {
-  impl_ = std::make_unique<impl::ImageImpl<T>>(width, height, comp);
+  impl_ = std::make_unique<Impl>(width, height, comp);
 }
 
 template <typename T>

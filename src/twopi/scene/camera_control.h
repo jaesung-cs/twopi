@@ -9,11 +9,6 @@ namespace scene
 {
 class Camera;
 
-namespace impl
-{
-class CameraControlImpl;
-}
-
 class CameraControl
 {
 public:
@@ -28,7 +23,8 @@ protected:
   std::shared_ptr<Camera> Camera();
 
 private:
-  std::unique_ptr<impl::CameraControlImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

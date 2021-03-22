@@ -6,18 +6,16 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class GeometryImpl
+class Geometry::Impl
 {
 public:
-  GeometryImpl()
+  Impl()
   {
     glCreateVertexArrays(1, &vao_);
     glCreateBuffers(1, &ibo_);
   }
 
-  ~GeometryImpl()
+  ~Impl()
   {
     glDeleteVertexArrays(1, &vao_);
     glDeleteBuffers(1, &ibo_);
@@ -70,11 +68,10 @@ private:
 
   int count_ = 0;
 };
-}
 
 Geometry::Geometry()
 {
-  impl_ = std::make_unique<impl::GeometryImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Geometry::~Geometry() = default;

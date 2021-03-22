@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class CameraOrbitControlImpl;
-}
-
 class CameraOrbitControl : public CameraControl
 {
   friend class CameraOrbitControlImpl;
@@ -34,7 +29,8 @@ public:
   void MoveUp(float dt);
 
 private:
-  std::unique_ptr<impl::CameraOrbitControlImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

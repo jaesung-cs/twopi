@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
-class MeshImpl;
-}
-
 class Mesh
 {
 public:
@@ -33,7 +28,8 @@ public:
   const std::string& TextureFilepath() const;
 
 private:
-  std::unique_ptr<impl::MeshImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

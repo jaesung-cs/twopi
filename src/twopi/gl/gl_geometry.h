@@ -8,11 +8,6 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class GeometryImpl;
-}
-
 class Geometry
 {
 public:
@@ -37,7 +32,8 @@ public:
   void Draw();
 
 private:
-  std::unique_ptr<impl::GeometryImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

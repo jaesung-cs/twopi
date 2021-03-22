@@ -10,11 +10,6 @@ namespace twopi
 {
 namespace gl
 {
-namespace impl
-{
-class ShaderImpl;
-}
-
 class Shader
 {
 public:
@@ -33,7 +28,8 @@ public:
   void UniformMatrix4f(const std::string& name, const glm::mat4& m);
 
 private:
-  std::unique_ptr<impl::ShaderImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

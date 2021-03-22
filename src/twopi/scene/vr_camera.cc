@@ -7,19 +7,17 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class VrCameraImpl
+class VrCamera::Impl
 {
 public:
-  VrCameraImpl() = delete;
+  Impl() = delete;
 
-  VrCameraImpl(VrCamera* base)
+  Impl(VrCamera* base)
     : base_(base)
   {
   }
 
-  ~VrCameraImpl() = default;
+  ~Impl() = default;
 
   glm::mat4 ViewMatrix(int idx) const
   {
@@ -62,12 +60,11 @@ private:
   float ipd_ = 0.063; // default is 63mm, by Oculus Quest 2
   float lens_spacing_ = 1.f;
 };
-}
 
 VrCamera::VrCamera()
   : Camera()
 {
-  impl_ = std::make_unique<impl::VrCameraImpl>(this);
+  impl_ = std::make_unique<Impl>(this);
 }
 
 VrCamera::~VrCamera() = default;

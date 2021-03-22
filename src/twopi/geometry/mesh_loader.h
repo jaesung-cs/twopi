@@ -10,11 +10,6 @@ namespace geometry
 {
 class Mesh;
 
-namespace impl
-{
-class MeshLoaderImpl;
-}
-
 class MeshLoader
 {
 public:
@@ -24,7 +19,8 @@ public:
   std::shared_ptr<Mesh> Load(const std::string& filepath);
 
 private:
-  std::unique_ptr<impl::MeshLoaderImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

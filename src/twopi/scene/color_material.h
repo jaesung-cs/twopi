@@ -11,11 +11,6 @@ namespace twopi
 {
 namespace scene
 {
-namespace impl
-{
-class ColorMaterialImpl;
-}
-
 class ColorMaterial : public Material
 {
 public:
@@ -25,7 +20,8 @@ public:
   glm::vec3 Color() const;
 
 private:
-  std::unique_ptr<impl::ColorMaterialImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

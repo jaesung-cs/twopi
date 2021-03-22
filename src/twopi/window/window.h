@@ -12,11 +12,6 @@ namespace window
 {
 class Event;
 
-namespace impl
-{
-class WindowImpl;
-}
-
 class Window
 {
 public:
@@ -36,7 +31,8 @@ protected:
   void Resized(int width, int height);
 
 private:
-  std::unique_ptr<impl::WindowImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

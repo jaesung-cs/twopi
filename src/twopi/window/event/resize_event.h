@@ -9,11 +9,6 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class ResizeEventImpl;
-}
-
 class ResizeEvent : public Event
 {
 public:
@@ -27,7 +22,8 @@ public:
   int Height() const;
 
 private:
-  std::unique_ptr<impl::ResizeEventImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }

@@ -4,19 +4,17 @@ namespace twopi
 {
 namespace window
 {
-namespace impl
-{
-class MouseButtonEventImpl
+class MouseButtonEvent::Impl
 {
 public:
-  MouseButtonEventImpl() = delete;
+  Impl() = delete;
 
-  MouseButtonEventImpl(MouseButton button, MouseButtonState state, int x, int y)
+  Impl(MouseButton button, MouseButtonState state, int x, int y)
     : button_(button), state_(state), x_(x), y_(y)
   {
   }
 
-  ~MouseButtonEventImpl() = default;
+  ~Impl() = default;
 
   MouseButton Button() const
   {
@@ -37,12 +35,11 @@ private:
   int x_ = 0;
   int y_ = 0;
 };
-}
 
 MouseButtonEvent::MouseButtonEvent(MouseButton button, MouseButtonState state, int x, int y)
   : Event()
 {
-  impl_ = std::make_unique<impl::MouseButtonEventImpl>(button, state, x, y);
+  impl_ = std::make_unique<Impl>(button, state, x, y);
 }
 
 MouseButtonEvent::~MouseButtonEvent() = default;

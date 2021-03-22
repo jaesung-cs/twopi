@@ -4,16 +4,14 @@ namespace twopi
 {
 namespace geometry
 {
-namespace impl
-{
-class MeshImpl
+class Mesh::Impl
 {
 public:
-  MeshImpl()
+  Impl()
   {
   }
 
-  ~MeshImpl() = default;
+  ~Impl() = default;
 
   void SetVertices(std::vector<float>&& vertices)
   {
@@ -72,11 +70,10 @@ private:
   std::vector<uint32_t> indices_;
   std::string texture_filepath_;
 };
-}
 
 Mesh::Mesh()
 {
-  impl_ = std::make_unique<impl::MeshImpl>();
+  impl_ = std::make_unique<Impl>();
 }
 
 Mesh::~Mesh() = default;

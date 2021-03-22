@@ -7,11 +7,6 @@ namespace twopi
 {
 namespace app
 {
-namespace impl
-{
-class ApplicationImpl;
-}
-
 class Application
 {
 public:
@@ -21,7 +16,8 @@ public:
   void Run();
 
 private:
-  std::unique_ptr<impl::ApplicationImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 }
 }
