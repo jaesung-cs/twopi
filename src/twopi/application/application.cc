@@ -14,7 +14,7 @@
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/scene/light.h>
-#include <twopi/gl/gl_engine.h>
+#include <twopi/vk/vk_engine.h>
 
 #include <glm/glm.hpp>
 
@@ -31,8 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    gl_engine_ = std::make_shared<gl::Engine>();
-    gl_engine_->SetViewport(0, 0, window_->Width(), window_->Height());
+    vk_engine_ = std::make_shared<vk::Engine>();
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
@@ -73,9 +72,7 @@ public:
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
 
-      gl_engine_->UpdateLights(lights_);
-      gl_engine_->UpdateCamera(current_camera_);
-      gl_engine_->Draw();
+      // TODO: draw on Vulkan surface
 
       SwapBuffers();
 
@@ -190,7 +187,8 @@ private:
     {
       camera_->SetScreenSize(resize_width, resize_height);
       vr_camera_->SetScreenSize(resize_width, resize_height);
-      gl_engine_->SetViewport(0, 0, resize_width, resize_height);
+
+      // TODO: update framebuffer change
     }
 
     camera_control_->Update();
@@ -223,7 +221,9 @@ private:
 
   const double frames_per_second_ = 60.;
   std::shared_ptr<window::Window> window_;
-  std::shared_ptr<gl::Engine> gl_engine_;
+
+  // Vulkan engine
+  std::shared_ptr<vk::Engine> vk_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;
