@@ -160,9 +160,9 @@
     <ClCompile Include="..\..\src\twopi\gl\gl_renderbuffer.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_shader.cc" />
     <ClCompile Include="..\..\src\twopi\gl\gl_texture.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\physics\gl_mesh_cloth.cc" />
+    <ClCompile Include="..\..\src\twopi\gl\physics\gl_physics_simulator.cc" />
     <ClCompile Include="..\..\src\twopi\main.cc" />
-    <ClCompile Include="..\..\src\twopi\physics\cloth\mesh_cloth.cc" />
-    <ClCompile Include="..\..\src\twopi\physics\physics_engine.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_orbit_control.cc" />
@@ -196,8 +196,8 @@
     <ClInclude Include="..\..\src\twopi\gl\gl_renderbuffer.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_shader.h" />
     <ClInclude Include="..\..\src\twopi\gl\gl_texture.h" />
-    <ClInclude Include="..\..\src\twopi\physics\cloth\mesh_cloth.h" />
-    <ClInclude Include="..\..\src\twopi\physics\physics_engine.h" />
+    <ClInclude Include="..\..\src\twopi\gl\physics\gl_mesh_cloth.h" />
+    <ClInclude Include="..\..\src\twopi\gl\physics\gl_physics_simulator.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />

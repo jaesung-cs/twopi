@@ -15,7 +15,6 @@
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/scene/light.h>
 #include <twopi/gl/gl_engine.h>
-#include <twopi/physics/physics_engine.h>
 
 #include <glm/glm.hpp>
 
@@ -52,8 +51,6 @@ public:
     light->SetDiffuse(glm::vec3{ 0.8f, 0.8f, 0.8f });
     light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });
     lights_.emplace_back(std::move(light));
-
-    physics_engine_ = std::make_shared<physics::PhysicsEngine>();
   }
 
   ~Impl() = default;
@@ -61,8 +58,6 @@ public:
   void Run()
   {
     core::Timestamp previous_timestamp = core::Clock::now();
-
-    physics_engine_->Run();
 
     while (!ShouldTerminate())
     {
@@ -74,9 +69,6 @@ public:
       // Keyboard motion
       const auto dt = std::chrono::duration<double>(current_timestamp - previous_timestamp).count();
       UpdateKeyboard(dt);
-
-      // Acquire scene from physics engine
-      physics_engine_->AcquireScene();
 
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
@@ -232,7 +224,6 @@ private:
   const double frames_per_second_ = 60.;
   std::shared_ptr<window::Window> window_;
   std::shared_ptr<gl::Engine> gl_engine_;
-  std::shared_ptr<physics::PhysicsEngine> physics_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;

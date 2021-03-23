@@ -12,6 +12,7 @@
 #include <twopi/gl/gl_texture.h>
 #include <twopi/gl/gl_framebuffer.h>
 #include <twopi/gl/gl_renderbuffer.h>
+#include <twopi/gl/physics/gl_physics_simulator.h>
 #include <twopi/scene/camera.h>
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/light.h>
@@ -83,6 +84,8 @@ public:
     });
     screen_geometry_->SetElements({ 0, 1, 2, 1, 3, 2 });
     screen_geometry_->SetTriangles();
+
+    physics_simulator_ = std::make_shared<physics::PhysicsSimulator>();
   }
 
   ~Impl() = default;
@@ -240,6 +243,8 @@ private:
 
   std::shared_ptr<Framebuffer> screen_framebuffer_;
   std::shared_ptr<Texture> screen_color_textures_[2];
+
+  std::shared_ptr<physics::PhysicsSimulator> physics_simulator_;
 };
 
 Engine::Engine()

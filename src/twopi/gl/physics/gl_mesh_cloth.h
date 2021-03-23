@@ -1,9 +1,11 @@
-#ifndef TWOPI_CLOTH_MESH_CLOTH_H_
-#define TWOPI_CLOTH_MESH_CLOTH_H_
+#ifndef TWOPI_GL_PHYSICS_MESH_CLOTH_H_
+#define TWOPI_GL_PHYSICS_MESH_CLOTH_H_
 
 #include <memory>
 
 namespace twopi
+{
+namespace gl
 {
 namespace physics
 {
@@ -22,5 +24,6 @@ private:
 };
 }
 }
+}
 
-#endif // TWOPI_CLOTH_MESH_CLOTH_H_
+#endif // TWOPI_GL_PHYSICS_MESH_CLOTH_H_
