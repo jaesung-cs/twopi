@@ -138,6 +138,9 @@
     <ClCompile Include="..\..\src\twopi\vk\internal\vk_debug_utils_messenger_handle.cc">
       <Filter>src\twopi\vk\internal</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -238,6 +241,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\internal\vk_debug_utils_messenger_handle.h">
       <Filter>src\twopi\vk\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h">
+      <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

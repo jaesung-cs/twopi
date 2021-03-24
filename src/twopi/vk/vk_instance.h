@@ -11,6 +11,7 @@ namespace twopi
 namespace vk
 {
 class DebugUtilsMessenger;
+class PhysicalDevice;
 
 class Instance
 {
@@ -48,6 +49,8 @@ public:
   ~Instance();
 
   operator VkInstance() const;
+
+  std::vector<PhysicalDevice> PhysicalDevices();
 
 private:
   void SetDebugUtilsMessenger(DebugUtilsMessenger messenger);

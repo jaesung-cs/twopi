@@ -8,6 +8,7 @@
 #include <twopi/core/error.h>
 #include <twopi/vk/internal/vk_instance_handle.h>
 #include <twopi/vk/vk_debug_utils_messenger.h>
+#include <twopi/vk/vk_physical_device.h>
 
 namespace twopi
 {
@@ -199,6 +200,17 @@ public:
 
   operator VkInstance() const { return *instance_; }
 
+  std::vector<PhysicalDevice> PhysicalDevices()
+  {
+    uint32_t num_physical_devices;
+    vkEnumeratePhysicalDevices(*instance_, &num_physical_devices, nullptr);
+    std::vector<VkPhysicalDevice> physical_device_handles(num_physical_devices);
+    vkEnumeratePhysicalDevices(*instance_, &num_physical_devices, physical_device_handles.data());
+
+    std::vector<PhysicalDevice> physical_devices(physical_device_handles.begin(), physical_device_handles.end());
+    return physical_devices;
+  }
+
   void SetDebugUtilsMessenger(DebugUtilsMessenger messenger)
   {
     messenger_ = messenger;
@@ -241,6 +253,11 @@ Instance::~Instance() = default;
 Instance::operator VkInstance() const
 {
   return *impl_;
+}
+
+std::vector<PhysicalDevice> Instance::PhysicalDevices()
+{
+  return impl_->PhysicalDevices();
 }
 
 void Instance::SetDebugUtilsMessenger(DebugUtilsMessenger messenger)
