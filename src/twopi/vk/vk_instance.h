@@ -10,10 +10,30 @@ namespace twopi
 {
 namespace vk
 {
+class DebugUtilsMessenger;
+
 class Instance
 {
 public:
   static std::vector<VkExtensionProperties> Extensions();
+  static std::vector<VkLayerProperties> Layers();
+
+public:
+  class Creator
+  {
+  public:
+    Creator();
+    ~Creator();
+
+    Creator& AddGlfwRequiredExtensions();
+    Creator& EnableValidationLayer();
+
+    Instance Create();
+
+  private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+  };
 
 public:
   Instance();
@@ -22,10 +42,15 @@ public:
   Instance(const Instance& rhs);
   Instance& operator = (const Instance& rhs);
 
-  Instance(Instance&& rhs);
-  Instance& operator = (Instance&& rhs);
+  Instance(Instance&& rhs) noexcept;
+  Instance& operator = (Instance&& rhs) noexcept;
 
   ~Instance();
+
+  operator VkInstance() const;
+
+private:
+  void SetDebugUtilsMessenger(DebugUtilsMessenger messenger);
 
 private:
   class Impl;

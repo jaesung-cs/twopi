@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include <twopi/vk/vk_instance_creator.h>
 #include <twopi/vk/vk_instance.h>
 
 namespace twopi
@@ -18,9 +17,17 @@ public:
     std::cout << "Available instance extensions:" << std::endl;
     for (const auto& extension : extensions)
       std::cout << "  " << extension.extensionName << std::endl;
+    std::cout << std::endl;
 
-    instance_ = InstanceCreator{}
+    const auto layers = Instance::Layers();
+    std::cout << "Available instance layers:" << std::endl;
+    for (const auto& layer : layers)
+      std::cout << "  " << layer.layerName << ": " << layer.description << std::endl;
+    std::cout << std::endl;
+
+    instance_ = Instance::Creator{}
       .AddGlfwRequiredExtensions()
+      .EnableValidationLayer()
       .Create();
   }
 
