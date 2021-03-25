@@ -44,6 +44,9 @@ public:
   operator VkDebugUtilsMessengerEXT() const;
 
 private:
+  void SetDependency(Instance instance);
+
+private:
   class Impl;
   std::unique_ptr<Impl> impl_;
 };

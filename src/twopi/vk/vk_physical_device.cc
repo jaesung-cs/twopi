@@ -1,5 +1,7 @@
 #include <twopi/vk/vk_physical_device.h>
 
+#include <twopi/vk/internal/vk_physical_device_handle.h>
+
 namespace twopi
 {
 namespace vk
@@ -7,12 +9,8 @@ namespace vk
 class PhysicalDevice::Impl
 {
 public:
-  Impl()
-  {
-  }
-
-  Impl(VkPhysicalDevice physical_device)
-    : physical_device_(physical_device)
+  Impl(VkInstance instance, VkPhysicalDevice physical_device)
+    : physical_device_(std::make_shared<internal::PhysicalDeviceHandle>(instance, physical_device))
   {
     vkGetPhysicalDeviceProperties(physical_device, &properties_);
     vkGetPhysicalDeviceFeatures(physical_device, &features_);
@@ -22,7 +20,7 @@ public:
   {
   }
 
-  operator VkPhysicalDevice() const { return physical_device_; }
+  operator VkPhysicalDevice() const { return *physical_device_; }
 
   const VkPhysicalDeviceProperties& Properties() const
   {
@@ -35,13 +33,14 @@ public:
   }
 
 private:
-  VkPhysicalDevice physical_device_ = nullptr;
-  VkPhysicalDeviceProperties properties_;
-  VkPhysicalDeviceFeatures features_;
+  std::shared_ptr<internal::PhysicalDeviceHandle> physical_device_;
+
+  VkPhysicalDeviceProperties properties_{};
+  VkPhysicalDeviceFeatures features_{};
 };
 
-PhysicalDevice::PhysicalDevice(VkPhysicalDevice physical_device)
-  : impl_(std::make_unique<Impl>(physical_device))
+PhysicalDevice::PhysicalDevice(VkInstance instance, VkPhysicalDevice physical_device)
+  : impl_(std::make_unique<Impl>(instance, physical_device))
 {
 }
 

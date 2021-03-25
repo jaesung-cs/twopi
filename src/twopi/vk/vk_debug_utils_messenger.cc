@@ -60,13 +60,15 @@ public:
     if (CreateDebugUtilsMessengerEXT(instance_, &create_info_, nullptr, &debug_messenger) != VK_SUCCESS)
       throw std::runtime_error("Failed to set up debug messenger");
 
-    return DebugUtilsMessenger{ instance_, debug_messenger };
+    auto messenger = DebugUtilsMessenger{ instance_, debug_messenger };
+    messenger.SetDependency();
+    return messenger;
   }
 
 private:
   VkDebugUtilsMessengerCreateInfoEXT create_info_{};
 
-  Instance instance_;
+  const Instance instance_;
 };
 
 DebugUtilsMessenger::Creator::Creator(Instance instance)
@@ -102,6 +104,11 @@ public:
 
   operator VkDebugUtilsMessengerEXT() const { return *messenger_; }
 
+  void SetDependency(Instance instance)
+  {
+    messenger_->SetDependency(instance);
+  }
+
 private:
   std::shared_ptr<internal::DebugUtilsMessengerHandle> messenger_;
 };
@@ -136,6 +143,11 @@ DebugUtilsMessenger::~DebugUtilsMessenger() = default;
 DebugUtilsMessenger::operator VkDebugUtilsMessengerEXT() const
 {
   return *impl_;
+}
+
+void DebugUtilsMessenger::SetDependency(Instance instance)
+{
+  impl_->SetDependency(instance);
 }
 }
 }

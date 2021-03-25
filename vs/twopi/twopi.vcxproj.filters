@@ -141,6 +141,15 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\internal\vk_device_handle.cc">
+      <Filter>src\twopi\vk\internal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\internal\vk_physical_device_handle.cc">
+      <Filter>src\twopi\vk\internal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_device.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -243,6 +252,15 @@
       <Filter>src\twopi\vk\internal</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\internal\vk_device_handle.h">
+      <Filter>src\twopi\vk\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\internal\vk_physical_device_handle.h">
+      <Filter>src\twopi\vk\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_device.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>

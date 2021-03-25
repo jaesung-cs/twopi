@@ -14,7 +14,7 @@ class PhysicalDevice
 {
 public:
   PhysicalDevice() = delete;
-  PhysicalDevice(VkPhysicalDevice physical_device);
+  PhysicalDevice(VkInstance instance, VkPhysicalDevice physical_device);
 
   PhysicalDevice(const PhysicalDevice& rhs);
   PhysicalDevice& operator = (const PhysicalDevice& rhs);

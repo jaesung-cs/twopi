@@ -1,6 +1,7 @@
 #include <twopi/vk/vk_instance.h>
 
 #include <iostream>
+#include <algorithm>
 
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
@@ -207,7 +208,11 @@ public:
     std::vector<VkPhysicalDevice> physical_device_handles(num_physical_devices);
     vkEnumeratePhysicalDevices(*instance_, &num_physical_devices, physical_device_handles.data());
 
-    std::vector<PhysicalDevice> physical_devices(physical_device_handles.begin(), physical_device_handles.end());
+    std::vector<PhysicalDevice> physical_devices;
+    std::transform(physical_device_handles.begin(), physical_device_handles.end(), std::back_inserter(physical_devices),
+      [&](VkPhysicalDevice physical_device_handle) {
+        return PhysicalDevice(*this, physical_device_handle);
+      });
     return physical_devices;
   }
 

@@ -4,6 +4,7 @@
 
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
+#include <twopi/vk/vk_device.h>
 
 namespace twopi
 {
@@ -41,6 +42,9 @@ public:
       if (physical_device.Features().geometryShader)
         std::cout << "    " << "Has Geometry Shader" << std::endl;
     }
+
+    // TODO: pick the most suitable device, now simply use physical device of index 0
+    device_ = Device::Creator{ physical_devices[0] }.Create();
   }
 
   ~Impl()
@@ -49,6 +53,7 @@ public:
 
 private:
   vk::Instance instance_;
+  vk::Device device_;
 };
 
 Engine::Engine()
