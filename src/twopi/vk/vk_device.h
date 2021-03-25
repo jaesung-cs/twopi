@@ -25,6 +25,8 @@ public:
     Device Create();
 
   private:
+    vk::PhysicalDevice physical_device_;
+
     vk::DeviceCreateInfo create_info_{};
     vk::DeviceQueueCreateInfo queue_create_info_{};
     float queue_priority_ = 1.f;

@@ -6,13 +6,6 @@
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
-{
-  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-  if (func != nullptr)
-    func(instance, debugMessenger, pAllocator);
-}
-
 namespace twopi
 {
 namespace vkw
@@ -39,7 +32,6 @@ public:
       .EnableValidationLayer()
       .Create();
 
-    /*
     std::cout << "Physical devices:" << std::endl;
     const auto physical_devices = instance_.PhysicalDevices();
     for (const auto& physical_device : physical_devices)
@@ -50,16 +42,21 @@ public:
       if (physical_device.Features().geometryShader)
         std::cout << "    " << "Has Geometry Shader" << std::endl;
     }
-    */
 
     // TODO: pick the most suitable device, now simply use physical device of index 0
-    // device_ = Device::Creator{ physical_devices[0] }.Create();
+    // TODO: setup queue settings
+    device_ = Device::Creator{ physical_devices[0] }.Create();
   }
   
   ~Impl()
   {
-    // device_.Destroy();
+    device_.Destroy();
     instance_.Destroy();
+  }
+
+  void Draw()
+  {
+    // TODO
   }
 
 private:
@@ -73,5 +70,10 @@ Engine::Engine()
 }
 
 Engine::~Engine() = default;
+
+void Engine::Draw()
+{
+  impl_->Draw();
+}
 }
 }

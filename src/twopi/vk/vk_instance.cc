@@ -83,7 +83,7 @@ Instance Instance::Creator::Create()
     create_info_.setPNext(&messenger_create_info);
   }
 
-  auto handle = vk::createInstance(create_info_);
+  const auto handle = vk::createInstance(create_info_);
   auto instance = Instance{ handle };
 
   if (enable_validation_layer_)

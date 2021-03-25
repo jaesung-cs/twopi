@@ -11,27 +11,29 @@ namespace vkw
 // Creator
 //
 Device::Creator::Creator(PhysicalDevice physical_device)
+  : physical_device_(physical_device)
 {
   // TODO: queue family
-  queue_create_info_.queueFamilyIndex = 0;
-  queue_create_info_.queueCount = 1;
-  queue_create_info_.pQueuePriorities = &queue_priority_;
+  queue_create_info_
+    .setQueueFamilyIndex(0)
+    .setQueueCount(1)
+    .setQueuePriorities(queue_priority_);
 
-  create_info_.pQueueCreateInfos = &queue_create_info_;
-  create_info_.queueCreateInfoCount = 1;
-
-  create_info_.pEnabledFeatures = &physical_device.Features();
-
-  create_info_.enabledExtensionCount = 0;
-  create_info_.enabledLayerCount = 0;
+  create_info_
+    .setQueueCreateInfos(queue_create_info_)
+    .setPEnabledExtensionNames({})
+    .setPEnabledLayerNames({});
 }
 
 Device::Creator::~Creator() = default;
 
 Device Device::Creator::Create()
 {
-  // TODO
-  return Device{};
+  auto features = physical_device_.getFeatures();
+  create_info_.setPEnabledFeatures(&features);
+
+  const auto handle = physical_device_.createDevice(create_info_, nullptr);
+  return Device{ handle };
 }
 
 //
