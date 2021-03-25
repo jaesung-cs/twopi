@@ -4,11 +4,11 @@
 #include <memory>
 #include <vector>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace twopi
 {
-namespace vk
+namespace vkw
 {
 class PhysicalDevice;
 
@@ -25,27 +25,23 @@ public:
     Device Create();
 
   private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
+    vk::DeviceCreateInfo create_info_{};
+    vk::DeviceQueueCreateInfo queue_create_info_{};
+    float queue_priority_ = 1.f;
   };
 
 public:
   Device();
-  Device(VkPhysicalDevice physical_device, VkDevice device);
-
-  Device(const Device& rhs);
-  Device& operator = (const Device& rhs);
-
-  Device(Device&& rhs) noexcept;
-  Device& operator = (Device&& rhs) noexcept;
+  Device(vk::Device device);
 
   ~Device();
 
-  operator VkDevice() const;
+  void Destroy();
+
+  operator vk::Device() const;
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  vk::Device device_;
 };
 }
 }

@@ -31,7 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    vk_engine_ = std::make_shared<vk::Engine>();
+    vk_engine_ = std::make_shared<vkw::Engine>();
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
@@ -223,7 +223,7 @@ private:
   std::shared_ptr<window::Window> window_;
 
   // Vulkan engine
-  std::shared_ptr<vk::Engine> vk_engine_;
+  std::shared_ptr<vkw::Engine> vk_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;

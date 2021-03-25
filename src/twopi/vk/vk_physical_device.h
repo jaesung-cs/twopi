@@ -4,34 +4,27 @@
 #include <memory>
 #include <vector>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace twopi
 {
-namespace vk
+namespace vkw
 {
 class PhysicalDevice
 {
 public:
   PhysicalDevice() = delete;
-  PhysicalDevice(VkInstance instance, VkPhysicalDevice physical_device);
-
-  PhysicalDevice(const PhysicalDevice& rhs);
-  PhysicalDevice& operator = (const PhysicalDevice& rhs);
-
-  PhysicalDevice(PhysicalDevice&& rhs) noexcept;
-  PhysicalDevice& operator = (PhysicalDevice&& rhs) noexcept;
+  explicit PhysicalDevice(vk::PhysicalDevice physical_device);
 
   ~PhysicalDevice();
 
-  operator VkPhysicalDevice() const;
+  operator vk::PhysicalDevice() const;
 
-  const VkPhysicalDeviceProperties& Properties() const;
-  const VkPhysicalDeviceFeatures& Features() const;
+  const vk::PhysicalDeviceProperties& Properties() const;
+  const vk::PhysicalDeviceFeatures& Features() const;
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  vk::PhysicalDevice physical_device_;
 };
 }
 }

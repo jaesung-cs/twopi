@@ -4,20 +4,19 @@
 #include <memory>
 #include <vector>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace twopi
 {
-namespace vk
+namespace vkw
 {
-class DebugUtilsMessenger;
 class PhysicalDevice;
 
 class Instance
 {
 public:
-  static std::vector<VkExtensionProperties> Extensions();
-  static std::vector<VkLayerProperties> Layers();
+  static std::vector<vk::ExtensionProperties> Extensions();
+  static std::vector<vk::LayerProperties> Layers();
 
 public:
   class Creator
@@ -32,32 +31,31 @@ public:
     Instance Create();
 
   private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
+    bool IsValidationLayerSupported();
+
+    vk::ApplicationInfo app_info_{};
+    vk::InstanceCreateInfo create_info_{};
+
+    bool enable_validation_layer_ = false;
+    std::vector<std::string> extensions_;
+    std::vector<std::string> layers_;
   };
 
 public:
   Instance();
-  Instance(VkInstance instance);
-
-  Instance(const Instance& rhs);
-  Instance& operator = (const Instance& rhs);
-
-  Instance(Instance&& rhs) noexcept;
-  Instance& operator = (Instance&& rhs) noexcept;
+  Instance(vk::Instance instance);
 
   ~Instance();
 
-  operator VkInstance() const;
+  void Destroy();
+
+  operator vk::Instance() const;
 
   std::vector<PhysicalDevice> PhysicalDevices();
 
 private:
-  void SetDebugUtilsMessenger(DebugUtilsMessenger messenger);
-
-private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  vk::Instance instance_;
+  vk::DebugUtilsMessengerEXT messenger_;
 };
 }
 }

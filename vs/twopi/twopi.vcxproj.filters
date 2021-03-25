@@ -40,9 +40,6 @@
     <Filter Include="src\twopi\vk">
       <UniqueIdentifier>{50166774-ce63-402c-a2ae-f51da0669074}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\twopi\vk\internal">
-      <UniqueIdentifier>{51b506a4-4c4b-4b21-a7d9-1f2553f62f20}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -126,26 +123,8 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_engine.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\internal\vk_handle_base.cc">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_debug_utils_messenger.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\internal\vk_instance_handle.cc">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\internal\vk_debug_utils_messenger_handle.cc">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc">
       <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\internal\vk_device_handle.cc">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\internal\vk_physical_device_handle.cc">
-      <Filter>src\twopi\vk\internal</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vk\vk_device.cc">
       <Filter>src\twopi\vk</Filter>
@@ -236,29 +215,8 @@
     <ClInclude Include="..\..\src\twopi\vk\vk_engine.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_handle_base.h">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_handle.h">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_debug_utils_messenger.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_instance_handle.h">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_debug_utils_messenger_handle.h">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h">
       <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_device_handle.h">
-      <Filter>src\twopi\vk\internal</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\internal\vk_physical_device_handle.h">
-      <Filter>src\twopi\vk\internal</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_device.h">
       <Filter>src\twopi\vk</Filter>

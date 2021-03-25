@@ -4,14 +4,12 @@
 #include <memory>
 #include <vector>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace twopi
 {
-namespace vk
+namespace vkw
 {
-class Instance;
-
 class DebugUtilsMessenger
 {
 public:
@@ -19,36 +17,32 @@ public:
   {
   public:
     Creator() = delete;
-    explicit Creator(Instance instance);
+    explicit Creator(vk::Instance instance);
     ~Creator();
+
+    Creator& SetCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback);
 
     DebugUtilsMessenger Create();
 
   private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
+    vk::DebugUtilsMessengerCreateInfoEXT create_info_{};
+
+    vk::Instance instance_;
   };
 
 public:
   DebugUtilsMessenger();
-  DebugUtilsMessenger(VkInstance instance, VkDebugUtilsMessengerEXT messenger);
-
-  DebugUtilsMessenger(const DebugUtilsMessenger& rhs);
-  DebugUtilsMessenger& operator = (const DebugUtilsMessenger& rhs);
-
-  DebugUtilsMessenger(DebugUtilsMessenger&& rhs) noexcept;
-  DebugUtilsMessenger& operator = (DebugUtilsMessenger&& rhs) noexcept;
+  DebugUtilsMessenger(vk::Instance instance, vk::DebugUtilsMessengerEXT messenger);
 
   ~DebugUtilsMessenger();
 
-  operator VkDebugUtilsMessengerEXT() const;
+  void Destroy();
+
+  operator vk::DebugUtilsMessengerEXT() const;
 
 private:
-  void SetDependency(Instance instance);
-
-private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  vk::DebugUtilsMessengerEXT messenger_;
+  vk::Instance instance_;
 };
 }
 }
