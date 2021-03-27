@@ -13,6 +13,9 @@
 #include <twopi/vk/vk_image.h>
 #include <twopi/vk/vk_image_view.h>
 #include <twopi/vk/vk_shader_module.h>
+#include <twopi/vk/vk_pipeline_layout.h>
+#include <twopi/vk/vk_render_pass.h>
+#include <twopi/vk/vk_graphics_pipeline.h>
 
 namespace twopi
 {
@@ -85,10 +88,27 @@ public:
     ShaderModule::Creator shader_module_creator{ device_ };
     vert_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.vert.spv").Create();
     frag_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.frag.spv").Create();
+
+    pipeline_layout_ = PipelineLayout::Creator{ device_ }.Create();
+
+    render_pass_ = RenderPass::Creator{ device_ }
+      .SetFormat(swapchain_images_[0])
+      .Create();
+
+    pipeline_ = GraphicsPipeline::Creator{ device_ }
+      .SetShader(vert_shader_, frag_shader_)
+      .SetVertexInput()
+      .SetViewport(window->Width(), window->Height())
+      .SetPipelineLayout(pipeline_layout_)
+      .SetRenderPass(render_pass_)
+      .Create();
   }
   
   ~Impl()
   {
+    pipeline_.Destroy();
+    pipeline_layout_.Destroy();
+    render_pass_.Destroy();
     vert_shader_.Destroy();
     frag_shader_.Destroy();
 
@@ -111,14 +131,21 @@ private:
   vkw::Instance instance_;
   vkw::PhysicalDevice physical_device_;
   vkw::Device device_;
+
   vkw::Queue graphics_queue_;
   vkw::Queue present_queue_;
+
   vkw::Surface surface_;
+
   vkw::Swapchain swapchain_;
   std::vector<vkw::Image> swapchain_images_;
   std::vector<vkw::ImageView> swapchain_image_views_;
+
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;
+  vkw::PipelineLayout pipeline_layout_;
+  vkw::RenderPass render_pass_;
+  vkw::GraphicsPipeline pipeline_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

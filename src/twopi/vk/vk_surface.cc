@@ -34,7 +34,7 @@ Surface::Surface()
 }
 
 Surface::Surface(vk::Instance instance, vk::SurfaceKHR surface)
-  : instance_(instance_), surface_(surface)
+  : instance_(instance), surface_(surface)
 {
 }
 
