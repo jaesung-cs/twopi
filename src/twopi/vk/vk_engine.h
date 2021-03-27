@@ -20,6 +20,7 @@ public:
   ~Engine();
 
   void Draw();
+  void Resize(int width, int height);
 
 private:
   class Impl;

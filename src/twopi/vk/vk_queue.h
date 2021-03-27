@@ -28,7 +28,7 @@ public:
   auto QueueFamilyIndex() const { return queue_family_index_; }
 
   void Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_semaphores, std::vector<Semaphore> signal_semaphores, Fence fence);
-  void Present(Swapchain swapchain, uint32_t image_index, std::vector<Semaphore> wait_semaphores);
+  vk::Result Present(Swapchain swapchain, uint32_t image_index, std::vector<Semaphore> wait_semaphores);
 
 private:
   vk::Queue queue_;

@@ -136,10 +136,10 @@ Device::operator vk::Device() const
   return device_;
 }
 
-uint32_t Device::AcquireNextImage(Swapchain swapchain, Semaphore semaphore)
+std::pair<uint32_t, vk::Result> Device::AcquireNextImage(Swapchain swapchain, Semaphore semaphore)
 {
   auto result = device_.acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
-  return result.value;
+  return std::make_pair(result.value, result.result);
 }
 
 void Device::WaitIdle()

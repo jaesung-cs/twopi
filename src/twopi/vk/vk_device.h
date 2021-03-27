@@ -68,7 +68,7 @@ public:
   operator vk::Device() const;
 
   vkw::Queue Queue(int index) const;
-  uint32_t AcquireNextImage(Swapchain swapchain, Semaphore semaphore);
+  std::pair<uint32_t, vk::Result> AcquireNextImage(Swapchain swapchain, Semaphore semaphore);
 
   void WaitIdle();
 

@@ -47,7 +47,7 @@ void Queue::Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_sem
   queue_.submit(submit_info, fence);
 }
 
-void Queue::Present(Swapchain swapchain, uint32_t image_index, std::vector<Semaphore> wait_semaphores)
+vk::Result Queue::Present(Swapchain swapchain, uint32_t image_index, std::vector<Semaphore> wait_semaphores)
 {
   std::vector<vk::Semaphore> wait_semaphore_handles(wait_semaphores.cbegin(), wait_semaphores.cend());
   std::vector<vk::SwapchainKHR> swapchain_handles{ swapchain };
@@ -59,8 +59,7 @@ void Queue::Present(Swapchain swapchain, uint32_t image_index, std::vector<Semap
     .setSwapchains(swapchain_handles)
     .setImageIndices(image_indices);
 
-  const auto result = queue_.presentKHR(present_info);
-  // TODO: result
+  return queue_.presentKHR(present_info);
 }
 }
 }

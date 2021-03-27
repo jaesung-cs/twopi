@@ -189,7 +189,8 @@ private:
       camera_->SetScreenSize(resize_width, resize_height);
       vr_camera_->SetScreenSize(resize_width, resize_height);
 
-      // TODO: update framebuffer change
+      // Update framebuffer size
+      vk_engine_->Resize(resize_width, resize_height);
     }
 
     camera_control_->Update();

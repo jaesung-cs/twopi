@@ -64,7 +64,6 @@ public:
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window_ = glfwCreateWindow(base_->Width(), base_->Height(), "Twopi", NULL, NULL);
 
