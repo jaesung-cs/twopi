@@ -13,6 +13,11 @@ Queue::Queue(vk::Queue queue)
 {
 }
 
+Queue::Queue(vk::Queue queue, int queue_family_index)
+  : queue_(queue), queue_family_index_(queue_family_index)
+{
+}
+
 Queue::~Queue() = default;
 
 Queue::operator vk::Queue() const

@@ -31,7 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    vk_engine_ = std::make_shared<vkw::Engine>(std::static_pointer_cast<window::GlfwWindow>(window_)->Handle());
+    vk_engine_ = std::make_shared<vkw::Engine>(window_);
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());

@@ -3,17 +3,20 @@
 
 #include <memory>
 
-struct GLFWwindow;
-
 namespace twopi
 {
+namespace window
+{
+class Window;
+}
+
 namespace vkw
 {
 class Engine
 {
 public:
   Engine() = delete;
-  explicit Engine(GLFWwindow* window);
+  explicit Engine(std::shared_ptr<window::Window> window);
   ~Engine();
 
   void Draw();

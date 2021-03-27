@@ -4,6 +4,10 @@ namespace twopi
 {
 namespace vkw
 {
+PhysicalDevice::PhysicalDevice()
+{
+}
+
 PhysicalDevice::PhysicalDevice(vk::PhysicalDevice physical_device)
   : physical_device_(physical_device)
 {

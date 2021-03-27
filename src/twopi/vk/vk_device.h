@@ -40,6 +40,7 @@ public:
 
     Creator& AddGraphicsQueue();
     Creator& AddPresentQueue(Surface surface);
+    Creator& AddSwapchainExtension();
 
     Device Create();
 
@@ -50,6 +51,8 @@ public:
     std::vector<QueueType> queue_types_;
 
     vk::DeviceCreateInfo create_info_{};
+
+    std::vector<std::string> extensions_;
   };
 
 public:

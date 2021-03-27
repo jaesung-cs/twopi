@@ -13,7 +13,7 @@ namespace vkw
 class PhysicalDevice
 {
 public:
-  PhysicalDevice() = delete;
+  PhysicalDevice();
   explicit PhysicalDevice(vk::PhysicalDevice physical_device);
 
   ~PhysicalDevice();

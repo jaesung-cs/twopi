@@ -35,6 +35,12 @@ Device::Creator& Device::Creator::AddPresentQueue(Surface surface)
   return *this;
 }
 
+Device::Creator& Device::Creator::AddSwapchainExtension()
+{
+  extensions_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+  return *this;
+}
+
 Device Device::Creator::Create()
 {
   int graphics_index = -1;
@@ -85,6 +91,12 @@ Device Device::Creator::Create()
 
   auto features = physical_device_.getFeatures();
   create_info_.setPEnabledFeatures(&features);
+
+  std::vector<const char*> extension_names;
+  std::transform(extensions_.cbegin(), extensions_.cend(), std::back_inserter(extension_names), [](const std::string& extension) {
+    return extension.c_str();
+    });
+  create_info_.setPEnabledExtensionNames(extension_names);
 
   const auto handle = physical_device_.createDevice(create_info_, nullptr);
   auto device = Device{ handle };
