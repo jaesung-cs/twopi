@@ -40,6 +40,12 @@
     <Filter Include="src\twopi\vk">
       <UniqueIdentifier>{50166774-ce63-402c-a2ae-f51da0669074}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\twopi\shader\gl">
+      <UniqueIdentifier>{7259b72c-da57-4e7a-835d-8a12bd8be2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\shader\vk">
+      <UniqueIdentifier>{cb5431ee-7065-48bc-b2c7-34097f469e59}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -142,6 +148,9 @@
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vk\vk_image_view.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_shader_module.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
   </ItemGroup>
@@ -251,25 +260,40 @@
     <ClInclude Include="..\..\src\twopi\vk\vk_image_view.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_shader_module.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\twopi\shader\mesh.frag">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\mesh.frag">
+      <Filter>src\twopi\shader\gl</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\mesh.vert">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\mesh.vert">
+      <Filter>src\twopi\shader\gl</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\screen.frag">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\screen.frag">
+      <Filter>src\twopi\shader\gl</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\screen.vert">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\screen.vert">
+      <Filter>src\twopi\shader\gl</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\vr_screen.frag">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\vr_screen.frag">
+      <Filter>src\twopi\shader\gl</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\vr_screen.vert">
-      <Filter>src\twopi\shader</Filter>
+    <None Include="..\..\src\twopi\shader\gl\vr_screen.vert">
+      <Filter>src\twopi\shader\gl</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle.frag">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle.vert">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle.frag.spv">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle.vert.spv">
+      <Filter>src\twopi\shader\vk</Filter>
     </None>
   </ItemGroup>
 </Project>

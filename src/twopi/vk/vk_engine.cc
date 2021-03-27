@@ -12,6 +12,7 @@
 #include <twopi/vk/vk_swapchain.h>
 #include <twopi/vk/vk_image.h>
 #include <twopi/vk/vk_image_view.h>
+#include <twopi/vk/vk_shader_module.h>
 
 namespace twopi
 {
@@ -80,10 +81,17 @@ public:
       const auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
       swapchain_image_views_.emplace_back(std::move(swapchain_image_view));
     }
+
+    ShaderModule::Creator shader_module_creator{ device_ };
+    vert_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.frag.spv").Create();
   }
   
   ~Impl()
   {
+    vert_shader_.Destroy();
+    frag_shader_.Destroy();
+
     for (auto& swapchain_image_view : swapchain_image_views_)
       swapchain_image_view.Destroy();
     swapchain_image_views_.clear();
@@ -109,6 +117,8 @@ private:
   vkw::Swapchain swapchain_;
   std::vector<vkw::Image> swapchain_images_;
   std::vector<vkw::ImageView> swapchain_image_views_;
+  vkw::ShaderModule vert_shader_;
+  vkw::ShaderModule frag_shader_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
