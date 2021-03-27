@@ -3,6 +3,7 @@
 #include <twopi/vk/vk_command_buffer.h>
 #include <twopi/vk/vk_swapchain.h>
 #include <twopi/vk/vk_semaphore.h>
+#include <twopi/vk/vk_fence.h>
 
 namespace twopi
 {
@@ -29,7 +30,7 @@ Queue::operator vk::Queue() const
   return queue_;
 }
 
-void Queue::Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_semaphores, std::vector<Semaphore> signal_semaphores)
+void Queue::Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_semaphores, std::vector<Semaphore> signal_semaphores, Fence fence)
 {
   std::vector<vk::Semaphore> wait_semaphore_handles(wait_semaphores.cbegin(), wait_semaphores.cend());
   std::vector<vk::Semaphore> signal_semaphore_handles(signal_semaphores.cbegin(), signal_semaphores.cend());
@@ -43,7 +44,7 @@ void Queue::Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_sem
     .setSignalSemaphores(signal_semaphore_handles)
     .setCommandBuffers(command_buffer_handles);
 
-  queue_.submit(submit_info);
+  queue_.submit(submit_info, fence);
 }
 
 void Queue::Present(Swapchain swapchain, uint32_t image_index, std::vector<Semaphore> wait_semaphores)

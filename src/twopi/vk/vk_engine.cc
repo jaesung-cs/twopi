@@ -20,6 +20,7 @@
 #include <twopi/vk/vk_command_pool.h>
 #include <twopi/vk/vk_command_buffer.h>
 #include <twopi/vk/vk_semaphore.h>
+#include <twopi/vk/vk_fence.h>
 
 namespace twopi
 {
@@ -27,6 +28,9 @@ namespace vkw
 {
 class Engine::Impl
 {
+private:
+  static constexpr int max_frames_in_flight_ = 2;
+
 public:
   Impl() = delete;
 
@@ -138,16 +142,33 @@ public:
     }
 
     auto semaphore_creator = Semaphore::Creator{ device_ };
-    image_available_semaphore_ = semaphore_creator.Create();
-    render_finished_semaphore_ = semaphore_creator.Create();
+    auto fence_creator = Fence::Creator{ device_ };
+    for (int i = 0; i < max_frames_in_flight_; i++)
+    {
+      image_available_semaphores_.emplace_back(semaphore_creator.Create());
+      render_finished_semaphores_.emplace_back(semaphore_creator.Create());
+      in_flight_fences_.emplace_back(fence_creator.Create());
+    }
+
+    // Refernces to actual fences
+    images_in_flight_.resize(swapchain_framebuffers_.size());
   }
   
   ~Impl()
   {
     device_.WaitIdle();
 
-    image_available_semaphore_.Destroy();
-    render_finished_semaphore_.Destroy();
+    for (auto& in_flight_fence : in_flight_fences_)
+      in_flight_fence.Destroy();
+    in_flight_fences_.clear();
+
+    for (auto& image_available_semaphore : image_available_semaphores_)
+      image_available_semaphore.Destroy();
+    image_available_semaphores_.clear();
+
+    for (auto& render_finished_semaphore : render_finished_semaphores_)
+      render_finished_semaphore.Destroy();
+    render_finished_semaphores_.clear();
 
     command_pool_.Destroy();
 
@@ -173,10 +194,21 @@ public:
 
   void Draw()
   {
-    const auto image_index = device_.AcquireNextImage(swapchain_, image_available_semaphore_);
+    in_flight_fences_[current_frame_].Wait();
+    in_flight_fences_[current_frame_].Reset();
 
-    graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphore_ }, { render_finished_semaphore_ });
-    present_queue_.Present(swapchain_, image_index, { render_finished_semaphore_ });
+    const auto image_index = device_.AcquireNextImage(swapchain_, image_available_semaphores_[current_frame_]);
+
+    if (images_in_flight_[image_index])
+      images_in_flight_[image_index].Wait();
+    images_in_flight_[image_index] = in_flight_fences_[current_frame_];
+
+    in_flight_fences_[current_frame_].Reset();
+
+    graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
+    present_queue_.Present(swapchain_, image_index, { render_finished_semaphores_[current_frame_] });
+
+    current_frame_ = (current_frame_ + 1) % max_frames_in_flight_;
   }
 
 private:
@@ -203,8 +235,11 @@ private:
   vkw::CommandPool command_pool_;
   std::vector<vkw::CommandBuffer> command_buffers_;
 
-  vkw::Semaphore image_available_semaphore_;
-  vkw::Semaphore render_finished_semaphore_;
+  size_t current_frame_ = 0;
+  std::vector<vkw::Semaphore> image_available_semaphores_;
+  std::vector<vkw::Semaphore> render_finished_semaphores_;
+  std::vector<vkw::Fence> in_flight_fences_;
+  std::vector<vkw::Fence> images_in_flight_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
