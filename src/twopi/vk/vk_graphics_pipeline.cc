@@ -56,19 +56,21 @@ GraphicsPipeline::Creator::~Creator() = default;
 
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule vert_shader, ShaderModule frag_shader)
 {
-  vk::PipelineShaderStageCreateInfo vert_shader_stage_info;
+  shader_stages_.clear();
+
+  vk::PipelineShaderStageCreateInfo vert_shader_stage_info{};
   vert_shader_stage_info
     .setStage(vk::ShaderStageFlagBits::eVertex)
     .setModule(vert_shader)
     .setPName("main");
+  shader_stages_.push_back(vert_shader_stage_info);
 
-  vk::PipelineShaderStageCreateInfo frag_shader_stage_info;
+  vk::PipelineShaderStageCreateInfo frag_shader_stage_info{};
   frag_shader_stage_info
     .setStage(vk::ShaderStageFlagBits::eFragment)
     .setModule(frag_shader)
     .setPName("main");
-
-  shader_stages_ = { vert_shader_stage_info, frag_shader_stage_info };
+  shader_stages_.push_back(frag_shader_stage_info);
 
   return *this;
 }

@@ -1,7 +1,7 @@
 #include <twopi/geometry/image_loader.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include <stb_image.h>
 
 #include <twopi/geometry/image.h>
 

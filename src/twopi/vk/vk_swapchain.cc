@@ -38,8 +38,18 @@ Swapchain::Creator::~Creator() = default;
 Swapchain::Creator& Swapchain::Creator::SetTripleBuffering()
 {
   auto image_count = capabilities_.minImageCount + 1;
-  vk::PresentModeKHR present_mode = vk::PresentModeKHR::eMailbox;
+  if (capabilities_.maxImageCount > 0 && image_count > capabilities_.maxImageCount)
+    image_count = capabilities_.maxImageCount;
+    
+  vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo;
 
+  const auto present_modes = physical_device_.getSurfacePresentModesKHR(surface_);
+  for (auto available_mode : present_modes)
+  {
+    if (available_mode == vk::PresentModeKHR::eMailbox)
+      present_mode = vk::PresentModeKHR::eMailbox;
+  }
+  
   create_info_
     .setMinImageCount(image_count)
     .setPresentMode(present_mode);

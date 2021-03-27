@@ -111,6 +111,12 @@ Instance::Creator& Instance::Creator::AddGlfwRequiredExtensions()
   return *this;
 }
 
+Instance::Creator& Instance::Creator::AddGetPhysicalDeviceProperties2Extension()
+{
+  extensions_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+  return *this;
+}
+
 Instance::Creator& Instance::Creator::EnableValidationLayer()
 {
   if (IsValidationLayerSupported())

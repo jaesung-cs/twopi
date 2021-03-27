@@ -20,8 +20,10 @@ public:
 
   operator vk::PhysicalDevice() const;
 
-  const vk::PhysicalDeviceProperties& Properties() const;
-  const vk::PhysicalDeviceFeatures& Features() const;
+  std::vector<vk::ExtensionProperties> Extensions() const;
+  vk::PhysicalDeviceProperties Properties() const;
+  vk::PhysicalDeviceProperties2 Properties2() const;
+  vk::PhysicalDeviceFeatures Features() const;
 
 private:
   vk::PhysicalDevice physical_device_;

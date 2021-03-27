@@ -43,6 +43,12 @@ Device::Creator& Device::Creator::AddSwapchainExtension()
   return *this;
 }
 
+Device::Creator& Device::Creator::AddPortabilitySubsetExtension()
+{
+  extensions_.push_back("VK_KHR_portability_subset");
+  return *this;
+}
+
 Device Device::Creator::Create()
 {
   int graphics_index = -1;

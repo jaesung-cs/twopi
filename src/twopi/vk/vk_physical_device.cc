@@ -20,12 +20,22 @@ PhysicalDevice::operator vk::PhysicalDevice() const
   return physical_device_;
 }
 
-const vk::PhysicalDeviceProperties& PhysicalDevice::Properties() const
+std::vector<vk::ExtensionProperties> PhysicalDevice::Extensions() const
+{
+  return physical_device_.enumerateDeviceExtensionProperties();
+}
+
+vk::PhysicalDeviceProperties PhysicalDevice::Properties() const
 {
   return physical_device_.getProperties();
 }
 
-const vk::PhysicalDeviceFeatures& PhysicalDevice::Features() const
+vk::PhysicalDeviceProperties2 PhysicalDevice::Properties2() const
+{
+  return physical_device_.getProperties2();
+}
+
+vk::PhysicalDeviceFeatures PhysicalDevice::Features() const
 {
   return physical_device_.getFeatures();
 }

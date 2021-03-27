@@ -43,6 +43,7 @@ public:
     Creator& AddGraphicsQueue();
     Creator& AddPresentQueue(Surface surface);
     Creator& AddSwapchainExtension();
+    Creator& AddPortabilitySubsetExtension();
 
     Device Create();
 

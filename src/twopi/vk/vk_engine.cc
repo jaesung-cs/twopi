@@ -54,6 +54,9 @@ public:
 
     instance_ = Instance::Creator{}
       .AddGlfwRequiredExtensions()
+#ifdef __APPLE__
+      .AddGetPhysicalDeviceProperties2Extension()
+#endif
       .EnableValidationLayer()
       .Create();
 
@@ -66,6 +69,11 @@ public:
         std::cout << "    " << "Discrete GPU" << std::endl;
       if (physical_device.Features().geometryShader)
         std::cout << "    " << "Has Geometry Shader" << std::endl;
+
+      std::cout << "    Extensions:" << std::endl;
+      const auto extensions = physical_device.Extensions();
+      for (const auto& extension : extensions)
+        std::cout << "      " << extension.extensionName << std::endl;
     }
 
     const auto glfw_window = std::dynamic_pointer_cast<window::GlfwWindow>(window)->Handle();
@@ -78,6 +86,9 @@ public:
       .AddGraphicsQueue()
       .AddPresentQueue(surface_)
       .AddSwapchainExtension()
+#ifdef __APPLE__
+      .AddPortabilitySubsetExtension()
+#endif
       .Create();
 
     graphics_queue_ = device_.Queue(0);
@@ -87,9 +98,14 @@ public:
 
     CreateSwapchainImageViews();
 
+#ifdef _WIN32
+    const std::string dirpath = "C:\\workspace\\twopi\\src";
+#elif __APPLE__
+    const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
+#endif
     ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load("C:\\workspace\\twopi\\src\\twopi\\shader\\vk\\triangle.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.frag.spv").Create();
 
     CreateRenderPass();
 

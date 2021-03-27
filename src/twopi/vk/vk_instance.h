@@ -26,6 +26,7 @@ public:
     ~Creator();
 
     Creator& AddGlfwRequiredExtensions();
+    Creator& AddGetPhysicalDeviceProperties2Extension();
     Creator& EnableValidationLayer();
 
     Instance Create();
