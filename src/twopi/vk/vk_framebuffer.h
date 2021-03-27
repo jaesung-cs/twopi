@@ -31,6 +31,7 @@ public:
     const vk::Device device_;
 
     vk::FramebufferCreateInfo create_info_{};
+    vk::ImageView image_view_;
     uint32_t width_ = 0;
     uint32_t height_ = 0;
   };

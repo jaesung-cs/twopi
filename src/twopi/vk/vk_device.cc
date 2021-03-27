@@ -4,6 +4,8 @@
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_queue.h>
 #include <twopi/vk/vk_surface.h>
+#include <twopi/vk/vk_swapchain.h>
+#include <twopi/vk/vk_semaphore.h>
 
 namespace twopi
 {
@@ -117,7 +119,7 @@ Device::Device(vk::Device device)
 
 Device::~Device() = default;
 
-Queue Device::Queue(int index)
+Queue Device::Queue(int index) const
 {
   const auto& queue_index = queue_indices_[index];
   const auto queue = device_.getQueue(queue_index.family_index, queue_index.queue_index);
@@ -132,6 +134,17 @@ void Device::Destroy()
 Device::operator vk::Device() const
 {
   return device_;
+}
+
+uint32_t Device::AcquireNextImage(Swapchain swapchain, Semaphore semaphore)
+{
+  auto result = device_.acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
+  return result.value;
+}
+
+void Device::WaitIdle()
+{
+  device_.waitIdle();
 }
 }
 }

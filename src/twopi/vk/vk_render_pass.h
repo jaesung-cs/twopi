@@ -31,6 +31,7 @@ public:
     vk::AttachmentDescription color_attachment_{};
     vk::AttachmentReference color_attachment_ref_{};
     vk::SubpassDescription subpass_{};
+    vk::SubpassDependency dependency_{};
   };
 
 public:

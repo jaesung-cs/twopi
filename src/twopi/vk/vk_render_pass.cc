@@ -29,6 +29,14 @@ RenderPass::Creator::Creator(Device device)
   subpass_
     .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
     .setColorAttachments(color_attachment_ref_);
+
+  dependency_
+    .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+    .setDstSubpass(0)
+    .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+    .setSrcAccessMask(vk::AccessFlags{})
+    .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+    .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 }
 
 RenderPass::Creator::~Creator() = default;
@@ -45,7 +53,8 @@ RenderPass RenderPass::Creator::Create()
 {
   create_info_
     .setAttachments(color_attachment_)
-    .setSubpasses(subpass_);
+    .setSubpasses(subpass_)
+    .setDependencies(dependency_);
 
   auto handle = device_.createRenderPass(create_info_);
   return RenderPass{ device_, handle };

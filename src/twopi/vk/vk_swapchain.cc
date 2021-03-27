@@ -88,15 +88,20 @@ Swapchain::Creator& Swapchain::Creator::SetExtent(int width, int height)
 
 Swapchain::Creator& Swapchain::Creator::SetQueues(std::initializer_list<Queue> queues)
 {
-  std::set<uint32_t> queue_family_indices;
+  std::set<uint32_t> unique_queue_family_indices;
+  std::vector<uint32_t> queue_family_indices;
   for (const auto& queue : queues)
-    queue_family_indices.insert(queue.QueueFamilyIndex());
+  {
+    const auto queue_family_index = queue.QueueFamilyIndex();
+    unique_queue_family_indices.insert(queue_family_index);
+    queue_family_indices.push_back(queue_family_index);
+  }
 
-  if (queue_family_indices.size() > 1)
+  if (unique_queue_family_indices.size() > 1)
   {
     create_info_
       .setImageSharingMode(vk::SharingMode::eConcurrent)
-      .setQueueFamilyIndices(std::vector<uint32_t>(queue_family_indices.begin(), queue_family_indices.end()));
+      .setQueueFamilyIndices(queue_family_indices);
   }
   else
   {

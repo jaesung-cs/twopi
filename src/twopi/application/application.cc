@@ -72,7 +72,8 @@ public:
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
 
-      // TODO: draw on Vulkan surface
+      // Draw on Vulkan surface
+      vk_engine_->Draw();
 
       SwapBuffers();
 
@@ -211,7 +212,8 @@ private:
 
   void SwapBuffers()
   {
-    window_->SwapBuffers();
+    // Vulkan engine manages buffering
+    // window_->SwapBuffers();
   }
 
   bool ShouldTerminate()

@@ -19,6 +19,7 @@
 #include <twopi/vk/vk_framebuffer.h>
 #include <twopi/vk/vk_command_pool.h>
 #include <twopi/vk/vk_command_buffer.h>
+#include <twopi/vk/vk_semaphore.h>
 
 namespace twopi
 {
@@ -135,10 +136,19 @@ public:
         .EndRenderPass()
         .End();
     }
+
+    auto semaphore_creator = Semaphore::Creator{ device_ };
+    image_available_semaphore_ = semaphore_creator.Create();
+    render_finished_semaphore_ = semaphore_creator.Create();
   }
   
   ~Impl()
   {
+    device_.WaitIdle();
+
+    image_available_semaphore_.Destroy();
+    render_finished_semaphore_.Destroy();
+
     command_pool_.Destroy();
 
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
@@ -163,7 +173,10 @@ public:
 
   void Draw()
   {
-    // TODO
+    const auto image_index = device_.AcquireNextImage(swapchain_, image_available_semaphore_);
+
+    graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphore_ }, { render_finished_semaphore_ });
+    present_queue_.Present(swapchain_, image_index, { render_finished_semaphore_ });
   }
 
 private:
@@ -189,6 +202,9 @@ private:
 
   vkw::CommandPool command_pool_;
   std::vector<vkw::CommandBuffer> command_buffers_;
+
+  vkw::Semaphore image_available_semaphore_;
+  vkw::Semaphore render_finished_semaphore_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

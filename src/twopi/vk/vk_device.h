@@ -13,6 +13,8 @@ namespace vkw
 class PhysicalDevice;
 class Surface;
 class Queue;
+class Swapchain;
+class Semaphore;
 
 class Device
 {
@@ -61,11 +63,14 @@ public:
 
   ~Device();
 
-  vkw::Queue Queue(int index);
-
   void Destroy();
 
   operator vk::Device() const;
+
+  vkw::Queue Queue(int index) const;
+  uint32_t AcquireNextImage(Swapchain swapchain, Semaphore semaphore);
+
+  void WaitIdle();
 
 private:
   vk::Device device_;
