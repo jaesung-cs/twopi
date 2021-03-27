@@ -1,0 +1,47 @@
+#ifndef TWOPI_VK_VK_PIPELINE_LAYOUT_H_
+#define TWOPI_VK_VK_PIPELINE_LAYOUT_H_
+
+#include <vulkan/vulkan.hpp>
+
+namespace twopi
+{
+namespace vkw
+{
+class Device;
+
+class PipelineLayout
+{
+public:
+  class Creator
+  {
+  public:
+    Creator() = delete;
+    Creator(Device device);
+    ~Creator();
+
+    PipelineLayout Create();
+
+  private:
+    const vk::Device device_;
+
+    vk::PipelineLayoutCreateInfo create_info_{};
+  };
+
+public:
+  PipelineLayout();
+  PipelineLayout(vk::Device device, vk::PipelineLayout pipeline_layout);
+
+  ~PipelineLayout();
+  
+  void Destroy();
+
+  operator vk::PipelineLayout() const;
+
+private:
+  vk::Device device_;
+  vk::PipelineLayout pipeline_layout_;
+};
+}
+}
+
+#endif // TWOPI_VK_VK_PIPELINE_LAYOUT_H_

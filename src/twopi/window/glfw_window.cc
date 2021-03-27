@@ -3,6 +3,7 @@
 #include <memory>
 #include <iostream>
 
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <twopi/window/window.h>
@@ -62,10 +63,7 @@ public:
       throw core::Error("Failed to initialize GLFW.");
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     window_ = glfwCreateWindow(base_->Width(), base_->Height(), "Twopi", NULL, NULL);
 
@@ -83,7 +81,13 @@ public:
 
   ~Impl()
   {
+    glfwDestroyWindow(window_);
     glfwTerminate();
+  }
+
+  GLFWwindow* Handle() const
+  {
+    return window_;
   }
 
   void Close()
@@ -224,6 +228,11 @@ GlfwWindow::GlfwWindow()
 }
 
 GlfwWindow::~GlfwWindow() = default;
+
+GLFWwindow* GlfwWindow::Handle() const
+{
+  return impl_->Handle();
+}
 
 void GlfwWindow::Close()
 {

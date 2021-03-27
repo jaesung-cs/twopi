@@ -14,7 +14,7 @@
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/scene/light.h>
-#include <twopi/gl/gl_engine.h>
+#include <twopi/vk/vk_engine.h>
 
 #include <glm/glm.hpp>
 
@@ -31,8 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    gl_engine_ = std::make_shared<gl::Engine>();
-    gl_engine_->SetViewport(0, 0, window_->Width(), window_->Height());
+    vk_engine_ = std::make_shared<vkw::Engine>(window_);
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
@@ -73,9 +72,8 @@ public:
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
 
-      gl_engine_->UpdateLights(lights_);
-      gl_engine_->UpdateCamera(current_camera_);
-      gl_engine_->Draw();
+      // Draw on Vulkan surface
+      vk_engine_->Draw();
 
       SwapBuffers();
 
@@ -190,7 +188,9 @@ private:
     {
       camera_->SetScreenSize(resize_width, resize_height);
       vr_camera_->SetScreenSize(resize_width, resize_height);
-      gl_engine_->SetViewport(0, 0, resize_width, resize_height);
+
+      // Update framebuffer size
+      vk_engine_->Resize(resize_width, resize_height);
     }
 
     camera_control_->Update();
@@ -213,7 +213,8 @@ private:
 
   void SwapBuffers()
   {
-    window_->SwapBuffers();
+    // Vulkan engine manages buffering
+    // window_->SwapBuffers();
   }
 
   bool ShouldTerminate()
@@ -223,7 +224,9 @@ private:
 
   const double frames_per_second_ = 60.;
   std::shared_ptr<window::Window> window_;
-  std::shared_ptr<gl::Engine> gl_engine_;
+
+  // Vulkan engine
+  std::shared_ptr<vkw::Engine> vk_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;
