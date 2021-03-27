@@ -5,6 +5,7 @@
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
+#include <twopi/vk/vk_queue.h>
 
 namespace twopi
 {
@@ -45,7 +46,10 @@ public:
 
     // TODO: pick the most suitable device, now simply use physical device of index 0
     // TODO: setup queue settings
-    device_ = Device::Creator{ physical_devices[0] }.Create();
+    device_ = Device::Creator{ physical_devices[0] }
+      .AddGraphicsQueue()
+      .Create();
+    graphics_queue_ = device_.Queue(0);
   }
   
   ~Impl()
@@ -62,6 +66,7 @@ public:
 private:
   vkw::Instance instance_;
   vkw::Device device_;
+  vkw::Queue graphics_queue_;
 };
 
 Engine::Engine()

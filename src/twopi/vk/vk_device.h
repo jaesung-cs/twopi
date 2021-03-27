@@ -11,25 +11,41 @@ namespace twopi
 namespace vkw
 {
 class PhysicalDevice;
+class Queue;
 
 class Device
 {
+private:
+  struct QueueIndex
+  {
+    int family_index;
+    int queue_index;
+  };
+
 public:
   class Creator
   {
+  private:
+    enum class QueueType
+    {
+      GRAPHICS,
+    };
+
   public:
     Creator() = delete;
     explicit Creator(PhysicalDevice physical_device);
     ~Creator();
+
+    Creator& AddGraphicsQueue();
 
     Device Create();
 
   private:
     vk::PhysicalDevice physical_device_;
 
+    std::vector<QueueType> queue_types_;
+
     vk::DeviceCreateInfo create_info_{};
-    vk::DeviceQueueCreateInfo queue_create_info_{};
-    float queue_priority_ = 1.f;
   };
 
 public:
@@ -38,12 +54,15 @@ public:
 
   ~Device();
 
+  vkw::Queue Queue(int index);
+
   void Destroy();
 
   operator vk::Device() const;
 
 private:
   vk::Device device_;
+  std::vector<QueueIndex> queue_indices_;
 };
 }
 }
