@@ -27,6 +27,9 @@ Framebuffer::Creator& Framebuffer::Creator::SetAttachment(ImageView image_view)
 
 Framebuffer::Creator& Framebuffer::Creator::SetExtent(int width, int height)
 {
+  width_ = width;
+  height_ = height;
+
   create_info_
     .setWidth(width)
     .setHeight(height);
@@ -43,7 +46,10 @@ Framebuffer::Creator& Framebuffer::Creator::SetRenderPass(RenderPass render_pass
 Framebuffer Framebuffer::Creator::Create()
 {
   const auto handle = device_.createFramebuffer(create_info_);
-  return Framebuffer{ device_, handle };
+  auto framebuffer = Framebuffer{ device_, handle };
+  framebuffer.width_ = width_;
+  framebuffer.height_ = height_;
+  return framebuffer;
 }
 
 //

@@ -85,7 +85,6 @@ Device Device::Creator::Create()
     queue_indices.emplace_back(QueueIndex{ queue_family_index, queue_indices_in_family[queue_family_index] });
     queue_indices_in_family[queue_family_index]++;
     queue_create_infos.emplace_back(std::move(queue_create_info));
-
   }
   create_info_.setQueueCreateInfos(queue_create_infos);
 
@@ -122,7 +121,7 @@ Queue Device::Queue(int index)
 {
   const auto& queue_index = queue_indices_[index];
   const auto queue = device_.getQueue(queue_index.family_index, queue_index.queue_index);
-  return vkw::Queue{ queue };
+  return vkw::Queue{ queue, queue_index.family_index };
 }
 
 void Device::Destroy()

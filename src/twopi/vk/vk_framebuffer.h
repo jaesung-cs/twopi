@@ -31,6 +31,8 @@ public:
     const vk::Device device_;
 
     vk::FramebufferCreateInfo create_info_{};
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
   };
 
 public:
@@ -43,9 +45,14 @@ public:
 
   operator vk::Framebuffer() const;
 
+  auto Width() const { return width_; }
+  auto Height() const { return height_; }
+
 private:
   vk::Device device_;
   vk::Framebuffer framebuffer_;
+  uint32_t width_ = 0;
+  uint32_t height_ = 0;
 };
 }
 }

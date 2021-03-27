@@ -17,6 +17,8 @@
 #include <twopi/vk/vk_render_pass.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
 #include <twopi/vk/vk_framebuffer.h>
+#include <twopi/vk/vk_command_pool.h>
+#include <twopi/vk/vk_command_buffer.h>
 
 namespace twopi
 {
@@ -106,7 +108,7 @@ public:
 
     for (const auto& swapchain_image_view : swapchain_image_views_)
     {
-      const auto swapchain_framebuffer = Framebuffer::Creator{ device_ }
+      auto swapchain_framebuffer = Framebuffer::Creator{ device_ }
         .SetAttachment(swapchain_image_view)
         .SetExtent(window->Width(), window->Height())
         .SetRenderPass(render_pass_)
@@ -114,10 +116,31 @@ public:
 
       swapchain_framebuffers_.emplace_back(std::move(swapchain_framebuffer));
     }
+
+    command_pool_ = CommandPool::Creator{ device_ }
+      .SetQueue(graphics_queue_)
+      .Create();
+
+    command_buffers_ = CommandBuffer::Allocator{ device_, command_pool_ }
+      .Allocate(swapchain_framebuffers_.size());
+
+    for (int i = 0; i < command_buffers_.size(); i++)
+    {
+      auto& command_buffer = command_buffers_[i];
+      command_buffer
+        .Begin()
+        .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
+        .BindPipeline(pipeline_)
+        .Draw(3, 1, 0, 0)
+        .EndRenderPass()
+        .End();
+    }
   }
   
   ~Impl()
   {
+    command_pool_.Destroy();
+
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
     swapchain_framebuffers_.clear();
@@ -163,6 +186,9 @@ private:
   vkw::PipelineLayout pipeline_layout_;
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;
+
+  vkw::CommandPool command_pool_;
+  std::vector<vkw::CommandBuffer> command_buffers_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
