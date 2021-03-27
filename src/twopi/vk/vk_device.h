@@ -11,6 +11,7 @@ namespace twopi
 namespace vkw
 {
 class PhysicalDevice;
+class Surface;
 class Queue;
 
 class Device
@@ -29,6 +30,7 @@ public:
     enum class QueueType
     {
       GRAPHICS,
+      PRESENT,
     };
 
   public:
@@ -37,12 +39,14 @@ public:
     ~Creator();
 
     Creator& AddGraphicsQueue();
+    Creator& AddPresentQueue(Surface surface);
 
     Device Create();
 
   private:
     vk::PhysicalDevice physical_device_;
 
+    vk::SurfaceKHR surface_;
     std::vector<QueueType> queue_types_;
 
     vk::DeviceCreateInfo create_info_{};

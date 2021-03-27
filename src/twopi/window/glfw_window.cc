@@ -86,6 +86,11 @@ public:
     glfwTerminate();
   }
 
+  GLFWwindow* Handle() const
+  {
+    return window_;
+  }
+
   void Close()
   {
     glfwSetWindowShouldClose(window_, GLFW_TRUE);
@@ -224,6 +229,11 @@ GlfwWindow::GlfwWindow()
 }
 
 GlfwWindow::~GlfwWindow() = default;
+
+GLFWwindow* GlfwWindow::Handle() const
+{
+  return impl_->Handle();
+}
 
 void GlfwWindow::Close()
 {

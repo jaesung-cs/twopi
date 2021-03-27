@@ -6,6 +6,7 @@
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
 #include <twopi/vk/vk_queue.h>
+#include <twopi/vk/vk_surface.h>
 
 namespace twopi
 {
@@ -14,7 +15,9 @@ namespace vkw
 class Engine::Impl
 {
 public:
-  Impl()
+  Impl() = delete;
+
+  Impl(GLFWwindow* window)
   {
     const auto extensions = Instance::Extensions();
     std::cout << "Available instance extensions:" << std::endl;
@@ -44,16 +47,22 @@ public:
         std::cout << "    " << "Has Geometry Shader" << std::endl;
     }
 
+    surface_ = Surface::Creator{ instance_, window }.Create();
+
     // TODO: pick the most suitable device, now simply use physical device of index 0
     // TODO: setup queue settings
     device_ = Device::Creator{ physical_devices[0] }
       .AddGraphicsQueue()
+      .AddPresentQueue(surface_)
       .Create();
+
     graphics_queue_ = device_.Queue(0);
+    present_queue_ = device_.Queue(1);
   }
   
   ~Impl()
   {
+    surface_.Destroy();
     device_.Destroy();
     instance_.Destroy();
   }
@@ -67,11 +76,13 @@ private:
   vkw::Instance instance_;
   vkw::Device device_;
   vkw::Queue graphics_queue_;
+  vkw::Queue present_queue_;
+  vkw::Surface surface_;
 };
 
-Engine::Engine()
+Engine::Engine(GLFWwindow* window)
 {
-  impl_ = std::make_unique<Impl>();
+  impl_ = std::make_unique<Impl>(window);
 }
 
 Engine::~Engine() = default;

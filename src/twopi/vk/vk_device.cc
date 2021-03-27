@@ -3,6 +3,7 @@
 #include <twopi/core/error.h>
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_queue.h>
+#include <twopi/vk/vk_surface.h>
 
 namespace twopi
 {
@@ -27,16 +28,26 @@ Device::Creator& Device::Creator::AddGraphicsQueue()
   return *this;
 }
 
+Device::Creator& Device::Creator::AddPresentQueue(Surface surface)
+{
+  queue_types_.push_back(QueueType::PRESENT);
+  surface_ = surface;
+  return *this;
+}
+
 Device Device::Creator::Create()
 {
   int graphics_index = -1;
+  int present_index = -1;
   const auto queue_family_properties = physical_device_.getQueueFamilyProperties();
   for (int i = 0; i < queue_family_properties.size(); i++)
   {
-    if (queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
-    {
+    if (graphics_index == -1 && queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
       graphics_index = i;
-    }
+
+    // TODO: select unique queue family indices
+    if ((present_index == -1 || present_index == graphics_index) && physical_device_.getSurfaceSupportKHR(i, surface_))
+      present_index = i;
   }
 
   std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
@@ -46,19 +57,29 @@ Device Device::Creator::Create()
   for (int i = 0; i < queue_types_.size(); i++)
   {
     const auto& queue_type = queue_types_[i];
-    if (queue_type == QueueType::GRAPHICS)
+
+    int queue_family_index = -1;
+    switch (queue_type)
     {
-      vk::DeviceQueueCreateInfo queue_create_info;
-      queue_create_info
-        .setQueueFamilyIndex(graphics_index)
-        .setQueueCount(1)
-        .setQueuePriorities(queue_priority);
+    case QueueType::GRAPHICS:
+      queue_family_index = graphics_index;
+      break;
 
-      queue_indices.emplace_back(QueueIndex{ graphics_index, queue_indices_in_family[graphics_index] });
-      queue_indices_in_family[graphics_index]++;
-
-      queue_create_infos.emplace_back(std::move(queue_create_info));
+    case QueueType::PRESENT:
+      queue_family_index = present_index;
+      break;
     }
+
+    vk::DeviceQueueCreateInfo queue_create_info;
+    queue_create_info
+      .setQueueFamilyIndex(queue_family_index)
+      .setQueueCount(1)
+      .setQueuePriorities(queue_priority);
+
+    queue_indices.emplace_back(QueueIndex{ queue_family_index, queue_indices_in_family[queue_family_index] });
+    queue_indices_in_family[queue_family_index]++;
+    queue_create_infos.emplace_back(std::move(queue_create_info));
+
   }
   create_info_.setQueueCreateInfos(queue_create_infos);
 

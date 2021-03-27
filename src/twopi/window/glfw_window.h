@@ -5,6 +5,8 @@
 
 #include <memory>
 
+struct GLFWwindow;
+
 namespace twopi
 {
 namespace window
@@ -14,6 +16,8 @@ class GlfwWindow : public Window
 public:
   GlfwWindow();
   ~GlfwWindow() override;
+
+  GLFWwindow* Handle() const;
 
   void Close() override;
   bool ShouldClose() const override;

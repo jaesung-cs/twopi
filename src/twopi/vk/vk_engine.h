@@ -3,6 +3,8 @@
 
 #include <memory>
 
+struct GLFWwindow;
+
 namespace twopi
 {
 namespace vkw
@@ -10,7 +12,8 @@ namespace vkw
 class Engine
 {
 public:
-  Engine();
+  Engine() = delete;
+  explicit Engine(GLFWwindow* window);
   ~Engine();
 
   void Draw();

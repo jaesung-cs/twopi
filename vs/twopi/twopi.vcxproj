@@ -171,6 +171,7 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_instance.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_queue.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_surface.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc" />
@@ -203,6 +204,7 @@
     <ClInclude Include="..\..\src\twopi\vk\vk_instance.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_queue.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_surface.h" />
     <ClInclude Include="..\..\src\twopi\window\event\event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\keyboard_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h" />
