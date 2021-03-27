@@ -16,6 +16,7 @@
 #include <twopi/vk/vk_pipeline_layout.h>
 #include <twopi/vk/vk_render_pass.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
+#include <twopi/vk/vk_framebuffer.h>
 
 namespace twopi
 {
@@ -102,10 +103,25 @@ public:
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
       .Create();
+
+    for (const auto& swapchain_image_view : swapchain_image_views_)
+    {
+      const auto swapchain_framebuffer = Framebuffer::Creator{ device_ }
+        .SetAttachment(swapchain_image_view)
+        .SetExtent(window->Width(), window->Height())
+        .SetRenderPass(render_pass_)
+        .Create();
+
+      swapchain_framebuffers_.emplace_back(std::move(swapchain_framebuffer));
+    }
   }
   
   ~Impl()
   {
+    for (auto& swapchain_framebuffer : swapchain_framebuffers_)
+      swapchain_framebuffer.Destroy();
+    swapchain_framebuffers_.clear();
+
     pipeline_.Destroy();
     pipeline_layout_.Destroy();
     render_pass_.Destroy();
@@ -140,6 +156,7 @@ private:
   vkw::Swapchain swapchain_;
   std::vector<vkw::Image> swapchain_images_;
   std::vector<vkw::ImageView> swapchain_image_views_;
+  std::vector<vkw::Framebuffer> swapchain_framebuffers_;
 
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;

@@ -162,6 +162,9 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_render_pass.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_framebuffer.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -279,6 +282,9 @@
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_render_pass.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_framebuffer.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>

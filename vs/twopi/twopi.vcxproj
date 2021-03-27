@@ -178,6 +178,7 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_device.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_framebuffer.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_graphics_pipeline.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_image.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_image_view.cc" />
@@ -218,6 +219,7 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_device.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_engine.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_framebuffer.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_graphics_pipeline.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_image.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_image_view.h" />
