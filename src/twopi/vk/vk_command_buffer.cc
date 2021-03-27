@@ -5,13 +5,14 @@
 #include <twopi/vk/vk_render_pass.h>
 #include <twopi/vk/vk_framebuffer.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
+#include <twopi/vk/vk_buffer.h>
 
 namespace twopi
 {
 namespace vkw
 {
 //
-// Creator
+// Allocator
 //
 CommandBuffer::Allocator::Allocator(Device device, CommandPool command_pool)
   : device_(device), command_pool_(command_pool)
@@ -71,6 +72,14 @@ CommandBuffer& CommandBuffer::BeginRenderPass(RenderPass render_pass, Framebuffe
     .setClearValues(clear_value);
 
   command_buffer_.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets)
+{
+  std::vector<vk::Buffer> buffer_handles(buffers.cbegin(), buffers.cend());
+  command_buffer_.bindVertexBuffers(0, buffer_handles, offsets);
 
   return *this;
 }

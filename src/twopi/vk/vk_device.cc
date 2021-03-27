@@ -6,6 +6,7 @@
 #include <twopi/vk/vk_surface.h>
 #include <twopi/vk/vk_swapchain.h>
 #include <twopi/vk/vk_semaphore.h>
+#include <twopi/vk/vk_buffer.h>
 
 namespace twopi
 {
@@ -146,6 +147,11 @@ std::pair<uint32_t, vk::Result> Device::AcquireNextImage(Swapchain swapchain, Se
 {
   auto result = device_.acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
   return std::make_pair(result.value, result.result);
+}
+
+vk::MemoryRequirements Device::MemoryRequirements(Buffer buffer) const
+{
+  return device_.getBufferMemoryRequirements(buffer);
 }
 
 void Device::WaitIdle()

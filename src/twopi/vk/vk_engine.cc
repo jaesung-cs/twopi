@@ -5,6 +5,7 @@
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
+#include <twopi/scene/geometry.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
@@ -22,6 +23,8 @@
 #include <twopi/vk/vk_command_buffer.h>
 #include <twopi/vk/vk_semaphore.h>
 #include <twopi/vk/vk_fence.h>
+#include <twopi/vk/vk_buffer.h>
+#include <twopi/vk/vk_device_memory.h>
 
 namespace twopi
 {
@@ -113,6 +116,31 @@ public:
 
     CreateFramebuffers();
 
+    constexpr auto buffer_size = sizeof(float) * 18;
+    vertex_buffer_ = Buffer::Creator{ device_ }
+      .SetVertexBufferSize(buffer_size)
+      .Create();
+
+    vertex_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(vertex_buffer_, physical_device_)
+      .Allocate();
+
+    vertex_buffer_.Bind(vertex_buffer_memory_);
+
+    void* ptr = vertex_buffer_memory_.Map();
+    float buffer[] = {
+      // Position
+      0.f, -0.5f, 0.f,
+      0.5f, 0.5f, 0.f,
+      -0.5f, 0.5f, 0.f,
+      // Color
+      1.f, 1.f, 1.f,
+      0.f, 1.f, 0.f,
+      0.f, 0.f, 1.f,
+    };
+    std::memcpy(ptr, buffer, buffer_size);
+    vertex_buffer_memory_.Unmap();
+
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
       .Create();
@@ -137,6 +165,9 @@ public:
     device_.WaitIdle();
 
     CleanupSwapchain();
+
+    vertex_buffer_.Destroy();
+    vertex_buffer_memory_.Free();
 
     for (auto& in_flight_fence : in_flight_fences_)
       in_flight_fence.Destroy();
@@ -246,7 +277,7 @@ private:
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
       .SetShader(vert_shader_, frag_shader_)
-      .SetVertexInput()
+      .SetVertexInput({ {0, 3}, {1, 3} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
@@ -279,6 +310,7 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_ }, { 0, 9 * sizeof(float) })
         .BindPipeline(pipeline_)
         .Draw(3, 1, 0, 0)
         .EndRenderPass()
@@ -336,6 +368,9 @@ private:
   std::vector<vkw::Semaphore> render_finished_semaphores_;
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
+
+  vkw::Buffer vertex_buffer_;
+  vkw::DeviceMemory vertex_buffer_memory_;
 
   int width_ = 0;
   int height_ = 0;

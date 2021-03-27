@@ -17,13 +17,23 @@ class GraphicsPipeline
 public:
   class Creator
   {
+  private:
+    struct Attribute
+    {
+      Attribute(int index, int size)
+        : index(index), size(size) {}
+
+      int index;
+      int size;
+    };
+
   public:
     Creator() = delete;
     Creator(Device device);
     ~Creator();
 
     Creator& SetShader(ShaderModule vert_shader, ShaderModule frag_shader);
-    Creator& SetVertexInput();
+    Creator& SetVertexInput(std::initializer_list<Attribute> attributes);
     Creator& SetViewport(int width, int height);
     Creator& SetPipelineLayout(PipelineLayout pipeline_layout);
     Creator& SetRenderPass(RenderPass render_pass);
@@ -35,6 +45,8 @@ public:
 
     vk::GraphicsPipelineCreateInfo create_info_{};
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages_;
+    std::vector<vk::VertexInputBindingDescription> binding_descriptions_;
+    std::vector<vk::VertexInputAttributeDescription> attribute_descriptions_;
     vk::PipelineVertexInputStateCreateInfo vertex_input_info_{};
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_info_{};
     vk::Viewport viewport_{};

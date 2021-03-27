@@ -75,12 +75,44 @@ GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule ver
   return *this;
 }
 
-GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput()
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput(std::initializer_list<Attribute> attributes)
 {
-  // TODO: set with descriptions
+  for (const auto& attribute : attributes)
+  {
+    const auto& index = attribute.index;
+    const auto& size = attribute.size;
+
+    vk::Format format;
+    switch (size)
+    {
+    case 2:
+      format = vk::Format::eR32G32Sfloat;
+      break;
+    case 3:
+      format = vk::Format::eR32G32B32Sfloat;
+      break;
+    }
+
+    vk::VertexInputBindingDescription binding_description{};
+    binding_description
+      .setBinding(index)
+      .setStride(size * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions_.emplace_back(std::move(binding_description));
+
+    vk::VertexInputAttributeDescription attribute_description{};
+    attribute_description
+      .setBinding(index)
+      .setLocation(index)
+      .setFormat(format)
+      .setOffset(0);
+    attribute_descriptions_.emplace_back(std::move(attribute_description));
+  }
+
+  // Set with binding and attribute descriptions
   vertex_input_info_
-    .setVertexBindingDescriptions({})
-    .setVertexAttributeDescriptions({});
+    .setVertexBindingDescriptions(binding_descriptions_)
+    .setVertexAttributeDescriptions(attribute_descriptions_);
 
   input_assembly_info_
     .setTopology(vk::PrimitiveTopology::eTriangleList)

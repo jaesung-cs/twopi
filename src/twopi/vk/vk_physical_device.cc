@@ -39,5 +39,10 @@ vk::PhysicalDeviceFeatures PhysicalDevice::Features() const
 {
   return physical_device_.getFeatures();
 }
+
+vk::PhysicalDeviceMemoryProperties PhysicalDevice::MemoryProperties() const
+{
+  return physical_device_.getMemoryProperties();
+}
 }
 }

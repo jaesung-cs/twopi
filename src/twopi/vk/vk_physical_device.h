@@ -24,6 +24,7 @@ public:
   vk::PhysicalDeviceProperties Properties() const;
   vk::PhysicalDeviceProperties2 Properties2() const;
   vk::PhysicalDeviceFeatures Features() const;
+  vk::PhysicalDeviceMemoryProperties MemoryProperties() const;
 
 private:
   vk::PhysicalDevice physical_device_;

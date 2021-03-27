@@ -14,6 +14,7 @@ class CommandPool;
 class RenderPass;
 class Framebuffer;
 class GraphicsPipeline;
+class Buffer;
 
 class CommandBuffer
 {
@@ -22,7 +23,7 @@ public:
   {
   public:
     Allocator() = delete;
-    explicit Allocator(Device device, CommandPool command_pool);
+    Allocator(Device device, CommandPool command_pool);
     ~Allocator();
 
     std::vector<CommandBuffer> Allocate(int size);
@@ -45,6 +46,7 @@ public:
   CommandBuffer& Begin();
   CommandBuffer& BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer);
   CommandBuffer& BindPipeline(GraphicsPipeline graphics_pipeline);
+  CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
   CommandBuffer& EndRenderPass();
   void End();
