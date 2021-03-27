@@ -11,6 +11,7 @@
 #include <twopi/vk/vk_surface.h>
 #include <twopi/vk/vk_swapchain.h>
 #include <twopi/vk/vk_image.h>
+#include <twopi/vk/vk_image_view.h>
 
 namespace twopi
 {
@@ -73,10 +74,20 @@ public:
       .Create();
 
     swapchain_images_ = swapchain_.Images();
+
+    for (const auto& swapchain_image : swapchain_images_)
+    {
+      const auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
+      swapchain_image_views_.emplace_back(std::move(swapchain_image_view));
+    }
   }
   
   ~Impl()
   {
+    for (auto& swapchain_image_view : swapchain_image_views_)
+      swapchain_image_view.Destroy();
+    swapchain_image_views_.clear();
+
     swapchain_.Destroy();
     surface_.Destroy();
     device_.Destroy();
@@ -97,6 +108,7 @@ private:
   vkw::Surface surface_;
   vkw::Swapchain swapchain_;
   std::vector<vkw::Image> swapchain_images_;
+  std::vector<vkw::ImageView> swapchain_image_views_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

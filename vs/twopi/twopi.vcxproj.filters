@@ -141,6 +141,9 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_image.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_image_view.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -243,6 +246,9 @@
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_image.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_image_view.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>

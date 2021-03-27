@@ -38,6 +38,8 @@ public:
     vk::SurfaceCapabilitiesKHR capabilities_{};
 
     vk::SwapchainCreateInfoKHR create_info_{};
+
+    vk::Format format_;
   };
 
 public:
@@ -53,8 +55,13 @@ public:
   std::vector<Image> Images() const;
 
 private:
+  void SetFormat(vk::Format format);
+
+private:
   vk::Device device_;
   vk::SwapchainKHR swapchain_;
+
+  vk::Format format_;
 };
 }
 }

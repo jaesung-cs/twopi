@@ -61,6 +61,8 @@ Swapchain::Creator& Swapchain::Creator::SetDefaultFormat()
     .setImageFormat(format.format)
     .setImageColorSpace(format.colorSpace);
 
+  format_ = format.format;
+
   return *this;
 }
 
@@ -108,8 +110,10 @@ Swapchain::Creator& Swapchain::Creator::SetQueues(std::initializer_list<Queue> q
 
 Swapchain Swapchain::Creator::Create()
 {
-  auto handle = device_.createSwapchainKHR(create_info_);
-  return Swapchain{ device_, handle };
+  const auto handle = device_.createSwapchainKHR(create_info_);
+  auto swapchain = Swapchain{ device_, handle };
+  swapchain.SetFormat(format_);
+  return swapchain;
 }
 
 //
@@ -141,9 +145,14 @@ std::vector<Image> Swapchain::Images() const
   const auto image_handles = device_.getSwapchainImagesKHR(swapchain_);
   std::vector<Image> images;
   for (const auto& image_handle : image_handles)
-    images.emplace_back(image_handle);
+    images.emplace_back(Image{ image_handle, format_ });
 
   return images;
+}
+
+void Swapchain::SetFormat(vk::Format format)
+{
+  format_ = format;
 }
 }
 }
