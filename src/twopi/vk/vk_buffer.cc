@@ -48,6 +48,12 @@ Buffer::Creator& Buffer::Creator::SetIndexBuffer()
   return *this;
 }
 
+Buffer::Creator& Buffer::Creator::SetUniformBuffer()
+{
+  usage_ |= vk::BufferUsageFlagBits::eUniformBuffer;
+  return *this;
+}
+
 Buffer Buffer::Creator::Create()
 {
   create_info_.setUsage(usage_);

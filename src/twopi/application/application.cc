@@ -73,6 +73,7 @@ public:
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
 
       // Draw on Vulkan surface
+      vk_engine_->UpdateCamera(current_camera_);
       vk_engine_->Draw();
 
       SwapBuffers();

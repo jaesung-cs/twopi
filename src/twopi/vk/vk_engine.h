@@ -10,6 +10,11 @@ namespace window
 class Window;
 }
 
+namespace scene
+{
+class Camera;
+}
+
 namespace vkw
 {
 class Engine
@@ -21,6 +26,7 @@ public:
 
   void Draw();
   void Resize(int width, int height);
+  void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 
 private:
   class Impl;

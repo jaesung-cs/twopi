@@ -1,6 +1,8 @@
 #ifndef TWOPI_VK_VK_PIPELINE_LAYOUT_H_
 #define TWOPI_VK_VK_PIPELINE_LAYOUT_H_
 
+#include <vector>
+
 #include <vulkan/vulkan.hpp>
 
 namespace twopi
@@ -8,6 +10,7 @@ namespace twopi
 namespace vkw
 {
 class Device;
+class DescriptorSetLayout;
 
 class PipelineLayout
 {
@@ -19,12 +22,15 @@ public:
     Creator(Device device);
     ~Creator();
 
+    Creator& SetLayouts(std::vector<DescriptorSetLayout> layouts);
+
     PipelineLayout Create();
 
   private:
     const vk::Device device_;
 
     vk::PipelineLayoutCreateInfo create_info_{};
+    std::vector<vk::DescriptorSetLayout> layouts_;
   };
 
 public:

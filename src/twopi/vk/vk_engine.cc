@@ -6,6 +6,7 @@
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
 #include <twopi/scene/geometry.h>
+#include <twopi/scene/camera.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
@@ -25,6 +26,10 @@
 #include <twopi/vk/vk_fence.h>
 #include <twopi/vk/vk_buffer.h>
 #include <twopi/vk/vk_device_memory.h>
+#include <twopi/vk/vk_descriptor_set_layout.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace twopi
 {
@@ -107,10 +112,12 @@ public:
     const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
 #endif
     ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.frag.spv").Create();
 
     CreateRenderPass();
+
+    uniform_buffer_layout_ = DescriptorSetLayout::Creator{ device_ }.Create();
 
     CreateGraphicsPipeline();
 
@@ -193,6 +200,8 @@ public:
 
     copy_command.Free();
     transient_command_pool.Destroy();
+    
+    CreateUniformBuffers();
 
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
@@ -218,6 +227,8 @@ public:
     device_.WaitIdle();
 
     CleanupSwapchain();
+
+    uniform_buffer_layout_.Destroy();
 
     vertex_staging_buffer_.Destroy();
     vertex_staging_buffer_memory_.Free();
@@ -248,6 +259,12 @@ public:
     instance_.Destroy();
   }
 
+  void UpdateCamera(std::shared_ptr<scene::Camera> camera)
+  {
+    projection_matrix_ = camera->ProjectionMatrix();
+    view_matrix_ = camera->ViewMatrix();
+  }
+
   void Draw()
   {
     in_flight_fences_[current_frame_].Wait();
@@ -266,6 +283,16 @@ public:
     images_in_flight_[image_index] = in_flight_fences_[current_frame_];
 
     in_flight_fences_[current_frame_].Reset();
+
+    // Update uniform buffer
+    constexpr uint64_t mat4_size = sizeof(float) * 16;
+    glm::mat4 model_matrix{ 1.f };
+
+    auto* ptr = static_cast<unsigned char*>(uniform_buffer_memories_[current_frame_].Map());
+    std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
+    std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
+    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
+    uniform_buffer_memories_[current_frame_].Unmap();
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -295,6 +322,7 @@ private:
 
     CreateSwapchain();
     CreateSwapchainImageViews();
+    CreateUniformBuffers();
     CreateRenderPass();
     CreateGraphicsPipeline();
     CreateFramebuffers();
@@ -316,8 +344,29 @@ private:
   {
     for (const auto& swapchain_image : swapchain_images_)
     {
-      const auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
+      auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
       swapchain_image_views_.emplace_back(std::move(swapchain_image_view));
+    }
+  }
+
+  void CreateUniformBuffers()
+  {
+    // Uniform buffers
+    constexpr int uniform_buffer_size = sizeof(float) * 16 * 3;
+    auto uniform_buffer_creator = Buffer::Creator{ device_ }
+      .SetSize(uniform_buffer_size)
+      .SetUniformBuffer();
+
+    for (int i = 0; i < swapchain_image_views_.size(); i++)
+    {
+      auto uniform_buffer = uniform_buffer_creator.Create();
+      auto uniform_buffer_memory = DeviceMemory::Allocator{ device_ }
+        .SetHostVisibleCoherentMemory(uniform_buffer, physical_device_)
+        .Allocate();
+      uniform_buffer.Bind(uniform_buffer_memory);
+
+      uniform_buffers_.emplace_back(std::move(uniform_buffer));
+      uniform_buffer_memories_.emplace_back(std::move(uniform_buffer_memory));
     }
   }
 
@@ -330,7 +379,9 @@ private:
 
   void CreateGraphicsPipeline()
   {
-    pipeline_layout_ = PipelineLayout::Creator{ device_ }.Create();
+    pipeline_layout_ = PipelineLayout::Creator{ device_ }
+      .SetLayouts({ uniform_buffer_layout_ })
+      .Create();
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
       .SetShader(vert_shader_, frag_shader_)
@@ -378,6 +429,14 @@ private:
 
   void CleanupSwapchain()
   {
+    for (auto& uniform_buffer : uniform_buffers_)
+      uniform_buffer.Destroy();
+    uniform_buffers_.clear();
+
+    for (auto& uniform_buffer_memory : uniform_buffer_memories_)
+      uniform_buffer_memory.Free();
+    uniform_buffer_memories_.clear();
+
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
     swapchain_framebuffers_.clear();
@@ -414,6 +473,7 @@ private:
 
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;
+  vkw::DescriptorSetLayout uniform_buffer_layout_;
   vkw::PipelineLayout pipeline_layout_;
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;
@@ -433,6 +493,11 @@ private:
   vkw::DeviceMemory vertex_buffer_memory_;
   vkw::Buffer index_buffer_;
   vkw::DeviceMemory index_buffer_memory_;
+  std::vector<vkw::Buffer> uniform_buffers_;
+  std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
+
+  glm::mat4 projection_matrix_;
+  glm::mat4 view_matrix_;
 
   int width_ = 0;
   int height_ = 0;
@@ -453,6 +518,11 @@ void Engine::Draw()
 void Engine::Resize(int width, int height)
 {
   impl_->Resize(width, height);
+}
+
+void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)
+{
+  impl_->UpdateCamera(camera);
 }
 }
 }
