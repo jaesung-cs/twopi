@@ -24,6 +24,7 @@ public:
     Creator& SetTransferSrcBuffer();
     Creator& SetTransferDstBuffer();
     Creator& SetVertexBuffer();
+    Creator& SetIndexBuffer();
 
     Buffer Create();
 

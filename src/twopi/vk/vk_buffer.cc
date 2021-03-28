@@ -42,6 +42,12 @@ Buffer::Creator& Buffer::Creator::SetVertexBuffer()
   return *this;
 }
 
+Buffer::Creator& Buffer::Creator::SetIndexBuffer()
+{
+  usage_ |= vk::BufferUsageFlagBits::eIndexBuffer;
+  return *this;
+}
+
 Buffer Buffer::Creator::Create()
 {
   create_info_.setUsage(usage_);

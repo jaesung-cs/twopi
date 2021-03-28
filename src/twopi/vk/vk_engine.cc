@@ -116,9 +116,10 @@ public:
 
     CreateFramebuffers();
 
-    constexpr auto buffer_size = sizeof(float) * 18;
+    constexpr auto buffer_size = sizeof(float) * 24;
+    constexpr auto index_buffer_size = sizeof(uint32_t) * 6;
     vertex_staging_buffer_ = Buffer::Creator{ device_ }
-      .SetSize(buffer_size)
+      .SetSize(buffer_size + index_buffer_size)
       .SetTransferSrcBuffer()
       .Create();
 
@@ -128,18 +129,27 @@ public:
 
     vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
 
-    void* ptr = vertex_staging_buffer_memory_.Map();
-    float buffer[] = {
+    auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_memory_.Map());
+
+    float vertex_buffer[] = {
       // Position
-      0.f, -0.5f, 0.f,
-      0.5f, 0.5f, 0.f,
+      -0.5f, -0.5f, 0.f,
+      0.5f, -0.5f, 0.f,
       -0.5f, 0.5f, 0.f,
+      0.5f, 0.5f, 0.f,
       // Color
-      1.f, 1.f, 1.f,
+      1.f, 0.f, 0.f,
       0.f, 1.f, 0.f,
       0.f, 0.f, 1.f,
+      1.f, 1.f, 1.f,
     };
-    std::memcpy(ptr, buffer, buffer_size);
+    std::memcpy(ptr, vertex_buffer, buffer_size);
+
+    uint32_t index_buffer[] = {
+      0, 1, 2, 2, 3, 1
+    };
+    std::memcpy(ptr + buffer_size, index_buffer, index_buffer_size);
+
     vertex_staging_buffer_memory_.Unmap();
 
     vertex_buffer_ = Buffer::Creator{ device_ }
@@ -154,6 +164,18 @@ public:
 
     vertex_buffer_.Bind(vertex_buffer_memory_);
 
+    index_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(buffer_size)
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    index_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(index_buffer_, physical_device_)
+      .Allocate();
+
+    index_buffer_.Bind(index_buffer_memory_);
+
     // One time transfer
     auto transient_command_pool = CommandPool::Creator{ device_ }
       .SetTransient()
@@ -163,6 +185,7 @@ public:
     copy_command
       .BeginOneTime()
       .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
+      .CopyBuffer(vertex_staging_buffer_, buffer_size, index_buffer_, 0, index_buffer_size)
       .End();
 
     graphics_queue_.Submit(copy_command);
@@ -200,6 +223,8 @@ public:
     vertex_staging_buffer_memory_.Free();
     vertex_buffer_.Destroy();
     vertex_buffer_memory_.Free();
+    index_buffer_.Destroy();
+    index_buffer_memory_.Free();
 
     for (auto& in_flight_fence : in_flight_fences_)
       in_flight_fence.Destroy();
@@ -343,8 +368,9 @@ private:
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
         .BindVertexBuffers({ vertex_buffer_, vertex_buffer_ }, { 0, 9 * sizeof(float) })
+        .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
-        .Draw(3, 1, 0, 0)
+        .DrawIndexed(6, 1)
         .EndRenderPass()
         .End();
     }
@@ -405,6 +431,8 @@ private:
   vkw::DeviceMemory vertex_staging_buffer_memory_;
   vkw::Buffer vertex_buffer_;
   vkw::DeviceMemory vertex_buffer_memory_;
+  vkw::Buffer index_buffer_;
+  vkw::DeviceMemory index_buffer_memory_;
 
   int width_ = 0;
   int height_ = 0;

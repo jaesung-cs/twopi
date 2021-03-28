@@ -84,6 +84,12 @@ CommandBuffer& CommandBuffer::BindVertexBuffers(std::vector<Buffer> buffers, std
   return *this;
 }
 
+CommandBuffer& CommandBuffer::BindIndexBuffer(Buffer buffer)
+{
+  command_buffer_.bindIndexBuffer(buffer, 0, vk::IndexType::eUint32);
+  return *this;
+}
+
 CommandBuffer& CommandBuffer::BindPipeline(GraphicsPipeline graphics_pipeline)
 {
   command_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, graphics_pipeline);
@@ -93,6 +99,12 @@ CommandBuffer& CommandBuffer::BindPipeline(GraphicsPipeline graphics_pipeline)
 CommandBuffer& CommandBuffer::Draw(int vertex_count, int instace_count, int first_vertex, int first_instance)
 {
   command_buffer_.draw(vertex_count, instace_count, first_vertex, first_instance);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::DrawIndexed(int index_count, int instance_count)
+{
+  command_buffer_.drawIndexed(index_count, instance_count, 0, 0, 0);
   return *this;
 }
 
@@ -113,10 +125,15 @@ CommandBuffer& CommandBuffer::BeginOneTime()
 
 CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst, uint64_t size)
 {
+  return CopyBuffer(src, 0, dst, 0, size);
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size)
+{
   vk::BufferCopy copy_region;
   copy_region
-    .setSrcOffset(0)
-    .setDstOffset(0)
+    .setSrcOffset(src_offset)
+    .setDstOffset(dst_offset)
     .setSize(size);
 
   command_buffer_.copyBuffer(src, dst, copy_region);
@@ -126,6 +143,11 @@ CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst, uint64_t size)
 void CommandBuffer::End()
 {
   command_buffer_.end();
+}
+
+void CommandBuffer::Reset()
+{
+  command_buffer_.reset();
 }
 
 CommandBuffer::operator vk::CommandBuffer() const
