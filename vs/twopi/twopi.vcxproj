@@ -130,8 +130,7 @@
     </Link>
     <PreBuildEvent>
       <Command>cd $(SolutionDir)..\src\twopi\shader\vk\
-C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.vert -o triangle.vert.spv
-C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Command>
+python compile.py</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -155,8 +154,7 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     </Link>
     <PreBuildEvent>
       <Command>cd $(SolutionDir)..\src\twopi\shader\vk\
-C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.vert -o triangle.vert.spv
-C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Command>
+python compile.py</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -180,6 +178,7 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     <ClCompile Include="..\..\src\twopi\vk\vk_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_command_pool.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_device.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_device_memory.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_engine.cc" />
@@ -228,6 +227,7 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     <ClInclude Include="..\..\src\twopi\vk\vk_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_command_pool.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_device.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_device_memory.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_engine.h" />
@@ -264,10 +264,11 @@ C:\VulkanSDK\1.2.162.0\Bin32\glslc.exe triangle.frag -o triangle.frag.spv</Comma
     <None Include="..\..\src\twopi\shader\gl\vr_screen.frag" />
     <None Include="..\..\src\twopi\shader\gl\vr_screen.vert" />
     <None Include="..\..\src\twopi\shader\vk\.gitignore" />
+    <None Include="..\..\src\twopi\shader\vk\compile.py" />
     <None Include="..\..\src\twopi\shader\vk\triangle.frag" />
-    <None Include="..\..\src\twopi\shader\vk\triangle.frag.spv" />
     <None Include="..\..\src\twopi\shader\vk\triangle.vert" />
-    <None Include="..\..\src\twopi\shader\vk\triangle.vert.spv" />
+    <None Include="..\..\src\twopi\shader\vk\triangle_3d.frag" />
+    <None Include="..\..\src\twopi\shader\vk\triangle_3d.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
