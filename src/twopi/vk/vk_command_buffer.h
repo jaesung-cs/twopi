@@ -15,6 +15,8 @@ class RenderPass;
 class Framebuffer;
 class GraphicsPipeline;
 class Buffer;
+class PipelineLayout;
+class DescriptorSet;
 
 class CommandBuffer
 {
@@ -49,6 +51,7 @@ public:
   CommandBuffer& BindPipeline(GraphicsPipeline graphics_pipeline);
   CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets);
   CommandBuffer& BindIndexBuffer(Buffer buffer);
+  CommandBuffer& BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
   CommandBuffer& DrawIndexed(int index_count, int instance_count);
   CommandBuffer& EndRenderPass();

@@ -6,6 +6,8 @@
 #include <twopi/vk/vk_framebuffer.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
 #include <twopi/vk/vk_buffer.h>
+#include <twopi/vk/vk_pipeline_layout.h>
+#include <twopi/vk/vk_descriptor_set.h>
 
 namespace twopi
 {
@@ -93,6 +95,14 @@ CommandBuffer& CommandBuffer::BindIndexBuffer(Buffer buffer)
 CommandBuffer& CommandBuffer::BindPipeline(GraphicsPipeline graphics_pipeline)
 {
   command_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, graphics_pipeline);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets)
+{
+  std::vector<vk::DescriptorSet> descriptor_set_handles(descriptor_sets.cbegin(), descriptor_sets.cend());
+  std::vector<uint32_t> offsets(descriptor_sets.size(), 0u);
+  command_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, 0, descriptor_set_handles, nullptr);
   return *this;
 }
 

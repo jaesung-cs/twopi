@@ -189,6 +189,12 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_pool.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -333,6 +339,12 @@
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_pool.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>

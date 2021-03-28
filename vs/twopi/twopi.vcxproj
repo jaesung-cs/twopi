@@ -178,6 +178,8 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vk\vk_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_command_pool.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_pool.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_device.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_device_memory.cc" />
@@ -227,6 +229,8 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vk\vk_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_command_pool.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_pool.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_device.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_device_memory.h" />

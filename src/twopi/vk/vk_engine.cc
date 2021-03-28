@@ -27,6 +27,8 @@
 #include <twopi/vk/vk_buffer.h>
 #include <twopi/vk/vk_device_memory.h>
 #include <twopi/vk/vk_descriptor_set_layout.h>
+#include <twopi/vk/vk_descriptor_pool.h>
+#include <twopi/vk/vk_descriptor_set.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -262,6 +264,8 @@ public:
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
   {
     projection_matrix_ = camera->ProjectionMatrix();
+    projection_matrix_[1][1] *= -1.f;
+
     view_matrix_ = camera->ViewMatrix();
   }
 
@@ -288,11 +292,11 @@ public:
     constexpr uint64_t mat4_size = sizeof(float) * 16;
     glm::mat4 model_matrix{ 1.f };
 
-    auto* ptr = static_cast<unsigned char*>(uniform_buffer_memories_[current_frame_].Map());
+    auto* ptr = static_cast<unsigned char*>(uniform_buffer_memories_[image_index].Map());
     std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
-    uniform_buffer_memories_[current_frame_].Unmap();
+    uniform_buffer_memories_[image_index].Unmap();
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -368,6 +372,18 @@ private:
       uniform_buffers_.emplace_back(std::move(uniform_buffer));
       uniform_buffer_memories_.emplace_back(std::move(uniform_buffer_memory));
     }
+
+    uniform_descriptor_pool_ = DescriptorPool::Creator{ device_ }
+      .SetSize(swapchain_image_views_.size())
+      .Create();
+
+    uniform_descriptor_sets_ = DescriptorSet::Allocator{ device_, uniform_descriptor_pool_ }
+      .SetLayout(uniform_buffer_layout_)
+      .SetSize(swapchain_image_views_.size())
+      .Allocate();
+
+    for (int i = 0; i < uniform_descriptor_sets_.size(); i++)
+      uniform_descriptor_sets_[i].Update(uniform_buffers_[i]);
   }
 
   void CreateRenderPass()
@@ -421,6 +437,7 @@ private:
         .BindVertexBuffers({ vertex_buffer_, vertex_buffer_ }, { 0, 9 * sizeof(float) })
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
+        .BindDescriptorSets(pipeline_layout_, { uniform_descriptor_sets_[i] })
         .DrawIndexed(6, 1)
         .EndRenderPass()
         .End();
@@ -436,6 +453,8 @@ private:
     for (auto& uniform_buffer_memory : uniform_buffer_memories_)
       uniform_buffer_memory.Free();
     uniform_buffer_memories_.clear();
+
+    uniform_descriptor_pool_.Destroy();
 
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
@@ -495,6 +514,8 @@ private:
   vkw::DeviceMemory index_buffer_memory_;
   std::vector<vkw::Buffer> uniform_buffers_;
   std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
+  vkw::DescriptorPool uniform_descriptor_pool_;
+  std::vector<vkw::DescriptorSet> uniform_descriptor_sets_;
 
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrix_;
