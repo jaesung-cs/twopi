@@ -18,17 +18,33 @@ Buffer::Creator::Creator(Device device)
 
 Buffer::Creator::~Creator() = default;
 
-Buffer::Creator& Buffer::Creator::SetVertexBufferSize(int size)
+Buffer::Creator& Buffer::Creator::SetSize(uint64_t size)
 {
-  create_info_
-    .setSize(size)
-    .setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
+  create_info_.setSize(size);
+  return *this;
+}
 
+Buffer::Creator& Buffer::Creator::SetTransferSrcBuffer()
+{
+  usage_ |= vk::BufferUsageFlagBits::eTransferSrc;
+  return *this;
+}
+
+Buffer::Creator& Buffer::Creator::SetTransferDstBuffer()
+{
+  usage_ |= vk::BufferUsageFlagBits::eTransferDst;
+  return *this;
+}
+
+Buffer::Creator& Buffer::Creator::SetVertexBuffer()
+{
+  usage_ |= vk::BufferUsageFlagBits::eVertexBuffer;
   return *this;
 }
 
 Buffer Buffer::Creator::Create()
 {
+  create_info_.setUsage(usage_);
   const auto handle = device_.createBuffer(create_info_);
   return Buffer{ device_, handle };
 }

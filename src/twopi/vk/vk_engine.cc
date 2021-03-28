@@ -117,17 +117,18 @@ public:
     CreateFramebuffers();
 
     constexpr auto buffer_size = sizeof(float) * 18;
-    vertex_buffer_ = Buffer::Creator{ device_ }
-      .SetVertexBufferSize(buffer_size)
+    vertex_staging_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(buffer_size)
+      .SetTransferSrcBuffer()
       .Create();
 
-    vertex_buffer_memory_ = DeviceMemory::Allocator{ device_ }
-      .SetHostVisibleCoherentMemory(vertex_buffer_, physical_device_)
+    vertex_staging_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(vertex_staging_buffer_, physical_device_)
       .Allocate();
 
-    vertex_buffer_.Bind(vertex_buffer_memory_);
+    vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
 
-    void* ptr = vertex_buffer_memory_.Map();
+    void* ptr = vertex_staging_buffer_memory_.Map();
     float buffer[] = {
       // Position
       0.f, -0.5f, 0.f,
@@ -139,7 +140,36 @@ public:
       0.f, 0.f, 1.f,
     };
     std::memcpy(ptr, buffer, buffer_size);
-    vertex_buffer_memory_.Unmap();
+    vertex_staging_buffer_memory_.Unmap();
+
+    vertex_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    vertex_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(vertex_buffer_, physical_device_)
+      .Allocate();
+
+    vertex_buffer_.Bind(vertex_buffer_memory_);
+
+    // One time transfer
+    auto transient_command_pool = CommandPool::Creator{ device_ }
+      .SetTransient()
+      .Create();
+
+    auto copy_command = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(1)[0];
+    copy_command
+      .BeginOneTime()
+      .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
+      .End();
+
+    graphics_queue_.Submit(copy_command);
+    graphics_queue_.WaitIdle();
+
+    copy_command.Free();
+    transient_command_pool.Destroy();
 
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
@@ -166,6 +196,8 @@ public:
 
     CleanupSwapchain();
 
+    vertex_staging_buffer_.Destroy();
+    vertex_staging_buffer_memory_.Free();
     vertex_buffer_.Destroy();
     vertex_buffer_memory_.Free();
 
@@ -369,6 +401,8 @@ private:
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
 
+  vkw::Buffer vertex_staging_buffer_;
+  vkw::DeviceMemory vertex_staging_buffer_memory_;
   vkw::Buffer vertex_buffer_;
   vkw::DeviceMemory vertex_buffer_memory_;
 

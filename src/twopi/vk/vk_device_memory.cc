@@ -18,10 +18,22 @@ DeviceMemory::Allocator::Allocator(const Device& device)
 
 DeviceMemory::Allocator::~Allocator() = default;
 
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device)
+{
+  constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+  SetMemory(buffer, physical_device, required_memory_properties);
+  return *this;
+}
+
 DeviceMemory::Allocator& DeviceMemory::Allocator::SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device)
 {
   constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+  SetMemory(buffer, physical_device, required_memory_properties);
+  return *this;
+}
 
+void DeviceMemory::Allocator::SetMemory(Buffer buffer, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties)
+{
   const auto memory_requirements = device_.MemoryRequirements(buffer);
   const auto memory_properties = physical_device.MemoryProperties();
 
@@ -39,9 +51,8 @@ DeviceMemory::Allocator& DeviceMemory::Allocator::SetHostVisibleCoherentMemory(B
   allocate_info_
     .setAllocationSize(memory_requirements.size)
     .setMemoryTypeIndex(memory_type_index);
-  
+
   size_ = memory_requirements.size;
-  return *this;
 }
 
 DeviceMemory DeviceMemory::Allocator::Allocate()

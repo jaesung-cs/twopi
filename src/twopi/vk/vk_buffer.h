@@ -20,7 +20,10 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
-    Creator& SetVertexBufferSize(int size);
+    Creator& SetSize(uint64_t size);
+    Creator& SetTransferSrcBuffer();
+    Creator& SetTransferDstBuffer();
+    Creator& SetVertexBuffer();
 
     Buffer Create();
 
@@ -28,6 +31,7 @@ public:
     const vk::Device device_;
 
     vk::BufferCreateInfo create_info_{};
+    vk::BufferUsageFlags usage_{};
   };
 
 public:

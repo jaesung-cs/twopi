@@ -30,12 +30,17 @@ Queue::operator vk::Queue() const
   return queue_;
 }
 
+void Queue::Submit(CommandBuffer command_buffer)
+{
+  Submit(command_buffer, {}, {}, {});
+}
+
 void Queue::Submit(CommandBuffer command_buffer, std::vector<Semaphore> wait_semaphores, std::vector<Semaphore> signal_semaphores, Fence fence)
 {
   std::vector<vk::Semaphore> wait_semaphore_handles(wait_semaphores.cbegin(), wait_semaphores.cend());
   std::vector<vk::Semaphore> signal_semaphore_handles(signal_semaphores.cbegin(), signal_semaphores.cend());
   std::vector<vk::CommandBuffer> command_buffer_handles{ command_buffer };
-  std::vector<vk::PipelineStageFlags> stage_mask{ vk::PipelineStageFlagBits::eColorAttachmentOutput };
+  std::vector<vk::PipelineStageFlags> stage_mask(wait_semaphores.size(), vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
   vk::SubmitInfo submit_info;
   submit_info
@@ -60,6 +65,11 @@ vk::Result Queue::Present(Swapchain swapchain, uint32_t image_index, std::vector
     .setImageIndices(image_indices);
 
   return queue_.presentKHR(present_info);
+}
+
+void Queue::WaitIdle()
+{
+  queue_.waitIdle();
 }
 }
 }

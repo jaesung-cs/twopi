@@ -102,6 +102,27 @@ CommandBuffer& CommandBuffer::EndRenderPass()
   return *this;
 }
 
+CommandBuffer& CommandBuffer::BeginOneTime()
+{
+  vk::CommandBufferBeginInfo begin_info{};
+  begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+  command_buffer_.begin(begin_info);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst, uint64_t size)
+{
+  vk::BufferCopy copy_region;
+  copy_region
+    .setSrcOffset(0)
+    .setDstOffset(0)
+    .setSize(size);
+
+  command_buffer_.copyBuffer(src, dst, copy_region);
+  return *this;
+}
+
 void CommandBuffer::End()
 {
   command_buffer_.end();

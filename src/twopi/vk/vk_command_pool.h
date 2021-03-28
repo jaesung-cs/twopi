@@ -20,6 +20,7 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& SetTransient();
     Creator& SetQueue(Queue queue);
 
     CommandPool Create();

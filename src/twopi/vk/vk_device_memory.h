@@ -21,11 +21,14 @@ public:
     explicit Allocator(const Device& device);
     ~Allocator();
 
+    Allocator& SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device);
     Allocator& SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device);
 
     DeviceMemory Allocate();
 
   private:
+    void SetMemory(Buffer buffer, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
+
     const Device& device_;
 
     uint64_t size_ = 0;

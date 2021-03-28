@@ -44,11 +44,16 @@ public:
   void Free();
 
   CommandBuffer& Begin();
+
   CommandBuffer& BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer);
   CommandBuffer& BindPipeline(GraphicsPipeline graphics_pipeline);
   CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
   CommandBuffer& EndRenderPass();
+
+  CommandBuffer& BeginOneTime();
+  CommandBuffer& CopyBuffer(Buffer src, Buffer dst, uint64_t size);
+
   void End();
 
   operator vk::CommandBuffer() const;
