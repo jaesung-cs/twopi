@@ -8,5 +8,6 @@ vs/*/x64/Debug/
 vs/*/x64/Release/
 
 .vscode/
+.VSCodeCounter/
 
 vcpkg/
