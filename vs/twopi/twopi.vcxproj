@@ -164,6 +164,8 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\geometry\image_loader.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\mesh.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\mesh_loader.cc" />
+    <ClCompile Include="..\..\src\twopi\gpu\gpu_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\gpu\gpu_swapchain.cc" />
     <ClCompile Include="..\..\src\twopi\main.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
@@ -216,6 +218,8 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\geometry\image_loader.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh.h" />
     <ClInclude Include="..\..\src\twopi\geometry\mesh_loader.h" />
+    <ClInclude Include="..\..\src\twopi\gpu\gpu_engine.h" />
+    <ClInclude Include="..\..\src\twopi\gpu\gpu_swapchain.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />
