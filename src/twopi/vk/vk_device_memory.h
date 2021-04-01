@@ -7,6 +7,7 @@ namespace twopi
 {
 namespace vkw
 {
+class Image;
 class Buffer;
 class Device;
 class PhysicalDevice;
@@ -21,13 +22,16 @@ public:
     explicit Allocator(const Device& device);
     ~Allocator();
 
+    Allocator& SetDeviceLocalMemory(Image image, PhysicalDevice physical_device);
     Allocator& SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device);
     Allocator& SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device);
 
     DeviceMemory Allocate();
 
   private:
+    void SetMemory(Image image, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
     void SetMemory(Buffer buffer, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
+    void SetMemory(vk::MemoryRequirements memory_requirements, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
 
     const Device& device_;
 

@@ -14,6 +14,7 @@ class CommandPool;
 class RenderPass;
 class Framebuffer;
 class GraphicsPipeline;
+class Image;
 class Buffer;
 class PipelineLayout;
 class DescriptorSet;
@@ -59,6 +60,8 @@ public:
   CommandBuffer& BeginOneTime();
   CommandBuffer& CopyBuffer(Buffer src, Buffer dst, uint64_t size);
   CommandBuffer& CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size);
+  CommandBuffer& PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout);
+  CommandBuffer& CopyBuffer(Buffer src, Image dst);
 
   void End();
 

@@ -1,5 +1,6 @@
 #include <twopi/vk/vk_device_memory.h>
 
+#include <twopi/vk/vk_image.h>
 #include <twopi/vk/vk_device.h>
 #include <twopi/vk/vk_buffer.h>
 #include <twopi/vk/vk_physical_device.h>
@@ -18,6 +19,13 @@ DeviceMemory::Allocator::Allocator(const Device& device)
 
 DeviceMemory::Allocator::~Allocator() = default;
 
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Image image, PhysicalDevice physical_device)
+{
+  constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+  SetMemory(image, physical_device, required_memory_properties);
+  return *this;
+}
+
 DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device)
 {
   constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
@@ -32,9 +40,20 @@ DeviceMemory::Allocator& DeviceMemory::Allocator::SetHostVisibleCoherentMemory(B
   return *this;
 }
 
+void DeviceMemory::Allocator::SetMemory(Image image, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties)
+{
+  const auto memory_requirements = device_.MemoryRequirements(image);
+  SetMemory(memory_requirements, physical_device, required_memory_properties);
+}
+
 void DeviceMemory::Allocator::SetMemory(Buffer buffer, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties)
 {
   const auto memory_requirements = device_.MemoryRequirements(buffer);
+  SetMemory(memory_requirements, physical_device, required_memory_properties);
+}
+
+void DeviceMemory::Allocator::SetMemory(vk::MemoryRequirements memory_requirements, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties)
+{
   const auto memory_properties = physical_device.MemoryProperties();
 
   int memory_type_index = -1;

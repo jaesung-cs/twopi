@@ -5,7 +5,8 @@
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
-#include <twopi/scene/geometry.h>
+#include <twopi/geometry/image_loader.h>
+#include <twopi/geometry/image.h>
 #include <twopi/scene/camera.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
@@ -185,22 +186,60 @@ public:
 
     index_buffer_.Bind(index_buffer_memory_);
 
-    // One time transfer
+    // Load image
+    const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
+    geometry::ImageLoader image_loader{};
+    auto image = image_loader.Load<uint8_t>(image_filepath);
+
+    // Create vulkan image
+    image_ = vkw::Image::Creator{ device_ }
+      .SetSize(image->Width(), image->Height())
+      .Create();
+
+    image_memory_ = vkw::DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(image_, physical_device_)
+      .Allocate();
+
+    image_.Bind(image_memory_);
+
+    image_staging_buffer_ = vkw::Buffer::Creator{ device_ }
+      .SetTransferSrcBuffer()
+      .SetSize(image->Width() * image->Height() * 4)
+      .Create();
+
+    image_staging_buffer_memory_ = vkw::DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(image_staging_buffer_, physical_device_)
+      .Allocate();
+
+    image_staging_buffer_.Bind(image_staging_buffer_memory_);
+
+    // One time transfer for vertex buffer
     auto transient_command_pool = CommandPool::Creator{ device_ }
       .SetTransient()
       .Create();
 
-    auto copy_command = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(1)[0];
-    copy_command
+    auto copy_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    copy_commands[0]
       .BeginOneTime()
       .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
       .CopyBuffer(vertex_staging_buffer_, buffer_size, index_buffer_, 0, index_buffer_size)
       .End();
 
-    graphics_queue_.Submit(copy_command);
+    graphics_queue_.Submit(copy_commands[0]);
+
+    // One time transfer for image
+
+    copy_commands[1]
+      .BeginOneTime()
+      // .CopyBuffer(image_staging_buffer_, image_, image_size)
+      .End();
+
+    graphics_queue_.Submit(copy_commands[1]);
     graphics_queue_.WaitIdle();
 
-    copy_command.Free();
+    for (auto& copy_command : copy_commands)
+      copy_command.Free();
+    copy_commands.clear();
     transient_command_pool.Destroy();
     
     CreateUniformBuffers();
@@ -519,6 +558,11 @@ private:
 
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrix_;
+
+  vkw::Image image_;
+  vkw::DeviceMemory image_memory_;
+  vkw::Buffer image_staging_buffer_;
+  vkw::DeviceMemory image_staging_buffer_memory_;
 
   int width_ = 0;
   int height_ = 0;

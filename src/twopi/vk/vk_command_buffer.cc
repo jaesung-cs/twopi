@@ -5,6 +5,7 @@
 #include <twopi/vk/vk_render_pass.h>
 #include <twopi/vk/vk_framebuffer.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
+#include <twopi/vk/vk_image.h>
 #include <twopi/vk/vk_buffer.h>
 #include <twopi/vk/vk_pipeline_layout.h>
 #include <twopi/vk/vk_descriptor_set.h>
@@ -147,6 +148,55 @@ CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, uint64_t src_offset, Buffer
     .setSize(size);
 
   command_buffer_.copyBuffer(src, dst, copy_region);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+{
+  vk::ImageMemoryBarrier barrier;
+  barrier
+    .setOldLayout(old_layout)
+    .setNewLayout(new_layout)
+    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+    .setImage(image)
+    .setSubresourceRange(vk::ImageSubresourceRange{}
+      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setBaseMipLevel(0)
+      .setLevelCount(1)
+      .setBaseArrayLayer(0)
+      .setLayerCount(1))
+    .setSrcAccessMask(vk::AccessFlagBits{}) // TODO
+    .setDstAccessMask(vk::AccessFlagBits{}); // TODO
+
+  command_buffer_.pipelineBarrier(
+    vk::PipelineStageFlagBits{},
+    vk::PipelineStageFlagBits{},
+    vk::DependencyFlagBits{},
+    {},
+    {},
+    barrier
+  );
+
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Image dst)
+{
+  vk::BufferImageCopy region;
+  region
+    .setBufferOffset(0)
+    .setBufferRowLength(0)
+    .setBufferImageHeight(0)
+    .setImageSubresource(vk::ImageSubresourceLayers{}
+      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setMipLevel(0)
+      .setBaseArrayLayer(0)
+      .setLayerCount(1))
+    .setImageOffset(vk::Offset3D{ 0, 0, 0 })
+    .setImageExtent(vk::Extent3D{ static_cast<uint32_t>(dst.Width()), static_cast<uint32_t>(dst.Height()), 1 });
+
+  command_buffer_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, region);
   return *this;
 }
 
