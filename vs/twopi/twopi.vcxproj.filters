@@ -204,6 +204,9 @@
     <ClCompile Include="..\..\src\twopi\gpu\gpu_swapchain.cc">
       <Filter>src\twopi\gpu</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\gpu\gpu_device.cc">
+      <Filter>src\twopi\gpu</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -360,6 +363,9 @@
       <Filter>src\twopi\gpu</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\gpu\gpu_swapchain.h">
+      <Filter>src\twopi\gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\gpu\gpu_device.h">
       <Filter>src\twopi\gpu</Filter>
     </ClInclude>
   </ItemGroup>
