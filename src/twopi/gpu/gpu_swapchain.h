@@ -3,13 +3,16 @@
 
 #include <utility>
 #include <memory>
+#include <vector>
 
 namespace vk
 {
 enum class Result;
+enum class Format;
 class PhysicalDevice;
 class Device;
 class Semaphore;
+class ImageView;
 }
 
 namespace twopi
@@ -24,6 +27,10 @@ public:
   Swapchain() = delete;
   Swapchain(std::shared_ptr<Device> device, uint32_t width, uint32_t height);
   ~Swapchain();
+
+  const std::vector<vk::ImageView>& ImageViews() const;
+  uint32_t ImageCount() const;
+  vk::Format Format() const;
 
   void Resize(uint32_t width, uint32_t height);
 

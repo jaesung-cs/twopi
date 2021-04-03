@@ -26,6 +26,21 @@ public:
     Destroy();
   }
 
+  const std::vector<vk::ImageView>& ImageViews() const
+  {
+    return image_views_;
+  }
+
+  uint32_t ImageCount() const
+  {
+    return image_views_.size();
+  }
+
+  vk::Format Format() const
+  {
+    return format_.format;
+  }
+
   void Resize(uint32_t width, uint32_t height)
   {
     width_ = width;
@@ -45,6 +60,7 @@ private:
   void Create()
   {
     vk::PhysicalDevice physical_device = device_->PhysicalDevice();
+    vk::Device device = device_->DeviceHandle();
     vk::SurfaceKHR surface = device_->Surface();
 
     const auto available_formats = physical_device.getSurfaceFormatsKHR(surface);
@@ -68,7 +84,7 @@ private:
         present_mode = vk::PresentModeKHR::eMailbox;
     }
 
-    swapchain_ = device_->DeviceHandle().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
+    swapchain_ = device.createSwapchainKHR(vk::SwapchainCreateInfoKHR{
       {}, surface,
       image_count, format.format, format.colorSpace,
       { width_, height_ }, 1,
@@ -79,7 +95,18 @@ private:
       VK_TRUE, nullptr
       });
 
-    images_ = device_->DeviceHandle().getSwapchainImagesKHR(swapchain_);
+    images_ = device.getSwapchainImagesKHR(swapchain_);
+    for (int i = 0; i < images_.size(); i++)
+    {
+      image_views_.emplace_back(device.createImageView({
+        {}, images_[i],
+        vk::ImageViewType::e2D,
+        format.format, vk::ComponentMapping{},
+        { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
+        }));
+    }
+
+    format_ = format;
   }
 
   void Destroy()
@@ -89,10 +116,6 @@ private:
     for (auto& image_view : image_views_)
       device.destroyImageView(image_view);
     image_views_.clear();
-
-    for (auto& framebuffer : framebuffers_)
-      device.destroyFramebuffer(framebuffer);
-    framebuffers_.clear();
 
     device.destroySwapchainKHR(swapchain_);
   }
@@ -104,7 +127,7 @@ private:
   vk::SwapchainKHR swapchain_;
   std::vector<vk::Image> images_;
   std::vector<vk::ImageView> image_views_;
-  std::vector<vk::Framebuffer> framebuffers_;
+  vk::SurfaceFormatKHR format_;
 };
 
 Swapchain::Swapchain(std::shared_ptr<Device> device, uint32_t width, uint32_t height)
@@ -113,6 +136,21 @@ Swapchain::Swapchain(std::shared_ptr<Device> device, uint32_t width, uint32_t he
 }
 
 Swapchain::~Swapchain() = default;
+
+const std::vector<vk::ImageView>& Swapchain::ImageViews() const
+{
+  return impl_->ImageViews();
+}
+
+uint32_t Swapchain::ImageCount() const
+{
+  return impl_->ImageCount();
+}
+
+vk::Format Swapchain::Format() const
+{
+  return impl_->Format();
+}
 
 void Swapchain::Resize(uint32_t width, uint32_t height)
 {

@@ -55,12 +55,12 @@ public:
     };
     uint32_t num_glfw_extensions;
     auto glfw_extensions = glfwGetRequiredInstanceExtensions(&num_glfw_extensions);
-    for (int i = 0; i < num_glfw_extensions; i++)
+    for (uint32_t i = 0; i < num_glfw_extensions; i++)
       extension_names.push_back(glfw_extensions[i]);
 
     vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT> chain{
       { {}, &app_info, layer_names, extension_names },
-      { {}, 
+      { {},
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eError | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose,
         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
         debug_callback
@@ -79,10 +79,38 @@ public:
     surface_ = surface;
 
     device_ = std::make_shared<Device>(instance_, surface_);
+    const auto device_handle = device_->DeviceHandle();
 
     swapchain_ = std::make_shared<Swapchain>(device_, width_, height_);
 
-    const auto device_handle = device_->DeviceHandle();
+    // Render pass
+    const auto format = swapchain_->Format();
+    vk::AttachmentDescription attachment{
+      {}, format, vk::SampleCountFlagBits::e1,
+      vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
+      vk::AttachmentLoadOp::eLoad, vk::AttachmentStoreOp::eStore,
+      vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR
+    };
+    vk::AttachmentReference ref{ 0u, vk::ImageLayout::eColorAttachmentOptimal };
+    vk::SubpassDescription subpass{ {}, vk::PipelineBindPoint::eGraphics, {}, ref, {} };
+    vk::SubpassDependency subpass_dependency{
+      VK_SUBPASS_EXTERNAL, 0u,
+      vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+      vk::AccessFlags{}, vk::AccessFlagBits::eColorAttachmentWrite
+    };
+    render_pass_ = device_handle.createRenderPass({ {}, attachment, subpass, subpass_dependency });
+
+    // Swapchain framebuffers
+    const auto& image_views = swapchain_->ImageViews();
+    for (int i = 0; i < image_views.size(); i++)
+    {
+      vk::ImageView image_view = image_views[i];
+      swapchain_framebuffers_.emplace_back(device_handle.createFramebuffer({
+        {}, render_pass_, image_view, width_, height_, 1u
+        }));
+    }
+
+    // Triple buffering
     for (int i = 0; i < max_frames_in_flight_; i++)
     {
       image_available_semaphores_.emplace_back(device_handle.createSemaphore({}));
@@ -138,6 +166,9 @@ private:
 
   std::shared_ptr<Device> device_;
   std::shared_ptr<Swapchain> swapchain_;
+
+  vk::RenderPass render_pass_;
+  std::vector<vk::Framebuffer> swapchain_framebuffers_;
 
   std::vector<vk::Semaphore> image_available_semaphores_;
   std::vector<vk::Semaphore> render_finished_semaphores_;
