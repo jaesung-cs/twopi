@@ -1,5 +1,6 @@
 #include <twopi/vk/vk_command_buffer.h>
 
+#include <twopi/core/error.h>
 #include <twopi/vk/vk_device.h>
 #include <twopi/vk/vk_command_pool.h>
 #include <twopi/vk/vk_render_pass.h>
@@ -153,6 +154,30 @@ CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, uint64_t src_offset, Buffer
 
 CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
 {
+  vk::AccessFlags src_access_mask;
+  vk::AccessFlags dst_access_mask;
+  vk::PipelineStageFlags src_stage;
+  vk::PipelineStageFlags dst_stage;
+
+  if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eTransferDstOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits{};
+    dst_access_mask = vk::AccessFlagBits::eTransferWrite;
+
+    src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    dst_stage = vk::PipelineStageFlagBits::eTransfer;
+  }
+  else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits::eTransferWrite;
+    dst_access_mask = vk::AccessFlagBits::eShaderRead;
+
+    src_stage = vk::PipelineStageFlagBits::eTransfer;
+    dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+  }
+  else
+    throw core::Error("Unsupported layout transition");
+
   vk::ImageMemoryBarrier barrier;
   barrier
     .setOldLayout(old_layout)
@@ -166,12 +191,12 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
       .setLevelCount(1)
       .setBaseArrayLayer(0)
       .setLayerCount(1))
-    .setSrcAccessMask(vk::AccessFlagBits{}) // TODO
-    .setDstAccessMask(vk::AccessFlagBits{}); // TODO
+    .setSrcAccessMask(src_access_mask)
+    .setDstAccessMask(dst_access_mask);
 
   command_buffer_.pipelineBarrier(
-    vk::PipelineStageFlagBits{},
-    vk::PipelineStageFlagBits{},
+    src_stage,
+    dst_stage,
     vk::DependencyFlagBits{},
     {},
     {},

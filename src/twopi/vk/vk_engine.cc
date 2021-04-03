@@ -228,18 +228,26 @@ public:
     graphics_queue_.Submit(copy_commands[0]);
 
     // One time transfer for image
+    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
     copy_commands[1]
       .BeginOneTime()
-      // .CopyBuffer(image_staging_buffer_, image_, image_size)
+      .CopyBuffer(image_staging_buffer_, image_)
       .End();
-
     graphics_queue_.Submit(copy_commands[1]);
     graphics_queue_.WaitIdle();
+
+    ChangeImageLayout(single_commands[1], image_, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    for (auto& single_command : single_commands)
+      single_command.Free();
+    single_commands.clear();
 
     for (auto& copy_command : copy_commands)
       copy_command.Free();
     copy_commands.clear();
+
     transient_command_pool.Destroy();
     
     CreateUniformBuffers();
@@ -470,7 +478,7 @@ private:
   void CreateCommandBuffers()
   {
     command_buffers_ = CommandBuffer::Allocator{ device_, command_pool_ }
-    .Allocate(swapchain_framebuffers_.size());
+      .Allocate(swapchain_framebuffers_.size());
 
     for (int i = 0; i < command_buffers_.size(); i++)
     {
@@ -517,6 +525,17 @@ private:
     swapchain_image_views_.clear();
 
     swapchain_.Destroy();
+  }
+
+  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+  {
+    command_buffer
+      .BeginOneTime()
+      .PipelineBarrier(image, old_layout, new_layout)
+      .End();
+
+    graphics_queue_.Submit(command_buffer);
+    graphics_queue_.WaitIdle();
   }
 
 private:
