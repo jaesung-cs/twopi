@@ -1,6 +1,8 @@
 #ifndef TWOPI_VK_VK_DESCRIPTOR_POOL_H_
 #define TWOPI_VK_VK_DESCRIPTOR_POOL_H_
 
+#include <vector>
+
 #include <vulkan/vulkan.hpp>
 
 namespace twopi
@@ -19,6 +21,8 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& AddUniformBuffer();
+    Creator& AddSampler();
     Creator& SetSize(uint32_t size);
 
     DescriptorPool Create();
@@ -26,8 +30,9 @@ public:
   private:
     const vk::Device device_;
 
-    vk::DescriptorPoolCreateInfo create_info_{};
-    vk::DescriptorPoolSize pool_size_{};
+    vk::DescriptorPoolCreateInfo create_info_;
+    std::vector<vk::DescriptorPoolSize> pool_sizes_;
+    uint32_t descriptor_count_;
   };
 
 public:

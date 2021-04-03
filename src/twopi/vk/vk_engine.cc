@@ -123,13 +123,16 @@ public:
 
     CreateRenderPass();
 
-    uniform_buffer_layout_ = DescriptorSetLayout::Creator{ device_ }.Create();
+    descriptor_set_layout_ = DescriptorSetLayout::Creator{ device_ }
+      .AddUniformBuffer()
+      .AddSampler()
+      .Create();
 
     CreateGraphicsPipeline();
 
     CreateFramebuffers();
 
-    constexpr auto buffer_size = sizeof(float) * 24;
+    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 4;
     constexpr auto index_buffer_size = sizeof(uint32_t) * 6;
     vertex_staging_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size + index_buffer_size)
@@ -139,7 +142,7 @@ public:
     vertex_staging_buffer_memory_ = DeviceMemory::Allocator{ device_ }
       .SetHostVisibleCoherentMemory(vertex_staging_buffer_, physical_device_)
       .Allocate();
-
+    
     vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
 
     auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_memory_.Map());
@@ -155,6 +158,11 @@ public:
       0.f, 1.f, 0.f,
       0.f, 0.f, 1.f,
       1.f, 1.f, 1.f,
+      // TexCoords
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
     };
     std::memcpy(ptr, vertex_buffer, buffer_size);
 
@@ -178,7 +186,7 @@ public:
     vertex_buffer_.Bind(vertex_buffer_memory_);
 
     index_buffer_ = Buffer::Creator{ device_ }
-      .SetSize(buffer_size)
+      .SetSize(index_buffer_size)
       .SetTransferDstBuffer()
       .SetIndexBuffer()
       .Create();
@@ -220,6 +228,11 @@ public:
 
     image_staging_buffer_.Bind(image_staging_buffer_memory_);
 
+    // Copy image pixels to image staging buffer
+    auto* image_ptr = static_cast<uint8_t*>(image_staging_buffer_memory_.Map());
+    std::memcpy(image_ptr, image->Buffer().data(), image->Buffer().size());
+    image_staging_buffer_memory_.Unmap();
+
     // One time transfer for vertex buffer
     auto transient_command_pool = CommandPool::Creator{ device_ }
       .SetTransient()
@@ -231,7 +244,6 @@ public:
       .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
       .CopyBuffer(vertex_staging_buffer_, buffer_size, index_buffer_, 0, index_buffer_size)
       .End();
-
     graphics_queue_.Submit(copy_commands[0]);
 
     // One time transfer for image
@@ -263,6 +275,20 @@ public:
       .Create();
     
     CreateUniformBuffers();
+
+    descriptor_pool_ = DescriptorPool::Creator{ device_ }
+      .AddUniformBuffer()
+      .AddSampler()
+      .SetSize(swapchain_image_views_.size())
+      .Create();
+
+    descriptor_sets_ = DescriptorSet::Allocator{ device_, descriptor_pool_ }
+      .SetLayout(descriptor_set_layout_)
+      .SetSize(swapchain_image_views_.size())
+      .Allocate();
+
+    for (int i = 0; i < descriptor_sets_.size(); i++)
+      descriptor_sets_[i].Update(uniform_buffers_[i], image_view_, sampler_);
 
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
@@ -297,7 +323,7 @@ public:
 
     sampler_.Destroy();
 
-    uniform_buffer_layout_.Destroy();
+    descriptor_set_layout_.Destroy();
 
     vertex_staging_buffer_.Destroy();
     vertex_staging_buffer_memory_.Free();
@@ -439,18 +465,6 @@ private:
       uniform_buffers_.emplace_back(std::move(uniform_buffer));
       uniform_buffer_memories_.emplace_back(std::move(uniform_buffer_memory));
     }
-
-    uniform_descriptor_pool_ = DescriptorPool::Creator{ device_ }
-      .SetSize(swapchain_image_views_.size())
-      .Create();
-
-    uniform_descriptor_sets_ = DescriptorSet::Allocator{ device_, uniform_descriptor_pool_ }
-      .SetLayout(uniform_buffer_layout_)
-      .SetSize(swapchain_image_views_.size())
-      .Allocate();
-
-    for (int i = 0; i < uniform_descriptor_sets_.size(); i++)
-      uniform_descriptor_sets_[i].Update(uniform_buffers_[i]);
   }
 
   void CreateRenderPass()
@@ -463,18 +477,18 @@ private:
   void CreateGraphicsPipeline()
   {
     pipeline_layout_ = PipelineLayout::Creator{ device_ }
-      .SetLayouts({ uniform_buffer_layout_ })
+      .SetLayouts({ descriptor_set_layout_ })
       .Create();
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
       .SetShader(vert_shader_, frag_shader_)
-      .SetVertexInput({ {0, 3}, {1, 3} })
+      .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
       .Create();
   }
-
+  
   void CreateFramebuffers()
   {
     auto framebuffer_creator = Framebuffer::Creator{ device_ };
@@ -501,10 +515,10 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_ }, { 0, 9 * sizeof(float) })
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 12 * sizeof(float), 24 * sizeof(float) })
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
-        .BindDescriptorSets(pipeline_layout_, { uniform_descriptor_sets_[i] })
+        .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
         .DrawIndexed(6, 1)
         .EndRenderPass()
         .End();
@@ -521,7 +535,7 @@ private:
       uniform_buffer_memory.Free();
     uniform_buffer_memories_.clear();
 
-    uniform_descriptor_pool_.Destroy();
+    descriptor_pool_.Destroy();
 
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
@@ -570,7 +584,8 @@ private:
 
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;
-  vkw::DescriptorSetLayout uniform_buffer_layout_;
+  vkw::DescriptorSetLayout descriptor_set_layout_;
+  vkw::DescriptorSetLayout sampler_layout_;
   vkw::PipelineLayout pipeline_layout_;
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;
@@ -592,8 +607,9 @@ private:
   vkw::DeviceMemory index_buffer_memory_;
   std::vector<vkw::Buffer> uniform_buffers_;
   std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
-  vkw::DescriptorPool uniform_descriptor_pool_;
-  std::vector<vkw::DescriptorSet> uniform_descriptor_sets_;
+
+  vkw::DescriptorPool descriptor_pool_;
+  std::vector<vkw::DescriptorSet> descriptor_sets_;
 
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrix_;

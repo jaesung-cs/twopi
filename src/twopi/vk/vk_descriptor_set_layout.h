@@ -1,6 +1,8 @@
 #ifndef TWOPI_VK_VK_DESCRIPTOR_SET_LAYOUT_H_
 #define TWOPI_VK_VK_DESCRIPTOR_SET_LAYOUT_H_
 
+#include <vector>
+
 #include <vulkan/vulkan.hpp>
 
 namespace twopi
@@ -19,13 +21,16 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& AddUniformBuffer();
+    Creator& AddSampler();
+
     DescriptorSetLayout Create();
 
   private:
     const vk::Device device_;
 
     vk::DescriptorSetLayoutCreateInfo create_info_{};
-    vk::DescriptorSetLayoutBinding binding_{};
+    std::vector<vk::DescriptorSetLayoutBinding> bindings_{};
   };
 
 public:

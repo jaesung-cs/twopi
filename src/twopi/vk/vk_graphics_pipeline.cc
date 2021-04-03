@@ -77,6 +77,7 @@ GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule ver
 
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput(std::initializer_list<Attribute> attributes)
 {
+  // TODO: bindings
   for (const auto& attribute : attributes)
   {
     const auto& index = attribute.index;

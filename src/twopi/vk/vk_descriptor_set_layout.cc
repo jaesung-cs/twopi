@@ -12,18 +12,43 @@ namespace vkw
 DescriptorSetLayout::Creator::Creator(Device device)
   : device_(device)
 {
-  binding_
-    .setBinding(0)
-    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-    .setDescriptorCount(1)
-    .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 }
 
 DescriptorSetLayout::Creator::~Creator() = default;
 
+DescriptorSetLayout::Creator& DescriptorSetLayout::Creator::AddUniformBuffer()
+{
+  vk::DescriptorSetLayoutBinding binding;
+  binding
+    .setBinding(bindings_.size())
+    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+    .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+    .setDescriptorCount(1);
+
+  bindings_.emplace_back(std::move(binding));
+
+  return *this;
+}
+
+DescriptorSetLayout::Creator& DescriptorSetLayout::Creator::AddSampler()
+{
+  vk::DescriptorSetLayoutBinding binding;
+  binding
+    .setBinding(bindings_.size())
+    .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+    .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+    .setImmutableSamplers({})
+    .setDescriptorCount(1);
+
+  bindings_.emplace_back(std::move(binding));
+
+  return *this;
+}
+
 DescriptorSetLayout DescriptorSetLayout::Creator::Create()
 {
-  create_info_.setBindings(binding_);
+  create_info_
+    .setBindings(bindings_);
 
   const auto handle = device_.createDescriptorSetLayout(create_info_);
   return DescriptorSetLayout{ device_, handle };

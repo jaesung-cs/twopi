@@ -29,6 +29,7 @@ public:
     int comp = 1;
 
     unsigned char* data = stbi_load(filepath.c_str(), &width, &height, &comp, STBI_rgb_alpha);
+    comp = STBI_rgb_alpha;
 
     const auto image = std::make_shared<Image<uint8_t>>(height, width, comp);
     image->CopyBuffer(data);

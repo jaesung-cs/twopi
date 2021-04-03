@@ -4,6 +4,8 @@
 #include <twopi/vk/vk_descriptor_pool.h>
 #include <twopi/vk/vk_descriptor_set_layout.h>
 #include <twopi/vk/vk_buffer.h>
+#include <twopi/vk/vk_image_view.h>
+#include <twopi/vk/vk_sampler.h>
 
 namespace twopi
 {
@@ -64,15 +66,23 @@ DescriptorSet::operator vk::DescriptorSet() const
   return descriptor_set_;
 }
 
-void DescriptorSet::Update(Buffer buffer)
+void DescriptorSet::Update(Buffer buffer, ImageView image_view, Sampler sampler)
 {
-  vk::DescriptorBufferInfo buffer_info{};
+  vk::DescriptorBufferInfo buffer_info;
+  vk::DescriptorImageInfo image_info;
+  std::vector<vk::WriteDescriptorSet> writes;
+
   buffer_info
     .setBuffer(buffer)
     .setOffset(0)
     .setRange(VK_WHOLE_SIZE);
 
-  vk::WriteDescriptorSet write{};
+  image_info
+    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+    .setImageView(image_view)
+    .setSampler(sampler);
+
+  vk::WriteDescriptorSet write;
   write
     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
     .setDescriptorCount(1)
@@ -80,8 +90,18 @@ void DescriptorSet::Update(Buffer buffer)
     .setDstBinding(0)
     .setDstArrayElement(0)
     .setBufferInfo(buffer_info);
+  writes.emplace_back(std::move(write));
 
-  device_.updateDescriptorSets(write, nullptr);
+  write
+    .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+    .setDescriptorCount(1)
+    .setDstSet(descriptor_set_)
+    .setDstBinding(1)
+    .setDstArrayElement(0)
+    .setImageInfo(image_info);
+  writes.emplace_back(std::move(write));
+
+  device_.updateDescriptorSets(writes, nullptr);
 }
 }
 }

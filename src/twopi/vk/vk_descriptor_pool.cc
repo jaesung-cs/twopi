@@ -12,22 +12,42 @@ namespace vkw
 DescriptorPool::Creator::Creator(Device device)
   : device_(device)
 {
-  pool_size_.setType(vk::DescriptorType::eUniformBuffer);
 }
 
 DescriptorPool::Creator::~Creator() = default;
 
+DescriptorPool::Creator& DescriptorPool::Creator::AddUniformBuffer()
+{
+  vk::DescriptorPoolSize pool_size;
+  pool_size.setType(vk::DescriptorType::eUniformBuffer);
+  pool_sizes_.emplace_back(std::move(pool_size));
+
+  return *this;
+}
+
+DescriptorPool::Creator& DescriptorPool::Creator::AddSampler()
+{
+  vk::DescriptorPoolSize pool_size;
+  pool_size.setType(vk::DescriptorType::eCombinedImageSampler);
+  pool_sizes_.emplace_back(std::move(pool_size));
+
+  return *this;
+}
+
 DescriptorPool::Creator& DescriptorPool::Creator::SetSize(uint32_t size)
 {
-  pool_size_.setDescriptorCount(size);
+  descriptor_count_ = size;
   return *this;
 }
 
 DescriptorPool DescriptorPool::Creator::Create()
 {
+  for (auto& pool_size : pool_sizes_)
+    pool_size.setDescriptorCount(descriptor_count_);
+
   create_info_
-    .setPoolSizes(pool_size_)
-    .setMaxSets(pool_size_.descriptorCount);
+    .setPoolSizes(pool_sizes_)
+    .setMaxSets(descriptor_count_);
 
   const auto handle = device_.createDescriptorPool(create_info_);
   return DescriptorPool{ device_, handle };

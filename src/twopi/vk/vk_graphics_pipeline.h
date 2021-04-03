@@ -1,6 +1,8 @@
 #ifndef TWOPI_VK_VK_GRAPHICS_PIPELINE_H_
 #define TWOPI_VK_VK_GRAPHICS_PIPELINE_H_
 
+#include <initializer_list>
+
 #include <vulkan/vulkan.hpp>
 
 namespace twopi

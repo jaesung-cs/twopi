@@ -11,6 +11,8 @@ class Device;
 class DescriptorPool;
 class DescriptorSetLayout;
 class Buffer;
+class ImageView;
+class Sampler;
 
 class DescriptorSet
 {
@@ -44,7 +46,7 @@ public:
 
   operator vk::DescriptorSet() const;
 
-  void Update(Buffer buffer);
+  void Update(Buffer buffer, ImageView image_view, Sampler sampler);
 
 private:
   vk::Device device_;
