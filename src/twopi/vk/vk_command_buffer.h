@@ -60,8 +60,11 @@ public:
   CommandBuffer& BeginOneTime();
   CommandBuffer& CopyBuffer(Buffer src, Buffer dst, uint64_t size);
   CommandBuffer& CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size);
-  CommandBuffer& PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout);
+  CommandBuffer& PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels = 1, int mip_level = 0);
   CommandBuffer& CopyBuffer(Buffer src, Image dst);
+
+  // From mip_level - 1 to mip_level
+  CommandBuffer& BlitImage(Image image, uint32_t width, uint32_t height, int mip_level);
 
   void End();
 

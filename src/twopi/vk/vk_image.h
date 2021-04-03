@@ -20,6 +20,8 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& SetTransferSrc();
+    Creator& SetMipLevels(int mip_levels);
     Creator& SetDepthStencilImage();
     Creator& SetSize(int width, int height);
 

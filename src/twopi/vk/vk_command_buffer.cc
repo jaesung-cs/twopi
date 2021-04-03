@@ -155,7 +155,7 @@ CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, uint64_t src_offset, Buffer
   return *this;
 }
 
-CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels, int mip_level)
 {
   vk::AccessFlags src_access_mask;
   vk::AccessFlags dst_access_mask;
@@ -178,6 +178,14 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
     src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
     dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
   }
+  else if (old_layout == vk::ImageLayout::eTransferSrcOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits::eTransferWrite;
+    dst_access_mask = vk::AccessFlagBits::eShaderRead;
+
+    src_stage = vk::PipelineStageFlagBits::eTransfer;
+    dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+  }
   else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal)
   {
     src_access_mask = vk::AccessFlagBits::eTransferWrite;
@@ -185,6 +193,14 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
 
     src_stage = vk::PipelineStageFlagBits::eTransfer;
     dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+  }
+  else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eTransferSrcOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits::eTransferWrite;
+    dst_access_mask = vk::AccessFlagBits::eTransferRead;
+
+    src_stage = vk::PipelineStageFlagBits::eTransfer;
+    dst_stage = vk::PipelineStageFlagBits::eTransfer;
   }
   else
     throw core::Error("Unsupported layout transition");
@@ -202,8 +218,8 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
     .setImage(image)
     .setSubresourceRange(vk::ImageSubresourceRange{}
       .setAspectMask(aspect_mask)
-      .setBaseMipLevel(0)
-      .setLevelCount(1)
+      .setBaseMipLevel(mip_level)
+      .setLevelCount(mip_levels)
       .setBaseArrayLayer(0)
       .setLayerCount(1))
     .setSrcAccessMask(src_access_mask)
@@ -237,6 +253,26 @@ CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Image dst)
     .setImageExtent(vk::Extent3D{ static_cast<uint32_t>(dst.Width()), static_cast<uint32_t>(dst.Height()), 1 });
 
   command_buffer_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, region);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::BlitImage(Image image, uint32_t width, uint32_t height, int mip_level)
+{
+  std::array<vk::Offset3D, 2> src_offsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int>(width), static_cast<int>(height), 1 } };
+  std::array<vk::Offset3D, 2> dst_offsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int>(width) / 2, static_cast<int>(height) / 2, 1 } };
+
+  vk::ImageBlit region;
+  region
+    .setSrcOffsets(src_offsets)
+    .setSrcSubresource(vk::ImageSubresourceLayers{ vk::ImageAspectFlagBits::eColor, static_cast<uint32_t>(mip_level) - 1, 0, 1 })
+    .setDstOffsets(dst_offsets)
+    .setDstSubresource(vk::ImageSubresourceLayers{ vk::ImageAspectFlagBits::eColor, static_cast<uint32_t>(mip_level), 0, 1 });
+
+  command_buffer_.blitImage(
+    image, vk::ImageLayout::eTransferSrcOptimal,
+    image, vk::ImageLayout::eTransferDstOptimal,
+    region, vk::Filter::eLinear);
+
   return *this;
 }
 

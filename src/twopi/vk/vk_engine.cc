@@ -208,6 +208,8 @@ public:
     // Create vulkan image
     image_ = vkw::Image::Creator{ device_ }
       .SetSize(image->Width(), image->Height())
+      .SetMipLevels(3)
+      .SetTransferSrc()
       .Create();
 
     image_memory_ = vkw::DeviceMemory::Allocator{ device_ }
@@ -218,6 +220,7 @@ public:
 
     image_view_ = vkw::ImageView::Creator{ device_ }
       .SetImage(image_)
+      .SetMipLevels(3)
       .Create();
 
     image_staging_buffer_ = vkw::Buffer::Creator{ device_ }
@@ -250,8 +253,8 @@ public:
     graphics_queue_.Submit(copy_commands[0]);
 
     // One time transfer for image
-    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(3);
-    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
 
     copy_commands[1]
       .BeginOneTime()
@@ -260,7 +263,7 @@ public:
     graphics_queue_.Submit(copy_commands[1]);
     graphics_queue_.WaitIdle();
 
-    ChangeImageLayout(single_commands[1], image_, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    GenerateMipmaps(single_commands[1], image_, 3);
 
     // Depth buffer
     depth_image_ = Image::Creator{ device_ }
@@ -291,6 +294,7 @@ public:
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
+      .SetMipLevels(3)
       .EnableAnisotropy(physical_device_)
       .Create();
 
@@ -605,11 +609,36 @@ private:
     swapchain_.Destroy();
   }
 
-  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels = 1)
   {
     command_buffer
       .BeginOneTime()
-      .PipelineBarrier(image, old_layout, new_layout)
+      .PipelineBarrier(image, old_layout, new_layout, mip_levels)
+      .End();
+
+    graphics_queue_.Submit(command_buffer);
+    graphics_queue_.WaitIdle();
+  }
+
+  void GenerateMipmaps(vkw::CommandBuffer command_buffer, vkw::Image image, int mip_levels)
+  {
+    command_buffer.BeginOneTime();
+
+    auto width = image.Width();
+    auto height = image.Height();
+    for (int i = 1; i < mip_levels; i++)
+    {
+      command_buffer
+        .PipelineBarrier(image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, 1, i - 1)
+        .BlitImage(image, width, height, i)
+        .PipelineBarrier(image, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1, i - 1);
+
+      width /= 2;
+      height /= 2;
+    }
+
+    command_buffer
+      .PipelineBarrier(image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1, mip_levels - 1)
       .End();
 
     graphics_queue_.Submit(command_buffer);
