@@ -269,6 +269,11 @@ public:
 
     CleanupSwapchain();
 
+    image_.Destroy();
+    image_memory_.Free();
+    image_staging_buffer_.Destroy();
+    image_staging_buffer_memory_.Free();
+
     uniform_buffer_layout_.Destroy();
 
     vertex_staging_buffer_.Destroy();
