@@ -30,6 +30,7 @@
 #include <twopi/vk/vk_descriptor_set_layout.h>
 #include <twopi/vk/vk_descriptor_pool.h>
 #include <twopi/vk/vk_descriptor_set.h>
+#include <twopi/vk/vk_sampler.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -80,6 +81,8 @@ public:
         std::cout << "    " << "Discrete GPU" << std::endl;
       if (physical_device.Features().geometryShader)
         std::cout << "    " << "Has Geometry Shader" << std::endl;
+      if (physical_device.Features().samplerAnisotropy)
+        std::cout << "    " << "Has Sampler Anisotropy" << std::endl;
 
       std::cout << "    Extensions:" << std::endl;
       const auto extensions = physical_device.Extensions();
@@ -202,6 +205,10 @@ public:
 
     image_.Bind(image_memory_);
 
+    image_view_ = vkw::ImageView::Creator{ device_ }
+      .SetImage(image_)
+      .Create();
+
     image_staging_buffer_ = vkw::Buffer::Creator{ device_ }
       .SetTransferSrcBuffer()
       .SetSize(image->Width() * image->Height() * 4)
@@ -249,6 +256,11 @@ public:
     copy_commands.clear();
 
     transient_command_pool.Destroy();
+
+    // Create image sampler
+    sampler_ = vkw::Sampler::Creator{ device_ }
+      .EnableAnisotropy(physical_device_)
+      .Create();
     
     CreateUniformBuffers();
 
@@ -278,9 +290,12 @@ public:
     CleanupSwapchain();
 
     image_.Destroy();
+    image_view_.Destroy();
     image_memory_.Free();
     image_staging_buffer_.Destroy();
     image_staging_buffer_memory_.Free();
+
+    sampler_.Destroy();
 
     uniform_buffer_layout_.Destroy();
 
@@ -584,9 +599,11 @@ private:
   glm::mat4 view_matrix_;
 
   vkw::Image image_;
+  vkw::ImageView image_view_;
   vkw::DeviceMemory image_memory_;
   vkw::Buffer image_staging_buffer_;
   vkw::DeviceMemory image_staging_buffer_memory_;
+  vkw::Sampler sampler_;
 
   int width_ = 0;
   int height_ = 0;

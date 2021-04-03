@@ -195,6 +195,9 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_sampler.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -345,6 +348,9 @@
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_sampler.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
   </ItemGroup>

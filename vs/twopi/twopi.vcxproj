@@ -194,6 +194,7 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vk\vk_pipeline_layout.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_queue.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_render_pass.cc" />
+    <ClCompile Include="..\..\src\twopi\vk\vk_sampler.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_semaphore.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_shader_module.cc" />
     <ClCompile Include="..\..\src\twopi\vk\vk_surface.cc" />
@@ -245,6 +246,7 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vk\vk_pipeline_layout.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_queue.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_render_pass.h" />
+    <ClInclude Include="..\..\src\twopi\vk\vk_sampler.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_semaphore.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_shader_module.h" />
     <ClInclude Include="..\..\src\twopi\vk\vk_surface.h" />
