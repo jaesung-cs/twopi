@@ -56,8 +56,10 @@ public:
 
   void Run()
   {
-    core::Timestamp previous_timestamp = core::Clock::now();
+    core::Timestamp start_timestamp = core::Clock::now();
+    core::Timestamp previous_timestamp = start_timestamp;
 
+    uint64_t frames = 0;
     while (!ShouldTerminate())
     {
       const auto current_timestamp = core::Clock::now();
@@ -77,6 +79,13 @@ public:
       vk_engine_->Draw();
 
       SwapBuffers();
+
+      frames++;
+
+      const auto fps = frames / std::chrono::duration<double>(current_timestamp - start_timestamp).count();
+
+      // Sleep until the next timestep
+      std::this_thread::sleep_until(previous_timestamp + std::chrono::duration<double>(1. / frames_per_second_));
 
       previous_timestamp = current_timestamp;
     }
@@ -223,7 +232,7 @@ private:
     return window_->ShouldClose();
   }
 
-  const double frames_per_second_ = 60.;
+  const double frames_per_second_ = 144.;
   std::shared_ptr<window::Window> window_;
 
   // Vulkan engine
