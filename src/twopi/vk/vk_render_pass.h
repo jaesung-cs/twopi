@@ -21,19 +21,25 @@ public:
     ~Creator();
 
     Creator& SetFormat(Image image);
+    Creator& SetMultisample4();
 
     RenderPass Create();
 
   private:
     const vk::Device device_;
 
-    vk::RenderPassCreateInfo create_info_{};
-    vk::AttachmentDescription color_attachment_{};
-    vk::AttachmentReference color_attachment_ref_{};
-    vk::AttachmentDescription depth_attachment_{};
-    vk::AttachmentReference depth_attachment_ref_{};
-    vk::SubpassDescription subpass_{};
-    vk::SubpassDependency dependency_{};
+    vk::RenderPassCreateInfo create_info_;
+    vk::AttachmentDescription color_attachment_;
+    vk::AttachmentReference color_attachment_ref_;
+    vk::AttachmentDescription depth_attachment_;
+    vk::AttachmentReference depth_attachment_ref_;
+    vk::SubpassDescription subpass_;
+    vk::SubpassDependency dependency_;
+    vk::Format format_;
+
+    bool has_color_attachment_resolve_ = false;
+    vk::AttachmentDescription color_attachment_resolve_;
+    vk::AttachmentReference color_attachment_resolve_ref_;
   };
 
 public:

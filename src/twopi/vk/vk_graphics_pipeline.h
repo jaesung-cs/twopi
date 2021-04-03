@@ -34,6 +34,7 @@ public:
     Creator(Device device);
     ~Creator();
 
+    Creator& SetMultisample4();
     Creator& SetShader(ShaderModule vert_shader, ShaderModule frag_shader);
     Creator& SetVertexInput(std::initializer_list<Attribute> attributes);
     Creator& SetViewport(int width, int height);

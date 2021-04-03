@@ -20,6 +20,7 @@ public:
     Creator(Device device);
     ~Creator();
 
+    Creator& SetMipLevels(int mip_levels);
     Creator& SetImage(Image image);
     Creator& SetDepthImage(Image image);
 

@@ -391,5 +391,11 @@
     <None Include="..\..\src\twopi\shader\vk\triangle_3d.vert">
       <Filter>src\twopi\shader\vk</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\vk\mesh.frag">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\mesh.vert">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -27,6 +27,14 @@ ImageView::Creator::Creator(Device device)
 
 ImageView::Creator::~Creator() = default;
 
+ImageView::Creator& ImageView::Creator::SetMipLevels(int mip_levels)
+{
+  image_subresource_range_
+    .setLevelCount(mip_levels);
+
+  return *this;
+}
+
 ImageView::Creator& ImageView::Creator::SetImage(Image image)
 {
   create_info_

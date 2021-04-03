@@ -65,6 +65,14 @@ GraphicsPipeline::Creator::Creator(Device device)
 
 GraphicsPipeline::Creator::~Creator() = default;
 
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetMultisample4()
+{
+  multisample_info_
+    .setRasterizationSamples(vk::SampleCountFlagBits::e4);
+
+  return *this;
+}
+
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule vert_shader, ShaderModule frag_shader)
 {
   shader_stages_.clear();

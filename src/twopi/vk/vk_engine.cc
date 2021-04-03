@@ -7,6 +7,8 @@
 #include <twopi/window/glfw_window.h>
 #include <twopi/geometry/image_loader.h>
 #include <twopi/geometry/image.h>
+#include <twopi/geometry/mesh_loader.h>
+#include <twopi/geometry/mesh.h>
 #include <twopi/scene/camera.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
@@ -118,8 +120,8 @@ public:
     const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
 #endif
     ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/mesh.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/mesh.frag.spv").Create();
 
     CreateRenderPass();
 
@@ -130,8 +132,19 @@ public:
 
     CreateGraphicsPipeline();
 
-    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 8;
-    constexpr auto index_buffer_size = sizeof(uint32_t) * 12;
+    // Load image
+    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
+    geometry::MeshLoader mesh_loader{};
+    auto mesh = mesh_loader.Load(mesh_filepath);
+
+    const auto& vertex_buffer = mesh->Vertices();
+    const auto& normal_buffer = mesh->Normals();
+    const auto& tex_coords_buffer = mesh->TexCoords();
+    const auto buffer_size = (vertex_buffer.size() + normal_buffer.size() + tex_coords_buffer.size()) * sizeof(float);
+
+    const auto& index_buffer = mesh->Indices();
+    const auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
+
     vertex_staging_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size + index_buffer_size)
       .SetTransferSrcBuffer()
@@ -140,54 +153,28 @@ public:
     vertex_staging_buffer_memory_ = DeviceMemory::Allocator{ device_ }
       .SetHostVisibleCoherentMemory(vertex_staging_buffer_, physical_device_)
       .Allocate();
-    
+
     vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
 
     auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_memory_.Map());
 
-    float vertex_buffer[] = {
-      // Position
-      -0.5f, -0.5f, 0.f,
-      0.5f, -0.5f, 0.f,
-      -0.5f, 0.5f, 0.f,
-      0.5f, 0.5f, 0.f,
+    std::memcpy(ptr, vertex_buffer.data(), vertex_buffer.size() * sizeof(float));
+    ptr += vertex_buffer.size() * sizeof(float);
 
-      -0.5f, -0.5f, 0.1f,
-      0.5f, -0.5f, 0.1f,
-      -0.5f, 0.5f, 0.1f,
-      0.5f, 0.5f, 0.1f,
+    std::memcpy(ptr, normal_buffer.data(), normal_buffer.size() * sizeof(float));
+    ptr += normal_buffer.size() * sizeof(float);
 
-      // Color
-      1.f, 0.f, 0.f,
-      0.f, 1.f, 0.f,
-      0.f, 0.f, 1.f,
-      1.f, 1.f, 1.f,
+    std::memcpy(ptr, tex_coords_buffer.data(), tex_coords_buffer.size() * sizeof(float));
+    ptr += tex_coords_buffer.size() * sizeof(float);
 
-      1.f, 0.f, 0.f,
-      0.f, 1.f, 0.f,
-      0.f, 0.f, 1.f,
-      1.f, 1.f, 1.f,
-
-      // TexCoords
-      0.f, 0.f,
-      1.f, 0.f,
-      0.f, 1.f,
-      1.f, 1.f,
-
-      0.f, 0.f,
-      1.f, 0.f,
-      0.f, 1.f,
-      1.f, 1.f,
-    };
-    std::memcpy(ptr, vertex_buffer, buffer_size);
-
-    uint32_t index_buffer[] = {
-      0, 1, 2, 2, 3, 1,
-      4, 5, 6, 6, 7, 5
-    };
-    std::memcpy(ptr + buffer_size, index_buffer, index_buffer_size);
+    std::memcpy(ptr, index_buffer.data(), index_buffer.size() * sizeof(uint32_t));
+    ptr += index_buffer.size() * sizeof(uint32_t);
 
     vertex_staging_buffer_memory_.Unmap();
+
+    normal_offset_ = vertex_buffer.size() * sizeof(float);
+    tex_coord_offset_ = (vertex_buffer.size() + normal_buffer.size()) * sizeof(float);
+    num_indices_ = index_buffer.size();
 
     vertex_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size)
@@ -221,6 +208,8 @@ public:
     // Create vulkan image
     image_ = vkw::Image::Creator{ device_ }
       .SetSize(image->Width(), image->Height())
+      .SetMipLevels(3)
+      .SetTransferSrc()
       .Create();
 
     image_memory_ = vkw::DeviceMemory::Allocator{ device_ }
@@ -231,6 +220,7 @@ public:
 
     image_view_ = vkw::ImageView::Creator{ device_ }
       .SetImage(image_)
+      .SetMipLevels(3)
       .Create();
 
     image_staging_buffer_ = vkw::Buffer::Creator{ device_ }
@@ -263,8 +253,8 @@ public:
     graphics_queue_.Submit(copy_commands[0]);
 
     // One time transfer for image
-    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(3);
-    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
 
     copy_commands[1]
       .BeginOneTime()
@@ -273,17 +263,18 @@ public:
     graphics_queue_.Submit(copy_commands[1]);
     graphics_queue_.WaitIdle();
 
-    ChangeImageLayout(single_commands[1], image_, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    GenerateMipmaps(single_commands[1], image_, 3);
 
     // Depth buffer
     depth_image_ = Image::Creator{ device_ }
       .SetDepthStencilImage()
+      .SetMultisample4()
       .SetSize(width_, height_)
       .Create();
 
     depth_image_memory_ = DeviceMemory::Allocator{ device_ }
       .SetDeviceLocalMemory(depth_image_, physical_device_)
-      .SetSize(1900 * 1200 * 4)
+      .SetSize(1900 * 1200 * 16)
       .Allocate();
 
     depth_image_.Bind(depth_image_memory_);
@@ -291,6 +282,9 @@ public:
     depth_image_view_ = ImageView::Creator{ device_ }
       .SetDepthImage(depth_image_)
       .Create();
+
+    // Color rendertarget
+    CreateRendertargetImage();
 
     for (auto& single_command : single_commands)
       single_command.Free();
@@ -304,6 +298,7 @@ public:
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
+      .SetMipLevels(3)
       .EnableAnisotropy(physical_device_)
       .Create();
 
@@ -445,6 +440,7 @@ private:
     CreateSwapchain();
     CreateSwapchainImageViews();
     RecreateDepthBuffer();
+    CreateRendertargetImage();
     CreateUniformBuffers();
     CreateDescriptorSets();
     CreateRenderPass();
@@ -484,6 +480,26 @@ private:
 
     depth_image_view_ = ImageView::Creator{ device_ }
       .SetDepthImage(depth_image_)
+      .Create();
+  }
+
+  void CreateRendertargetImage()
+  {
+    rendertarget_image_ = Image::Creator{ device_ }
+      .SetSize(width_, height_)
+      .SetMultisample4()
+      .SetTransientColorAttachment()
+      .SetFormat(swapchain_images_[0].Format())
+      .Create();
+
+    rendertarget_image_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(rendertarget_image_, physical_device_)
+      .Allocate();
+
+    rendertarget_image_.Bind(rendertarget_image_memory_);
+
+    rendertarget_image_view_ = ImageView::Creator{ device_ }
+      .SetImage(rendertarget_image_)
       .Create();
   }
 
@@ -529,6 +545,7 @@ private:
   {
     render_pass_ = RenderPass::Creator{ device_ }
       .SetFormat(swapchain_images_[0])
+      .SetMultisample4()
       .Create();
   }
 
@@ -539,6 +556,7 @@ private:
       .Create();
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
+      .SetMultisample4()
       .SetShader(vert_shader_, frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
@@ -553,7 +571,7 @@ private:
     for (const auto& swapchain_image_view : swapchain_image_views_)
     {
       auto swapchain_framebuffer = framebuffer_creator
-        .SetAttachments({ swapchain_image_view, depth_image_view_ })
+        .SetAttachments({ rendertarget_image_view_, depth_image_view_, swapchain_image_view })
         .SetExtent(width_, height_)
         .SetRenderPass(render_pass_)
         .Create();
@@ -573,11 +591,11 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 8 * 3 * sizeof(float), 8 * (3 + 3) * sizeof(float) })
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, normal_offset_, tex_coord_offset_ })
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
         .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(12, 1)
+        .DrawIndexed(num_indices_, 1)
         .EndRenderPass()
         .End();
     }
@@ -587,6 +605,10 @@ private:
   {
     depth_image_.Destroy();
     depth_image_view_.Destroy();
+
+    rendertarget_image_.Destroy();
+    rendertarget_image_view_.Destroy();
+    rendertarget_image_memory_.Free();
 
     for (auto& uniform_buffer : uniform_buffers_)
       uniform_buffer.Destroy();
@@ -618,11 +640,36 @@ private:
     swapchain_.Destroy();
   }
 
-  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels = 1)
   {
     command_buffer
       .BeginOneTime()
-      .PipelineBarrier(image, old_layout, new_layout)
+      .PipelineBarrier(image, old_layout, new_layout, mip_levels)
+      .End();
+
+    graphics_queue_.Submit(command_buffer);
+    graphics_queue_.WaitIdle();
+  }
+
+  void GenerateMipmaps(vkw::CommandBuffer command_buffer, vkw::Image image, int mip_levels)
+  {
+    command_buffer.BeginOneTime();
+
+    auto width = image.Width();
+    auto height = image.Height();
+    for (int i = 1; i < mip_levels; i++)
+    {
+      command_buffer
+        .PipelineBarrier(image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, 1, i - 1)
+        .BlitImage(image, width, height, i)
+        .PipelineBarrier(image, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1, i - 1);
+
+      width /= 2;
+      height /= 2;
+    }
+
+    command_buffer
+      .PipelineBarrier(image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1, mip_levels - 1)
       .End();
 
     graphics_queue_.Submit(command_buffer);
@@ -669,6 +716,9 @@ private:
   vkw::DeviceMemory index_buffer_memory_;
   std::vector<vkw::Buffer> uniform_buffers_;
   std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
+  uint64_t normal_offset_ = 0;
+  uint64_t tex_coord_offset_ = 0;
+  uint64_t num_indices_ = 0;
 
   vkw::DescriptorPool descriptor_pool_;
   std::vector<vkw::DescriptorSet> descriptor_sets_;
@@ -686,6 +736,10 @@ private:
   vkw::Image depth_image_;
   vkw::DeviceMemory depth_image_memory_;
   vkw::ImageView depth_image_view_;
+
+  vkw::Image rendertarget_image_;
+  vkw::DeviceMemory rendertarget_image_memory_;
+  vkw::ImageView rendertarget_image_view_;
 
   int width_ = 0;
   int height_ = 0;

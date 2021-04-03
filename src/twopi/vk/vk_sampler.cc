@@ -17,6 +17,12 @@ Sampler::Creator::Creator(Device device)
 
 Sampler::Creator::~Creator() = default;
 
+Sampler::Creator& Sampler::Creator::SetMipLevels(int mip_levels)
+{
+  mip_levels_ = mip_levels;
+  return *this;
+}
+
 Sampler::Creator& Sampler::Creator::EnableAnisotropy(PhysicalDevice physical_device)
 {
   create_info_
@@ -41,7 +47,7 @@ Sampler Sampler::Creator::Create()
     .setMipmapMode(vk::SamplerMipmapMode::eLinear)
     .setMipLodBias(0.f)
     .setMinLod(0.f)
-    .setMaxLod(0.f);
+    .setMaxLod(mip_levels_);
 
   const auto sampler = device_.createSampler(create_info_);
   return Sampler{ device_, sampler };

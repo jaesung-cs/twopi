@@ -22,6 +22,7 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& SetMipLevels(int mip_levels);
     Creator& EnableAnisotropy(PhysicalDevice physical_device);
 
     Sampler Create();
@@ -29,6 +30,7 @@ public:
   private:
     vk::Device device_;
     vk::SamplerCreateInfo create_info_;
+    int mip_levels_ = 0;
   };
 
 public:

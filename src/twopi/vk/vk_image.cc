@@ -28,6 +28,33 @@ Image::Creator::Creator(Device device)
 
 Image::Creator::~Creator() = default;
 
+Image::Creator& Image::Creator::SetTransferSrc()
+{
+  create_info_
+    .setUsage(vk::ImageUsageFlagBits::eTransferSrc | create_info_.usage);
+  return *this;
+}
+
+Image::Creator& Image::Creator::SetMipLevels(int mip_levels)
+{
+  create_info_.setMipLevels(mip_levels);
+  return *this;
+}
+
+Image::Creator& Image::Creator::SetMultisample4()
+{
+  create_info_.setSamples(vk::SampleCountFlagBits::e4);
+  return *this;
+}
+
+Image::Creator& Image::Creator::SetTransientColorAttachment()
+{
+  create_info_
+    .setUsage(vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment);
+
+  return *this;
+}
+
 Image::Creator& Image::Creator::SetDepthStencilImage()
 {
   format_ = vk::Format::eD24UnormS8Uint;
@@ -35,6 +62,12 @@ Image::Creator& Image::Creator::SetDepthStencilImage()
   create_info_
     .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
 
+  return *this;
+}
+
+Image::Creator& Image::Creator::SetFormat(vk::Format format)
+{
+  format_ = format;
   return *this;
 }
 
