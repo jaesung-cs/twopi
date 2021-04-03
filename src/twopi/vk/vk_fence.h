@@ -29,7 +29,7 @@ public:
 
 public:
   Fence();
-  Fence(vk::Device device, vk::Fence fence_);
+  Fence(vk::Device device, vk::Fence fence);
 
   ~Fence();
 

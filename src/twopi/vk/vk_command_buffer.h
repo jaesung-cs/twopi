@@ -14,6 +14,10 @@ class CommandPool;
 class RenderPass;
 class Framebuffer;
 class GraphicsPipeline;
+class Image;
+class Buffer;
+class PipelineLayout;
+class DescriptorSet;
 
 class CommandBuffer
 {
@@ -22,7 +26,7 @@ public:
   {
   public:
     Allocator() = delete;
-    explicit Allocator(Device device, CommandPool command_pool);
+    Allocator(Device device, CommandPool command_pool);
     ~Allocator();
 
     std::vector<CommandBuffer> Allocate(int size);
@@ -43,11 +47,25 @@ public:
   void Free();
 
   CommandBuffer& Begin();
+
   CommandBuffer& BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer);
   CommandBuffer& BindPipeline(GraphicsPipeline graphics_pipeline);
+  CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets);
+  CommandBuffer& BindIndexBuffer(Buffer buffer);
+  CommandBuffer& BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
+  CommandBuffer& DrawIndexed(int index_count, int instance_count);
   CommandBuffer& EndRenderPass();
+
+  CommandBuffer& BeginOneTime();
+  CommandBuffer& CopyBuffer(Buffer src, Buffer dst, uint64_t size);
+  CommandBuffer& CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size);
+  CommandBuffer& PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout);
+  CommandBuffer& CopyBuffer(Buffer src, Image dst);
+
   void End();
+
+  void Reset();
 
   operator vk::CommandBuffer() const;
 

@@ -5,6 +5,9 @@
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
+#include <twopi/geometry/image_loader.h>
+#include <twopi/geometry/image.h>
+#include <twopi/scene/camera.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
 #include <twopi/vk/vk_device.h>
@@ -22,6 +25,15 @@
 #include <twopi/vk/vk_command_buffer.h>
 #include <twopi/vk/vk_semaphore.h>
 #include <twopi/vk/vk_fence.h>
+#include <twopi/vk/vk_buffer.h>
+#include <twopi/vk/vk_device_memory.h>
+#include <twopi/vk/vk_descriptor_set_layout.h>
+#include <twopi/vk/vk_descriptor_pool.h>
+#include <twopi/vk/vk_descriptor_set.h>
+#include <twopi/vk/vk_sampler.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace twopi
 {
@@ -69,6 +81,8 @@ public:
         std::cout << "    " << "Discrete GPU" << std::endl;
       if (physical_device.Features().geometryShader)
         std::cout << "    " << "Has Geometry Shader" << std::endl;
+      if (physical_device.Features().samplerAnisotropy)
+        std::cout << "    " << "Has Sampler Anisotropy" << std::endl;
 
       std::cout << "    Extensions:" << std::endl;
       const auto extensions = physical_device.Extensions();
@@ -104,14 +118,200 @@ public:
     const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
 #endif
     ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.frag.spv").Create();
 
     CreateRenderPass();
 
+    descriptor_set_layout_ = DescriptorSetLayout::Creator{ device_ }
+      .AddUniformBuffer()
+      .AddSampler()
+      .Create();
+
     CreateGraphicsPipeline();
 
+    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 8;
+    constexpr auto index_buffer_size = sizeof(uint32_t) * 12;
+    vertex_staging_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(buffer_size + index_buffer_size)
+      .SetTransferSrcBuffer()
+      .Create();
+
+    vertex_staging_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(vertex_staging_buffer_, physical_device_)
+      .Allocate();
+    
+    vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
+
+    auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_memory_.Map());
+
+    float vertex_buffer[] = {
+      // Position
+      -0.5f, -0.5f, 0.f,
+      0.5f, -0.5f, 0.f,
+      -0.5f, 0.5f, 0.f,
+      0.5f, 0.5f, 0.f,
+
+      -0.5f, -0.5f, 0.1f,
+      0.5f, -0.5f, 0.1f,
+      -0.5f, 0.5f, 0.1f,
+      0.5f, 0.5f, 0.1f,
+
+      // Color
+      1.f, 0.f, 0.f,
+      0.f, 1.f, 0.f,
+      0.f, 0.f, 1.f,
+      1.f, 1.f, 1.f,
+
+      1.f, 0.f, 0.f,
+      0.f, 1.f, 0.f,
+      0.f, 0.f, 1.f,
+      1.f, 1.f, 1.f,
+
+      // TexCoords
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
+
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
+    };
+    std::memcpy(ptr, vertex_buffer, buffer_size);
+
+    uint32_t index_buffer[] = {
+      0, 1, 2, 2, 3, 1,
+      4, 5, 6, 6, 7, 5
+    };
+    std::memcpy(ptr + buffer_size, index_buffer, index_buffer_size);
+
+    vertex_staging_buffer_memory_.Unmap();
+
+    vertex_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    vertex_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(vertex_buffer_, physical_device_)
+      .Allocate();
+
+    vertex_buffer_.Bind(vertex_buffer_memory_);
+
+    index_buffer_ = Buffer::Creator{ device_ }
+      .SetSize(index_buffer_size)
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    index_buffer_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(index_buffer_, physical_device_)
+      .Allocate();
+
+    index_buffer_.Bind(index_buffer_memory_);
+
+    // Load image
+    const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
+    geometry::ImageLoader image_loader{};
+    auto image = image_loader.Load<uint8_t>(image_filepath);
+
+    // Create vulkan image
+    image_ = vkw::Image::Creator{ device_ }
+      .SetSize(image->Width(), image->Height())
+      .Create();
+
+    image_memory_ = vkw::DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(image_, physical_device_)
+      .Allocate();
+
+    image_.Bind(image_memory_);
+
+    image_view_ = vkw::ImageView::Creator{ device_ }
+      .SetImage(image_)
+      .Create();
+
+    image_staging_buffer_ = vkw::Buffer::Creator{ device_ }
+      .SetTransferSrcBuffer()
+      .SetSize(image->Width() * image->Height() * 4)
+      .Create();
+
+    image_staging_buffer_memory_ = vkw::DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(image_staging_buffer_, physical_device_)
+      .Allocate();
+
+    image_staging_buffer_.Bind(image_staging_buffer_memory_);
+
+    // Copy image pixels to image staging buffer
+    auto* image_ptr = static_cast<uint8_t*>(image_staging_buffer_memory_.Map());
+    std::memcpy(image_ptr, image->Buffer().data(), image->Buffer().size());
+    image_staging_buffer_memory_.Unmap();
+
+    // One time transfer for vertex buffer
+    auto transient_command_pool = CommandPool::Creator{ device_ }
+      .SetTransient()
+      .Create();
+
+    auto copy_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    copy_commands[0]
+      .BeginOneTime()
+      .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
+      .CopyBuffer(vertex_staging_buffer_, buffer_size, index_buffer_, 0, index_buffer_size)
+      .End();
+    graphics_queue_.Submit(copy_commands[0]);
+
+    // One time transfer for image
+    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(3);
+    ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+
+    copy_commands[1]
+      .BeginOneTime()
+      .CopyBuffer(image_staging_buffer_, image_)
+      .End();
+    graphics_queue_.Submit(copy_commands[1]);
+    graphics_queue_.WaitIdle();
+
+    ChangeImageLayout(single_commands[1], image_, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    // Depth buffer
+    depth_image_ = Image::Creator{ device_ }
+      .SetDepthStencilImage()
+      .SetSize(width_, height_)
+      .Create();
+
+    depth_image_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(depth_image_, physical_device_)
+      .SetSize(1900 * 1200 * 4)
+      .Allocate();
+
+    depth_image_.Bind(depth_image_memory_);
+
+    depth_image_view_ = ImageView::Creator{ device_ }
+      .SetDepthImage(depth_image_)
+      .Create();
+
+    for (auto& single_command : single_commands)
+      single_command.Free();
+    single_commands.clear();
+
+    for (auto& copy_command : copy_commands)
+      copy_command.Free();
+    copy_commands.clear();
+
+    transient_command_pool.Destroy();
+
+    // Create image sampler
+    sampler_ = vkw::Sampler::Creator{ device_ }
+      .EnableAnisotropy(physical_device_)
+      .Create();
+
     CreateFramebuffers();
+
+    CreateUniformBuffers();
+
+    CreateDescriptorSets();
 
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
@@ -138,6 +338,25 @@ public:
 
     CleanupSwapchain();
 
+    depth_image_memory_.Free();
+
+    image_.Destroy();
+    image_view_.Destroy();
+    image_memory_.Free();
+    image_staging_buffer_.Destroy();
+    image_staging_buffer_memory_.Free();
+
+    sampler_.Destroy();
+
+    descriptor_set_layout_.Destroy();
+
+    vertex_staging_buffer_.Destroy();
+    vertex_staging_buffer_memory_.Free();
+    vertex_buffer_.Destroy();
+    vertex_buffer_memory_.Free();
+    index_buffer_.Destroy();
+    index_buffer_memory_.Free();
+
     for (auto& in_flight_fence : in_flight_fences_)
       in_flight_fence.Destroy();
     in_flight_fences_.clear();
@@ -160,6 +379,14 @@ public:
     instance_.Destroy();
   }
 
+  void UpdateCamera(std::shared_ptr<scene::Camera> camera)
+  {
+    projection_matrix_ = camera->ProjectionMatrix();
+    projection_matrix_[1][1] *= -1.f;
+
+    view_matrix_ = camera->ViewMatrix();
+  }
+
   void Draw()
   {
     in_flight_fences_[current_frame_].Wait();
@@ -178,6 +405,16 @@ public:
     images_in_flight_[image_index] = in_flight_fences_[current_frame_];
 
     in_flight_fences_[current_frame_].Reset();
+
+    // Update uniform buffer
+    constexpr uint64_t mat4_size = sizeof(float) * 16;
+    glm::mat4 model_matrix{ 1.f };
+
+    auto* ptr = static_cast<unsigned char*>(uniform_buffer_memories_[image_index].Map());
+    std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
+    std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
+    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
+    uniform_buffer_memories_[image_index].Unmap();
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -207,6 +444,9 @@ private:
 
     CreateSwapchain();
     CreateSwapchainImageViews();
+    RecreateDepthBuffer();
+    CreateUniformBuffers();
+    CreateDescriptorSets();
     CreateRenderPass();
     CreateGraphicsPipeline();
     CreateFramebuffers();
@@ -228,9 +468,61 @@ private:
   {
     for (const auto& swapchain_image : swapchain_images_)
     {
-      const auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
+      auto swapchain_image_view = ImageView::Creator{ device_ }.SetImage(swapchain_image).Create();
       swapchain_image_views_.emplace_back(std::move(swapchain_image_view));
     }
+  }
+
+  void RecreateDepthBuffer()
+  {
+    depth_image_ = Image::Creator{ device_ }
+      .SetDepthStencilImage()
+      .SetSize(width_, height_)
+      .Create();
+
+    depth_image_.Bind(depth_image_memory_);
+
+    depth_image_view_ = ImageView::Creator{ device_ }
+      .SetDepthImage(depth_image_)
+      .Create();
+  }
+
+  void CreateUniformBuffers()
+  {
+    // Uniform buffers
+    constexpr int uniform_buffer_size = sizeof(float) * 16 * 3;
+    auto uniform_buffer_creator = Buffer::Creator{ device_ }
+      .SetSize(uniform_buffer_size)
+      .SetUniformBuffer();
+
+    for (int i = 0; i < swapchain_image_views_.size(); i++)
+    {
+      auto uniform_buffer = uniform_buffer_creator.Create();
+      auto uniform_buffer_memory = DeviceMemory::Allocator{ device_ }
+        .SetHostVisibleCoherentMemory(uniform_buffer, physical_device_)
+        .Allocate();
+      uniform_buffer.Bind(uniform_buffer_memory);
+
+      uniform_buffers_.emplace_back(std::move(uniform_buffer));
+      uniform_buffer_memories_.emplace_back(std::move(uniform_buffer_memory));
+    }
+  }
+
+  void CreateDescriptorSets()
+  {
+    descriptor_pool_ = DescriptorPool::Creator{ device_ }
+      .AddUniformBuffer()
+      .AddSampler()
+      .SetSize(swapchain_image_views_.size())
+      .Create();
+
+    descriptor_sets_ = DescriptorSet::Allocator{ device_, descriptor_pool_ }
+      .SetLayout(descriptor_set_layout_)
+      .SetSize(swapchain_image_views_.size())
+      .Allocate();
+
+    for (int i = 0; i < descriptor_sets_.size(); i++)
+      descriptor_sets_[i].Update(uniform_buffers_[i], image_view_, sampler_);
   }
 
   void CreateRenderPass()
@@ -242,24 +534,26 @@ private:
 
   void CreateGraphicsPipeline()
   {
-    pipeline_layout_ = PipelineLayout::Creator{ device_ }.Create();
+    pipeline_layout_ = PipelineLayout::Creator{ device_ }
+      .SetLayouts({ descriptor_set_layout_ })
+      .Create();
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
       .SetShader(vert_shader_, frag_shader_)
-      .SetVertexInput()
+      .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
       .Create();
   }
-
+  
   void CreateFramebuffers()
   {
     auto framebuffer_creator = Framebuffer::Creator{ device_ };
     for (const auto& swapchain_image_view : swapchain_image_views_)
     {
       auto swapchain_framebuffer = framebuffer_creator
-        .SetAttachment(swapchain_image_view)
+        .SetAttachments({ swapchain_image_view, depth_image_view_ })
         .SetExtent(width_, height_)
         .SetRenderPass(render_pass_)
         .Create();
@@ -271,7 +565,7 @@ private:
   void CreateCommandBuffers()
   {
     command_buffers_ = CommandBuffer::Allocator{ device_, command_pool_ }
-    .Allocate(swapchain_framebuffers_.size());
+      .Allocate(swapchain_framebuffers_.size());
 
     for (int i = 0; i < command_buffers_.size(); i++)
     {
@@ -279,8 +573,11 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 8 * 3 * sizeof(float), 8 * (3 + 3) * sizeof(float) })
+        .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
-        .Draw(3, 1, 0, 0)
+        .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
+        .DrawIndexed(12, 1)
         .EndRenderPass()
         .End();
     }
@@ -288,6 +585,20 @@ private:
 
   void CleanupSwapchain()
   {
+    depth_image_.Destroy();
+    depth_image_view_.Destroy();
+
+    for (auto& uniform_buffer : uniform_buffers_)
+      uniform_buffer.Destroy();
+    uniform_buffers_.clear();
+
+    for (auto& uniform_buffer_memory : uniform_buffer_memories_)
+      uniform_buffer_memory.Free();
+    uniform_buffer_memories_.clear();
+
+    descriptor_pool_.Destroy();
+    descriptor_sets_.clear();
+
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
     swapchain_framebuffers_.clear();
@@ -307,6 +618,17 @@ private:
     swapchain_.Destroy();
   }
 
+  void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+  {
+    command_buffer
+      .BeginOneTime()
+      .PipelineBarrier(image, old_layout, new_layout)
+      .End();
+
+    graphics_queue_.Submit(command_buffer);
+    graphics_queue_.WaitIdle();
+  }
+
 private:
   vkw::Instance instance_;
   vkw::PhysicalDevice physical_device_;
@@ -324,6 +646,8 @@ private:
 
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;
+  vkw::DescriptorSetLayout descriptor_set_layout_;
+  vkw::DescriptorSetLayout sampler_layout_;
   vkw::PipelineLayout pipeline_layout_;
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;
@@ -336,6 +660,32 @@ private:
   std::vector<vkw::Semaphore> render_finished_semaphores_;
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
+
+  vkw::Buffer vertex_staging_buffer_;
+  vkw::DeviceMemory vertex_staging_buffer_memory_;
+  vkw::Buffer vertex_buffer_;
+  vkw::DeviceMemory vertex_buffer_memory_;
+  vkw::Buffer index_buffer_;
+  vkw::DeviceMemory index_buffer_memory_;
+  std::vector<vkw::Buffer> uniform_buffers_;
+  std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
+
+  vkw::DescriptorPool descriptor_pool_;
+  std::vector<vkw::DescriptorSet> descriptor_sets_;
+
+  glm::mat4 projection_matrix_;
+  glm::mat4 view_matrix_;
+
+  vkw::Image image_;
+  vkw::ImageView image_view_;
+  vkw::DeviceMemory image_memory_;
+  vkw::Buffer image_staging_buffer_;
+  vkw::DeviceMemory image_staging_buffer_memory_;
+  vkw::Sampler sampler_;
+
+  vkw::Image depth_image_;
+  vkw::DeviceMemory depth_image_memory_;
+  vkw::ImageView depth_image_view_;
 
   int width_ = 0;
   int height_ = 0;
@@ -356,6 +706,11 @@ void Engine::Draw()
 void Engine::Resize(int width, int height)
 {
   impl_->Resize(width, height);
+}
+
+void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)
+{
+  impl_->UpdateCamera(camera);
 }
 }
 }

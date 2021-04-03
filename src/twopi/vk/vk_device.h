@@ -15,6 +15,8 @@ class Surface;
 class Queue;
 class Swapchain;
 class Semaphore;
+class Image;
+class Buffer;
 
 class Device
 {
@@ -70,6 +72,9 @@ public:
 
   vkw::Queue Queue(int index) const;
   std::pair<uint32_t, vk::Result> AcquireNextImage(Swapchain swapchain, Semaphore semaphore);
+
+  vk::MemoryRequirements MemoryRequirements(Image image) const;
+  vk::MemoryRequirements MemoryRequirements(Buffer buffer) const;
 
   void WaitIdle();
 

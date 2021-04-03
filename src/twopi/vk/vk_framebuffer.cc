@@ -19,9 +19,15 @@ Framebuffer::Creator::Creator(Device device)
 
 Framebuffer::Creator::~Creator() = default;
 
+Framebuffer::Creator& Framebuffer::Creator::SetAttachments(std::initializer_list<ImageView> image_views)
+{
+  image_views_ = std::vector<vk::ImageView>(image_views.begin(), image_views.end());
+  return *this;
+}
+
 Framebuffer::Creator& Framebuffer::Creator::SetAttachment(ImageView image_view)
 {
-  image_view_ = image_view;
+  image_views_ = { image_view };
   return *this;
 }
 
@@ -45,7 +51,7 @@ Framebuffer::Creator& Framebuffer::Creator::SetRenderPass(RenderPass render_pass
 
 Framebuffer Framebuffer::Creator::Create()
 {
-  create_info_.setAttachments(image_view_);
+  create_info_.setAttachments(image_views_);
 
   const auto handle = device_.createFramebuffer(create_info_);
   auto framebuffer = Framebuffer{ device_, handle };

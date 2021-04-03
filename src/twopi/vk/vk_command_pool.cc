@@ -17,6 +17,12 @@ CommandPool::Creator::Creator(Device device)
 
 CommandPool::Creator::~Creator() = default;
 
+CommandPool::Creator& CommandPool::Creator::SetTransient()
+{
+  create_info_.setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+  return *this;
+}
+
 CommandPool::Creator& CommandPool::Creator::SetQueue(Queue queue)
 {
   create_info_.setQueueFamilyIndex(queue.QueueFamilyIndex());

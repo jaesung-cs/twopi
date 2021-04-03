@@ -7,22 +7,59 @@ namespace twopi
 {
 namespace vkw
 {
+class Device;
+class DeviceMemory;
+
 class Image
 {
+public:
+  class Creator
+  {
+  public:
+    Creator() = delete;
+    explicit Creator(Device device);
+    ~Creator();
+
+    Creator& SetDepthStencilImage();
+    Creator& SetSize(int width, int height);
+
+    Image Create();
+
+  private:
+    const vk::Device device_;
+
+    vk::ImageCreateInfo create_info_{};
+    vk::Format format_{};
+    int width_;
+    int height_;
+  };
+
 public:
   Image();
   Image(vk::Image image);
   Image(vk::Image image, vk::Format format);
+  Image(vk::Device device, vk::Image image);
+  Image(vk::Device device, vk::Image image, vk::Format format);
 
   ~Image();
+
+  void Destroy();
 
   operator vk::Image() const;
 
   vk::Format Format() const;
 
+  void Bind(DeviceMemory memory);
+
+  auto Width() const { return width_; }
+  auto Height() const { return height_; }
+
 private:
+  vk::Device device_;
   vk::Image image_;
   vk::Format format_;
+  int width_;
+  int height_;
 };
 }
 }

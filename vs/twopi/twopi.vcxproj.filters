@@ -177,6 +177,27 @@
     <ClCompile Include="..\..\src\twopi\vk\vk_fence.cc">
       <Filter>src\twopi\vk</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\geometry.cc">
+      <Filter>src\twopi\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_buffer.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_device_memory.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_pool.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vk\vk_sampler.cc">
+      <Filter>src\twopi\vk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -311,6 +332,27 @@
     <ClInclude Include="..\..\src\twopi\vk\vk_fence.h">
       <Filter>src\twopi\vk</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\geometry.h">
+      <Filter>src\twopi\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_buffer.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_device_memory.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_pool.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vk\vk_sampler.h">
+      <Filter>src\twopi\vk</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\twopi\shader\gl\mesh.frag">
@@ -337,13 +379,16 @@
     <None Include="..\..\src\twopi\shader\vk\triangle.vert">
       <Filter>src\twopi\shader\vk</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle.frag.spv">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle.vert.spv">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
     <None Include="..\..\src\twopi\shader\vk\.gitignore">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\compile.py">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle_3d.frag">
+      <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\vk\triangle_3d.vert">
       <Filter>src\twopi\shader\vk</Filter>
     </None>
   </ItemGroup>

@@ -1,17 +1,22 @@
 #include <twopi/vk/vk_command_buffer.h>
 
+#include <twopi/core/error.h>
 #include <twopi/vk/vk_device.h>
 #include <twopi/vk/vk_command_pool.h>
 #include <twopi/vk/vk_render_pass.h>
 #include <twopi/vk/vk_framebuffer.h>
 #include <twopi/vk/vk_graphics_pipeline.h>
+#include <twopi/vk/vk_image.h>
+#include <twopi/vk/vk_buffer.h>
+#include <twopi/vk/vk_pipeline_layout.h>
+#include <twopi/vk/vk_descriptor_set.h>
 
 namespace twopi
 {
 namespace vkw
 {
 //
-// Creator
+// Allocator
 //
 CommandBuffer::Allocator::Allocator(Device device, CommandPool command_pool)
   : device_(device), command_pool_(command_pool)
@@ -61,17 +66,34 @@ CommandBuffer& CommandBuffer::Begin()
 
 CommandBuffer& CommandBuffer::BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer)
 {
-  vk::ClearValue clear_value(std::array<float, 4>{0.8f, 0.8f, 0.8f, 1.f});
+  std::array<vk::ClearValue, 2> clear_values{
+    vk::ClearColorValue{ std::array<float, 4>{0.8f, 0.8f, 0.8f, 1.f} },
+    vk::ClearDepthStencilValue{ 1.f, 0u }
+  };
 
   vk::RenderPassBeginInfo render_pass_begin_info;
   render_pass_begin_info
     .setRenderPass(render_pass)
     .setFramebuffer(framebuffer)
     .setRenderArea(vk::Rect2D({ 0, 0 }, { framebuffer.Width(), framebuffer.Height() }))
-    .setClearValues(clear_value);
+    .setClearValues(clear_values);
 
   command_buffer_.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets)
+{
+  std::vector<vk::Buffer> buffer_handles(buffers.cbegin(), buffers.cend());
+  command_buffer_.bindVertexBuffers(0, buffer_handles, offsets);
+
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::BindIndexBuffer(Buffer buffer)
+{
+  command_buffer_.bindIndexBuffer(buffer, 0, vk::IndexType::eUint32);
   return *this;
 }
 
@@ -81,9 +103,23 @@ CommandBuffer& CommandBuffer::BindPipeline(GraphicsPipeline graphics_pipeline)
   return *this;
 }
 
+CommandBuffer& CommandBuffer::BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets)
+{
+  std::vector<vk::DescriptorSet> descriptor_set_handles(descriptor_sets.cbegin(), descriptor_sets.cend());
+  std::vector<uint32_t> offsets(descriptor_sets.size(), 0u);
+  command_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, 0, descriptor_set_handles, nullptr);
+  return *this;
+}
+
 CommandBuffer& CommandBuffer::Draw(int vertex_count, int instace_count, int first_vertex, int first_instance)
 {
   command_buffer_.draw(vertex_count, instace_count, first_vertex, first_instance);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::DrawIndexed(int index_count, int instance_count)
+{
+  command_buffer_.drawIndexed(index_count, instance_count, 0, 0, 0);
   return *this;
 }
 
@@ -93,9 +129,125 @@ CommandBuffer& CommandBuffer::EndRenderPass()
   return *this;
 }
 
+CommandBuffer& CommandBuffer::BeginOneTime()
+{
+  vk::CommandBufferBeginInfo begin_info{};
+  begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+  command_buffer_.begin(begin_info);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst, uint64_t size)
+{
+  return CopyBuffer(src, 0, dst, 0, size);
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size)
+{
+  vk::BufferCopy copy_region;
+  copy_region
+    .setSrcOffset(src_offset)
+    .setDstOffset(dst_offset)
+    .setSize(size);
+
+  command_buffer_.copyBuffer(src, dst, copy_region);
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout)
+{
+  vk::AccessFlags src_access_mask;
+  vk::AccessFlags dst_access_mask;
+  vk::PipelineStageFlags src_stage;
+  vk::PipelineStageFlags dst_stage;
+
+  if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eTransferDstOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits{};
+    dst_access_mask = vk::AccessFlagBits::eTransferWrite;
+
+    src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    dst_stage = vk::PipelineStageFlagBits::eTransfer;
+  }
+  else if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits{};
+    dst_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+    src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+  }
+  else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits::eTransferWrite;
+    dst_access_mask = vk::AccessFlagBits::eShaderRead;
+
+    src_stage = vk::PipelineStageFlagBits::eTransfer;
+    dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+  }
+  else
+    throw core::Error("Unsupported layout transition");
+
+  vk::ImageAspectFlags aspect_mask = vk::ImageAspectFlagBits::eColor;
+  if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    aspect_mask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+
+  vk::ImageMemoryBarrier barrier;
+  barrier
+    .setOldLayout(old_layout)
+    .setNewLayout(new_layout)
+    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+    .setImage(image)
+    .setSubresourceRange(vk::ImageSubresourceRange{}
+      .setAspectMask(aspect_mask)
+      .setBaseMipLevel(0)
+      .setLevelCount(1)
+      .setBaseArrayLayer(0)
+      .setLayerCount(1))
+    .setSrcAccessMask(src_access_mask)
+    .setDstAccessMask(dst_access_mask);
+
+  command_buffer_.pipelineBarrier(
+    src_stage,
+    dst_stage,
+    vk::DependencyFlagBits{},
+    {},
+    {},
+    barrier
+  );
+
+  return *this;
+}
+
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Image dst)
+{
+  vk::BufferImageCopy region;
+  region
+    .setBufferOffset(0)
+    .setBufferRowLength(0)
+    .setBufferImageHeight(0)
+    .setImageSubresource(vk::ImageSubresourceLayers{}
+      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setMipLevel(0)
+      .setBaseArrayLayer(0)
+      .setLayerCount(1))
+    .setImageOffset(vk::Offset3D{ 0, 0, 0 })
+    .setImageExtent(vk::Extent3D{ static_cast<uint32_t>(dst.Width()), static_cast<uint32_t>(dst.Height()), 1 });
+
+  command_buffer_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, region);
+  return *this;
+}
+
 void CommandBuffer::End()
 {
   command_buffer_.end();
+}
+
+void CommandBuffer::Reset()
+{
+  command_buffer_.reset();
 }
 
 CommandBuffer::operator vk::CommandBuffer() const

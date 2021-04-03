@@ -1,5 +1,6 @@
 #include <twopi/scene/camera.h>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -72,6 +73,8 @@ public:
       return glm::perspective(glm::degrees(fovy_), aspect, near_, far_);
     case Type::ORTHO:
       return glm::ortho(-aspect * zoom_, aspect * zoom_, -zoom_, zoom_, near_, far_);
+    default:
+      return glm::mat4(1.f);
     }
   }
 
@@ -97,9 +100,9 @@ private:
 
   float zoom_ = 1.f;
 
-  glm::vec3 eye_;
-  glm::vec3 center_;
-  glm::vec3 up_;
+  glm::vec3 eye_{};
+  glm::vec3 center_{};
+  glm::vec3 up_{};
 };
 
 Camera::Camera()

@@ -47,6 +47,17 @@ GraphicsPipeline::Creator::Creator(Device device)
     .setAttachments(color_blend_attachment_)
     .setBlendConstants({ 0.f, 0.f, 0.f, 0.f });
 
+  depth_stencil_info_
+    .setDepthTestEnable(VK_TRUE)
+    .setDepthWriteEnable(VK_TRUE)
+    .setDepthCompareOp(vk::CompareOp::eLess)
+    .setDepthBoundsTestEnable(VK_FALSE)
+    .setMinDepthBounds(0.f)
+    .setMaxDepthBounds(1.f)
+    .setStencilTestEnable(VK_FALSE)
+    .setFront({})
+    .setBack({});
+
   dynamic_states_ = { vk::DynamicState::eViewport, vk::DynamicState::eLineWidth };
   dynamic_state_info_
     .setDynamicStates(dynamic_states_);
@@ -75,12 +86,45 @@ GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule ver
   return *this;
 }
 
-GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput()
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput(std::initializer_list<Attribute> attributes)
 {
-  // TODO: set with descriptions
+  // TODO: bindings
+  for (const auto& attribute : attributes)
+  {
+    const auto& index = attribute.index;
+    const auto& size = attribute.size;
+
+    vk::Format format;
+    switch (size)
+    {
+    case 2:
+      format = vk::Format::eR32G32Sfloat;
+      break;
+    case 3:
+      format = vk::Format::eR32G32B32Sfloat;
+      break;
+    }
+
+    vk::VertexInputBindingDescription binding_description{};
+    binding_description
+      .setBinding(index)
+      .setStride(size * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions_.emplace_back(std::move(binding_description));
+
+    vk::VertexInputAttributeDescription attribute_description{};
+    attribute_description
+      .setBinding(index)
+      .setLocation(index)
+      .setFormat(format)
+      .setOffset(0);
+    attribute_descriptions_.emplace_back(std::move(attribute_description));
+  }
+
+  // Set with binding and attribute descriptions
   vertex_input_info_
-    .setVertexBindingDescriptions({})
-    .setVertexAttributeDescriptions({});
+    .setVertexBindingDescriptions(binding_descriptions_)
+    .setVertexAttributeDescriptions(attribute_descriptions_);
 
   input_assembly_info_
     .setTopology(vk::PrimitiveTopology::eTriangleList)
@@ -136,6 +180,7 @@ GraphicsPipeline GraphicsPipeline::Creator::Create()
     .setPMultisampleState(&multisample_info_)
     .setPDepthStencilState(nullptr)
     .setPColorBlendState(&color_blend_info_)
+    .setPDepthStencilState(&depth_stencil_info_)
     .setPDynamicState(nullptr) // TODO
     .setBasePipelineHandle(nullptr)
     .setBasePipelineIndex(-1);

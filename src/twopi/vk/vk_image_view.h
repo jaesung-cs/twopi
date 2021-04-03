@@ -21,13 +21,15 @@ public:
     ~Creator();
 
     Creator& SetImage(Image image);
+    Creator& SetDepthImage(Image image);
 
     ImageView Create();
 
   private:
     vk::Device device_;
 
-    vk::ImageViewCreateInfo create_info_{};
+    vk::ImageViewCreateInfo create_info_;
+    vk::ImageSubresourceRange image_subresource_range_;
   };
 
 public:
