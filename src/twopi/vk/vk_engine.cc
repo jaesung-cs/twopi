@@ -268,12 +268,13 @@ public:
     // Depth buffer
     depth_image_ = Image::Creator{ device_ }
       .SetDepthStencilImage()
+      .SetMultisample4()
       .SetSize(width_, height_)
       .Create();
 
     depth_image_memory_ = DeviceMemory::Allocator{ device_ }
       .SetDeviceLocalMemory(depth_image_, physical_device_)
-      .SetSize(1900 * 1200 * 4)
+      .SetSize(1900 * 1200 * 16)
       .Allocate();
 
     depth_image_.Bind(depth_image_memory_);
@@ -281,6 +282,9 @@ public:
     depth_image_view_ = ImageView::Creator{ device_ }
       .SetDepthImage(depth_image_)
       .Create();
+
+    // Color rendertarget
+    CreateRendertargetImage();
 
     for (auto& single_command : single_commands)
       single_command.Free();
@@ -436,6 +440,7 @@ private:
     CreateSwapchain();
     CreateSwapchainImageViews();
     RecreateDepthBuffer();
+    CreateRendertargetImage();
     CreateUniformBuffers();
     CreateDescriptorSets();
     CreateRenderPass();
@@ -475,6 +480,26 @@ private:
 
     depth_image_view_ = ImageView::Creator{ device_ }
       .SetDepthImage(depth_image_)
+      .Create();
+  }
+
+  void CreateRendertargetImage()
+  {
+    rendertarget_image_ = Image::Creator{ device_ }
+      .SetSize(width_, height_)
+      .SetMultisample4()
+      .SetTransientColorAttachment()
+      .SetFormat(swapchain_images_[0].Format())
+      .Create();
+
+    rendertarget_image_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(rendertarget_image_, physical_device_)
+      .Allocate();
+
+    rendertarget_image_.Bind(rendertarget_image_memory_);
+
+    rendertarget_image_view_ = ImageView::Creator{ device_ }
+      .SetImage(rendertarget_image_)
       .Create();
   }
 
@@ -520,6 +545,7 @@ private:
   {
     render_pass_ = RenderPass::Creator{ device_ }
       .SetFormat(swapchain_images_[0])
+      .SetMultisample4()
       .Create();
   }
 
@@ -530,6 +556,7 @@ private:
       .Create();
 
     pipeline_ = GraphicsPipeline::Creator{ device_ }
+      .SetMultisample4()
       .SetShader(vert_shader_, frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
@@ -544,7 +571,7 @@ private:
     for (const auto& swapchain_image_view : swapchain_image_views_)
     {
       auto swapchain_framebuffer = framebuffer_creator
-        .SetAttachments({ swapchain_image_view, depth_image_view_ })
+        .SetAttachments({ rendertarget_image_view_, depth_image_view_, swapchain_image_view })
         .SetExtent(width_, height_)
         .SetRenderPass(render_pass_)
         .Create();
@@ -578,6 +605,10 @@ private:
   {
     depth_image_.Destroy();
     depth_image_view_.Destroy();
+
+    rendertarget_image_.Destroy();
+    rendertarget_image_view_.Destroy();
+    rendertarget_image_memory_.Free();
 
     for (auto& uniform_buffer : uniform_buffers_)
       uniform_buffer.Destroy();
@@ -705,6 +736,10 @@ private:
   vkw::Image depth_image_;
   vkw::DeviceMemory depth_image_memory_;
   vkw::ImageView depth_image_view_;
+
+  vkw::Image rendertarget_image_;
+  vkw::DeviceMemory rendertarget_image_memory_;
+  vkw::ImageView rendertarget_image_view_;
 
   int width_ = 0;
   int height_ = 0;

@@ -58,15 +58,48 @@ RenderPass::Creator::~Creator() = default;
 
 RenderPass::Creator& RenderPass::Creator::SetFormat(Image image)
 {
+  format_ = image.Format();
+
+  return *this;
+}
+
+RenderPass::Creator& RenderPass::Creator::SetMultisample4()
+{
   color_attachment_
-    .setFormat(image.Format());
+    .setSamples(vk::SampleCountFlagBits::e4)
+    .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+  depth_attachment_.setSamples(vk::SampleCountFlagBits::e4);
+
+  has_color_attachment_resolve_ = true;
+  color_attachment_resolve_
+    .setSamples(vk::SampleCountFlagBits::e1)
+    .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStoreOp(vk::AttachmentStoreOp::eStore)
+    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setInitialLayout(vk::ImageLayout::eUndefined)
+    .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+  color_attachment_resolve_ref_
+    .setAttachment(2)
+    .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+  subpass_
+    .setResolveAttachments(color_attachment_resolve_ref_);
 
   return *this;
 }
 
 RenderPass RenderPass::Creator::Create()
 {
-  std::vector<vk::AttachmentDescription> attachments = { color_attachment_, depth_attachment_ };
+  color_attachment_
+    .setFormat(format_);
+
+  color_attachment_resolve_
+    .setFormat(format_);
+
+  std::vector<vk::AttachmentDescription> attachments = { color_attachment_, depth_attachment_, color_attachment_resolve_ };
   create_info_
     .setAttachments(attachments)
     .setSubpasses(subpass_)

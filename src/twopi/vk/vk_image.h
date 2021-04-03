@@ -22,7 +22,10 @@ public:
 
     Creator& SetTransferSrc();
     Creator& SetMipLevels(int mip_levels);
+    Creator& SetMultisample4();
+    Creator& SetTransientColorAttachment();
     Creator& SetDepthStencilImage();
+    Creator& SetFormat(vk::Format format);
     Creator& SetSize(int width, int height);
 
     Image Create();
