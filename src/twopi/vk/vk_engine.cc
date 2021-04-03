@@ -7,6 +7,8 @@
 #include <twopi/window/glfw_window.h>
 #include <twopi/geometry/image_loader.h>
 #include <twopi/geometry/image.h>
+#include <twopi/geometry/mesh_loader.h>
+#include <twopi/geometry/mesh.h>
 #include <twopi/scene/camera.h>
 #include <twopi/vk/vk_instance.h>
 #include <twopi/vk/vk_physical_device.h>
@@ -118,8 +120,8 @@ public:
     const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
 #endif
     ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/triangle_3d.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/mesh.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/vk/mesh.frag.spv").Create();
 
     CreateRenderPass();
 
@@ -130,8 +132,19 @@ public:
 
     CreateGraphicsPipeline();
 
-    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 8;
-    constexpr auto index_buffer_size = sizeof(uint32_t) * 12;
+    // Load image
+    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
+    geometry::MeshLoader mesh_loader{};
+    auto mesh = mesh_loader.Load(mesh_filepath);
+
+    const auto& vertex_buffer = mesh->Vertices();
+    const auto& normal_buffer = mesh->Normals();
+    const auto& tex_coords_buffer = mesh->TexCoords();
+    const auto buffer_size = (vertex_buffer.size() + normal_buffer.size() + tex_coords_buffer.size()) * sizeof(float);
+
+    const auto& index_buffer = mesh->Indices();
+    const auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
+
     vertex_staging_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size + index_buffer_size)
       .SetTransferSrcBuffer()
@@ -140,54 +153,28 @@ public:
     vertex_staging_buffer_memory_ = DeviceMemory::Allocator{ device_ }
       .SetHostVisibleCoherentMemory(vertex_staging_buffer_, physical_device_)
       .Allocate();
-    
+
     vertex_staging_buffer_.Bind(vertex_staging_buffer_memory_);
 
     auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_memory_.Map());
 
-    float vertex_buffer[] = {
-      // Position
-      -0.5f, -0.5f, 0.f,
-      0.5f, -0.5f, 0.f,
-      -0.5f, 0.5f, 0.f,
-      0.5f, 0.5f, 0.f,
+    std::memcpy(ptr, vertex_buffer.data(), vertex_buffer.size() * sizeof(float));
+    ptr += vertex_buffer.size() * sizeof(float);
 
-      -0.5f, -0.5f, 0.1f,
-      0.5f, -0.5f, 0.1f,
-      -0.5f, 0.5f, 0.1f,
-      0.5f, 0.5f, 0.1f,
+    std::memcpy(ptr, normal_buffer.data(), normal_buffer.size() * sizeof(float));
+    ptr += normal_buffer.size() * sizeof(float);
 
-      // Color
-      1.f, 0.f, 0.f,
-      0.f, 1.f, 0.f,
-      0.f, 0.f, 1.f,
-      1.f, 1.f, 1.f,
+    std::memcpy(ptr, tex_coords_buffer.data(), tex_coords_buffer.size() * sizeof(float));
+    ptr += tex_coords_buffer.size() * sizeof(float);
 
-      1.f, 0.f, 0.f,
-      0.f, 1.f, 0.f,
-      0.f, 0.f, 1.f,
-      1.f, 1.f, 1.f,
-
-      // TexCoords
-      0.f, 0.f,
-      1.f, 0.f,
-      0.f, 1.f,
-      1.f, 1.f,
-
-      0.f, 0.f,
-      1.f, 0.f,
-      0.f, 1.f,
-      1.f, 1.f,
-    };
-    std::memcpy(ptr, vertex_buffer, buffer_size);
-
-    uint32_t index_buffer[] = {
-      0, 1, 2, 2, 3, 1,
-      4, 5, 6, 6, 7, 5
-    };
-    std::memcpy(ptr + buffer_size, index_buffer, index_buffer_size);
+    std::memcpy(ptr, index_buffer.data(), index_buffer.size() * sizeof(uint32_t));
+    ptr += index_buffer.size() * sizeof(uint32_t);
 
     vertex_staging_buffer_memory_.Unmap();
+
+    normal_offset_ = vertex_buffer.size() * sizeof(float);
+    tex_coord_offset_ = (vertex_buffer.size() + normal_buffer.size()) * sizeof(float);
+    num_indices_ = index_buffer.size();
 
     vertex_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size)
@@ -573,11 +560,11 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 8 * 3 * sizeof(float), 8 * (3 + 3) * sizeof(float) })
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, normal_offset_, tex_coord_offset_ })
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
         .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(12, 1)
+        .DrawIndexed(num_indices_, 1)
         .EndRenderPass()
         .End();
     }
@@ -669,6 +656,9 @@ private:
   vkw::DeviceMemory index_buffer_memory_;
   std::vector<vkw::Buffer> uniform_buffers_;
   std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
+  uint64_t normal_offset_ = 0;
+  uint64_t tex_coord_offset_ = 0;
+  uint64_t num_indices_ = 0;
 
   vkw::DescriptorPool descriptor_pool_;
   std::vector<vkw::DescriptorSet> descriptor_sets_;
