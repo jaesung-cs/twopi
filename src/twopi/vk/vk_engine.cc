@@ -130,10 +130,8 @@ public:
 
     CreateGraphicsPipeline();
 
-    CreateFramebuffers();
-
-    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 4;
-    constexpr auto index_buffer_size = sizeof(uint32_t) * 6;
+    constexpr auto buffer_size = sizeof(float) * (3 + 3 + 2) * 8;
+    constexpr auto index_buffer_size = sizeof(uint32_t) * 12;
     vertex_staging_buffer_ = Buffer::Creator{ device_ }
       .SetSize(buffer_size + index_buffer_size)
       .SetTransferSrcBuffer()
@@ -153,12 +151,29 @@ public:
       0.5f, -0.5f, 0.f,
       -0.5f, 0.5f, 0.f,
       0.5f, 0.5f, 0.f,
+
+      -0.5f, -0.5f, 0.1f,
+      0.5f, -0.5f, 0.1f,
+      -0.5f, 0.5f, 0.1f,
+      0.5f, 0.5f, 0.1f,
+
       // Color
       1.f, 0.f, 0.f,
       0.f, 1.f, 0.f,
       0.f, 0.f, 1.f,
       1.f, 1.f, 1.f,
+
+      1.f, 0.f, 0.f,
+      0.f, 1.f, 0.f,
+      0.f, 0.f, 1.f,
+      1.f, 1.f, 1.f,
+
       // TexCoords
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
+
       0.f, 0.f,
       1.f, 0.f,
       0.f, 1.f,
@@ -167,7 +182,8 @@ public:
     std::memcpy(ptr, vertex_buffer, buffer_size);
 
     uint32_t index_buffer[] = {
-      0, 1, 2, 2, 3, 1
+      0, 1, 2, 2, 3, 1,
+      4, 5, 6, 6, 7, 5
     };
     std::memcpy(ptr + buffer_size, index_buffer, index_buffer_size);
 
@@ -247,7 +263,7 @@ public:
     graphics_queue_.Submit(copy_commands[0]);
 
     // One time transfer for image
-    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    auto single_commands = CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(3);
     ChangeImageLayout(single_commands[0], image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
     copy_commands[1]
@@ -258,6 +274,23 @@ public:
     graphics_queue_.WaitIdle();
 
     ChangeImageLayout(single_commands[1], image_, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    // Depth buffer
+    depth_image_ = Image::Creator{ device_ }
+      .SetDepthStencilImage()
+      .SetSize(width_, height_)
+      .Create();
+
+    depth_image_memory_ = DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(depth_image_, physical_device_)
+      .SetSize(1900 * 1200 * 4)
+      .Allocate();
+
+    depth_image_.Bind(depth_image_memory_);
+
+    depth_image_view_ = ImageView::Creator{ device_ }
+      .SetDepthImage(depth_image_)
+      .Create();
 
     for (auto& single_command : single_commands)
       single_command.Free();
@@ -273,22 +306,12 @@ public:
     sampler_ = vkw::Sampler::Creator{ device_ }
       .EnableAnisotropy(physical_device_)
       .Create();
-    
+
+    CreateFramebuffers();
+
     CreateUniformBuffers();
 
-    descriptor_pool_ = DescriptorPool::Creator{ device_ }
-      .AddUniformBuffer()
-      .AddSampler()
-      .SetSize(swapchain_image_views_.size())
-      .Create();
-
-    descriptor_sets_ = DescriptorSet::Allocator{ device_, descriptor_pool_ }
-      .SetLayout(descriptor_set_layout_)
-      .SetSize(swapchain_image_views_.size())
-      .Allocate();
-
-    for (int i = 0; i < descriptor_sets_.size(); i++)
-      descriptor_sets_[i].Update(uniform_buffers_[i], image_view_, sampler_);
+    CreateDescriptorSets();
 
     command_pool_ = CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
@@ -314,6 +337,8 @@ public:
     device_.WaitIdle();
 
     CleanupSwapchain();
+
+    depth_image_memory_.Free();
 
     image_.Destroy();
     image_view_.Destroy();
@@ -419,7 +444,9 @@ private:
 
     CreateSwapchain();
     CreateSwapchainImageViews();
+    RecreateDepthBuffer();
     CreateUniformBuffers();
+    CreateDescriptorSets();
     CreateRenderPass();
     CreateGraphicsPipeline();
     CreateFramebuffers();
@@ -446,6 +473,20 @@ private:
     }
   }
 
+  void RecreateDepthBuffer()
+  {
+    depth_image_ = Image::Creator{ device_ }
+      .SetDepthStencilImage()
+      .SetSize(width_, height_)
+      .Create();
+
+    depth_image_.Bind(depth_image_memory_);
+
+    depth_image_view_ = ImageView::Creator{ device_ }
+      .SetDepthImage(depth_image_)
+      .Create();
+  }
+
   void CreateUniformBuffers()
   {
     // Uniform buffers
@@ -465,6 +506,23 @@ private:
       uniform_buffers_.emplace_back(std::move(uniform_buffer));
       uniform_buffer_memories_.emplace_back(std::move(uniform_buffer_memory));
     }
+  }
+
+  void CreateDescriptorSets()
+  {
+    descriptor_pool_ = DescriptorPool::Creator{ device_ }
+      .AddUniformBuffer()
+      .AddSampler()
+      .SetSize(swapchain_image_views_.size())
+      .Create();
+
+    descriptor_sets_ = DescriptorSet::Allocator{ device_, descriptor_pool_ }
+      .SetLayout(descriptor_set_layout_)
+      .SetSize(swapchain_image_views_.size())
+      .Allocate();
+
+    for (int i = 0; i < descriptor_sets_.size(); i++)
+      descriptor_sets_[i].Update(uniform_buffers_[i], image_view_, sampler_);
   }
 
   void CreateRenderPass()
@@ -495,7 +553,7 @@ private:
     for (const auto& swapchain_image_view : swapchain_image_views_)
     {
       auto swapchain_framebuffer = framebuffer_creator
-        .SetAttachment(swapchain_image_view)
+        .SetAttachments({ swapchain_image_view, depth_image_view_ })
         .SetExtent(width_, height_)
         .SetRenderPass(render_pass_)
         .Create();
@@ -515,11 +573,11 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 12 * sizeof(float), 24 * sizeof(float) })
+        .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, 8 * 3 * sizeof(float), 8 * (3 + 3) * sizeof(float) })
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
         .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(6, 1)
+        .DrawIndexed(12, 1)
         .EndRenderPass()
         .End();
     }
@@ -527,6 +585,9 @@ private:
 
   void CleanupSwapchain()
   {
+    depth_image_.Destroy();
+    depth_image_view_.Destroy();
+
     for (auto& uniform_buffer : uniform_buffers_)
       uniform_buffer.Destroy();
     uniform_buffers_.clear();
@@ -536,6 +597,7 @@ private:
     uniform_buffer_memories_.clear();
 
     descriptor_pool_.Destroy();
+    descriptor_sets_.clear();
 
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
@@ -620,6 +682,10 @@ private:
   vkw::Buffer image_staging_buffer_;
   vkw::DeviceMemory image_staging_buffer_memory_;
   vkw::Sampler sampler_;
+
+  vkw::Image depth_image_;
+  vkw::DeviceMemory depth_image_memory_;
+  vkw::ImageView depth_image_view_;
 
   int width_ = 0;
   int height_ = 0;

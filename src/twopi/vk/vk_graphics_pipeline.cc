@@ -47,6 +47,17 @@ GraphicsPipeline::Creator::Creator(Device device)
     .setAttachments(color_blend_attachment_)
     .setBlendConstants({ 0.f, 0.f, 0.f, 0.f });
 
+  depth_stencil_info_
+    .setDepthTestEnable(VK_TRUE)
+    .setDepthWriteEnable(VK_TRUE)
+    .setDepthCompareOp(vk::CompareOp::eLess)
+    .setDepthBoundsTestEnable(VK_FALSE)
+    .setMinDepthBounds(0.f)
+    .setMaxDepthBounds(1.f)
+    .setStencilTestEnable(VK_FALSE)
+    .setFront({})
+    .setBack({});
+
   dynamic_states_ = { vk::DynamicState::eViewport, vk::DynamicState::eLineWidth };
   dynamic_state_info_
     .setDynamicStates(dynamic_states_);
@@ -169,6 +180,7 @@ GraphicsPipeline GraphicsPipeline::Creator::Create()
     .setPMultisampleState(&multisample_info_)
     .setPDepthStencilState(nullptr)
     .setPColorBlendState(&color_blend_info_)
+    .setPDepthStencilState(&depth_stencil_info_)
     .setPDynamicState(nullptr) // TODO
     .setBasePipelineHandle(nullptr)
     .setBasePipelineIndex(-1);

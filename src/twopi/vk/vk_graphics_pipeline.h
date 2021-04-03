@@ -45,21 +45,22 @@ public:
   private:
     const vk::Device device_;
 
-    vk::GraphicsPipelineCreateInfo create_info_{};
+    vk::GraphicsPipelineCreateInfo create_info_;
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages_;
     std::vector<vk::VertexInputBindingDescription> binding_descriptions_;
     std::vector<vk::VertexInputAttributeDescription> attribute_descriptions_;
-    vk::PipelineVertexInputStateCreateInfo vertex_input_info_{};
-    vk::PipelineInputAssemblyStateCreateInfo input_assembly_info_{};
-    vk::Viewport viewport_{};
-    vk::Rect2D scissor_{};
-    vk::PipelineViewportStateCreateInfo viewport_state_info_{};
-    vk::PipelineRasterizationStateCreateInfo rasterizer_info_{};
-    vk::PipelineMultisampleStateCreateInfo multisample_info_{};
-    vk::PipelineColorBlendAttachmentState color_blend_attachment_{};
-    vk::PipelineColorBlendStateCreateInfo color_blend_info_{};
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info_;
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_info_;
+    vk::Viewport viewport_;
+    vk::Rect2D scissor_;
+    vk::PipelineViewportStateCreateInfo viewport_state_info_;
+    vk::PipelineRasterizationStateCreateInfo rasterizer_info_;
+    vk::PipelineMultisampleStateCreateInfo multisample_info_;
+    vk::PipelineColorBlendAttachmentState color_blend_attachment_;
+    vk::PipelineColorBlendStateCreateInfo color_blend_info_;
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_info_;
     std::vector<vk::DynamicState> dynamic_states_;
-    vk::PipelineDynamicStateCreateInfo dynamic_state_info_{};
+    vk::PipelineDynamicStateCreateInfo dynamic_state_info_;
   };
 
 public:

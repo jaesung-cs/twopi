@@ -15,14 +15,14 @@ ImageView::Creator::Creator(Device device)
 {
   create_info_
     .setViewType(vk::ImageViewType::e2D)
-    .setComponents(vk::ComponentMapping{})
-    .setSubresourceRange(
-      vk::ImageSubresourceRange{}
-      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-      .setBaseMipLevel(0)
-      .setLevelCount(1)
-      .setBaseArrayLayer(0)
-      .setLayerCount(1));
+    .setComponents(vk::ComponentMapping{});
+
+  image_subresource_range_
+    .setAspectMask(vk::ImageAspectFlagBits::eColor)
+    .setBaseMipLevel(0)
+    .setLevelCount(1)
+    .setBaseArrayLayer(0)
+    .setLayerCount(1);
 }
 
 ImageView::Creator::~Creator() = default;
@@ -35,8 +35,23 @@ ImageView::Creator& ImageView::Creator::SetImage(Image image)
   return *this;
 }
 
+ImageView::Creator& ImageView::Creator::SetDepthImage(Image image)
+{
+  create_info_
+    .setImage(image)
+    .setFormat(image.Format());
+
+  image_subresource_range_
+    .setAspectMask(vk::ImageAspectFlagBits::eDepth);
+
+  return *this;
+}
+
 ImageView ImageView::Creator::Create()
 {
+  create_info_
+    .setSubresourceRange(image_subresource_range_);
+
   auto image_view_handle = device_.createImageView(create_info_);
   return ImageView{ device_, image_view_handle };
 }

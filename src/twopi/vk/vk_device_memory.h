@@ -22,6 +22,9 @@ public:
     explicit Allocator(const Device& device);
     ~Allocator();
 
+    Allocator& SetSize(uint64_t size);
+
+    // TODO: do not update size when image/buffer is given. Fix the implementation to use SetSize
     Allocator& SetDeviceLocalMemory(Image image, PhysicalDevice physical_device);
     Allocator& SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device);
     Allocator& SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device);

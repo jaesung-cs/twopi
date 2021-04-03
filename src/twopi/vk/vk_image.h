@@ -20,6 +20,7 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& SetDepthStencilImage();
     Creator& SetSize(int width, int height);
 
     Image Create();

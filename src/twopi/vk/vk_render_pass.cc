@@ -26,17 +26,32 @@ RenderPass::Creator::Creator(Device device)
     .setAttachment(0)
     .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+  depth_attachment_
+    .setFormat(vk::Format::eD24UnormS8Uint)
+    .setSamples(vk::SampleCountFlagBits::e1)
+    .setLoadOp(vk::AttachmentLoadOp::eClear)
+    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setInitialLayout(vk::ImageLayout::eUndefined)
+    .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+  depth_attachment_ref_
+    .setAttachment(1)
+    .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
   subpass_
     .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-    .setColorAttachments(color_attachment_ref_);
+    .setColorAttachments(color_attachment_ref_)
+    .setPDepthStencilAttachment(&depth_attachment_ref_);
 
   dependency_
     .setSrcSubpass(VK_SUBPASS_EXTERNAL)
     .setDstSubpass(0)
-    .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+    .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
     .setSrcAccessMask(vk::AccessFlags{})
-    .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-    .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
+    .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
 }
 
 RenderPass::Creator::~Creator() = default;
@@ -51,8 +66,9 @@ RenderPass::Creator& RenderPass::Creator::SetFormat(Image image)
 
 RenderPass RenderPass::Creator::Create()
 {
+  std::vector<vk::AttachmentDescription> attachments = { color_attachment_, depth_attachment_ };
   create_info_
-    .setAttachments(color_attachment_)
+    .setAttachments(attachments)
     .setSubpasses(subpass_)
     .setDependencies(dependency_);
 

@@ -19,6 +19,15 @@ DeviceMemory::Allocator::Allocator(const Device& device)
 
 DeviceMemory::Allocator::~Allocator() = default;
 
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetSize(uint64_t size)
+{
+  allocate_info_
+    .setAllocationSize(size);
+  size_ = size;
+
+  return *this;
+}
+
 DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Image image, PhysicalDevice physical_device)
 {
   constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;

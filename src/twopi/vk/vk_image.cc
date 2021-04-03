@@ -19,7 +19,6 @@ Image::Creator::Creator(Device device)
     .setImageType(vk::ImageType::e2D)
     .setMipLevels(1)
     .setArrayLayers(1)
-    .setFormat(format_)
     .setTiling(vk::ImageTiling::eOptimal)
     .setInitialLayout(vk::ImageLayout::eUndefined)
     .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
@@ -28,6 +27,16 @@ Image::Creator::Creator(Device device)
 }
 
 Image::Creator::~Creator() = default;
+
+Image::Creator& Image::Creator::SetDepthStencilImage()
+{
+  format_ = vk::Format::eD24UnormS8Uint;
+
+  create_info_
+    .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
+
+  return *this;
+}
 
 Image::Creator& Image::Creator::SetSize(int width, int height)
 {
@@ -42,6 +51,8 @@ Image::Creator& Image::Creator::SetSize(int width, int height)
 
 Image Image::Creator::Create()
 {
+  create_info_.setFormat(format_);
+
   const auto handle = device_.createImage(create_info_);
   auto image = Image{ device_, handle , format_ };
   image.width_ = width_;

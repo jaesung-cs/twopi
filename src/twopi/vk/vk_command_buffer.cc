@@ -66,14 +66,17 @@ CommandBuffer& CommandBuffer::Begin()
 
 CommandBuffer& CommandBuffer::BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer)
 {
-  vk::ClearValue clear_value(std::array<float, 4>{0.8f, 0.8f, 0.8f, 1.f});
+  std::array<vk::ClearValue, 2> clear_values{
+    vk::ClearColorValue{ std::array<float, 4>{0.8f, 0.8f, 0.8f, 1.f} },
+    vk::ClearDepthStencilValue{ 1.f, 0u }
+  };
 
   vk::RenderPassBeginInfo render_pass_begin_info;
   render_pass_begin_info
     .setRenderPass(render_pass)
     .setFramebuffer(framebuffer)
     .setRenderArea(vk::Rect2D({ 0, 0 }, { framebuffer.Width(), framebuffer.Height() }))
-    .setClearValues(clear_value);
+    .setClearValues(clear_values);
 
   command_buffer_.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
@@ -167,6 +170,14 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
     src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
     dst_stage = vk::PipelineStageFlagBits::eTransfer;
   }
+  else if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+  {
+    src_access_mask = vk::AccessFlagBits{};
+    dst_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+    src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+  }
   else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal)
   {
     src_access_mask = vk::AccessFlagBits::eTransferWrite;
@@ -178,6 +189,10 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
   else
     throw core::Error("Unsupported layout transition");
 
+  vk::ImageAspectFlags aspect_mask = vk::ImageAspectFlagBits::eColor;
+  if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    aspect_mask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+
   vk::ImageMemoryBarrier barrier;
   barrier
     .setOldLayout(old_layout)
@@ -186,7 +201,7 @@ CommandBuffer& CommandBuffer::PipelineBarrier(Image image, vk::ImageLayout old_l
     .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
     .setImage(image)
     .setSubresourceRange(vk::ImageSubresourceRange{}
-      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setAspectMask(aspect_mask)
       .setBaseMipLevel(0)
       .setLevelCount(1)
       .setBaseArrayLayer(0)

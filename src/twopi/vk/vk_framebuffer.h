@@ -1,6 +1,9 @@
 #ifndef TWOPI_VK_VK_FRAMEBUFFER_H_
 #define TWOPI_VK_VK_FRAMEBUFFER_H_
 
+#include <initializer_list>
+#include <vector>
+
 #include <vulkan/vulkan.hpp>
 
 namespace twopi
@@ -21,6 +24,7 @@ public:
     explicit Creator(Device device);
     ~Creator();
 
+    Creator& SetAttachments(std::initializer_list<ImageView> image_views);
     Creator& SetAttachment(ImageView image_view);
     Creator& SetExtent(int width, int height);
     Creator& SetRenderPass(RenderPass render_pass);
@@ -31,7 +35,7 @@ public:
     const vk::Device device_;
 
     vk::FramebufferCreateInfo create_info_{};
-    vk::ImageView image_view_;
+    std::vector<vk::ImageView> image_views_;
     uint32_t width_ = 0;
     uint32_t height_ = 0;
   };
