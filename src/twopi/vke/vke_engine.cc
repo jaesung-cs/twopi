@@ -121,8 +121,8 @@ public:
     const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
 #endif
     vkw::ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.frag.spv").Create();
 
     CreateRenderPass();
 
@@ -148,8 +148,28 @@ public:
     const auto& index_buffer = mesh->Indices();
     const auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
 
+    constexpr int grid_size = 10;
+    std::vector<glm::mat4> models;
+    for (int x = 0; x < grid_size; x++)
+    {
+      for (int y = 0; y < grid_size; y++)
+      {
+        for (int z = 0; z < grid_size; z++)
+        {
+          glm::mat4 m = glm::mat4(1.f);
+          m[3][0] = x;
+          m[3][1] = y;
+          m[3][2] = z;
+          models.emplace_back(std::move(m));
+        }
+      }
+    }
+
+    const float* instance_buffer = glm::value_ptr(models[0]);
+    const auto instance_buffer_size = models.size() * 16 * sizeof(float);
+
     vertex_staging_buffer_ = vkw::Buffer::Creator{ device_ }
-      .SetSize(buffer_size + index_buffer_size)
+      .SetSize(buffer_size + index_buffer_size + instance_buffer_size)
       .SetTransferSrcBuffer()
       .Create();
 
@@ -173,11 +193,16 @@ public:
     std::memcpy(ptr, index_buffer.data(), index_buffer.size() * sizeof(uint32_t));
     ptr += index_buffer.size() * sizeof(uint32_t);
 
+    std::memcpy(ptr, instance_buffer, instance_buffer_size);
+    ptr += instance_buffer_size;
+
     vertex_staging_buffer_memory_.Unmap();
 
     normal_offset_ = vertex_buffer.size() * sizeof(float);
-    tex_coord_offset_ = (vertex_buffer.size() + normal_buffer.size()) * sizeof(float);
+    tex_coord_offset_ = normal_offset_ + normal_buffer.size() * sizeof(float);
+    instance_offset_ = tex_coord_offset_ + tex_coords_buffer.size() * sizeof(float);
     num_indices_ = index_buffer.size();
+    num_instances_ = models.size();
 
     vertex_buffer_ = vkw::Buffer::Creator{ device_ }
       .SetSize(buffer_size)
@@ -202,6 +227,18 @@ public:
       .Allocate();
 
     index_buffer_.Bind(index_buffer_memory_);
+
+    instance_buffer_ = vkw::Buffer::Creator{ device_ }
+      .SetSize(instance_buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    instance_buffer_memory_ = vkw::DeviceMemory::Allocator{ device_ }
+      .SetDeviceLocalMemory(instance_buffer_, physical_device_)
+      .Allocate();
+
+    instance_buffer_.Bind(instance_buffer_memory_);
 
     // Load image
     const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
@@ -252,6 +289,7 @@ public:
       .BeginOneTime()
       .CopyBuffer(vertex_staging_buffer_, vertex_buffer_, buffer_size)
       .CopyBuffer(vertex_staging_buffer_, buffer_size, index_buffer_, 0, index_buffer_size)
+      .CopyBuffer(vertex_staging_buffer_, buffer_size + index_buffer_size, instance_buffer_, 0, instance_buffer_size)
       .End();
     graphics_queue_.Submit(copy_commands[0]);
 
@@ -356,6 +394,8 @@ public:
     vertex_buffer_memory_.Free();
     index_buffer_.Destroy();
     index_buffer_memory_.Free();
+    instance_buffer_.Destroy();
+    instance_buffer_memory_.Free();
 
     for (auto& in_flight_fence : in_flight_fences_)
       in_flight_fence.Destroy();
@@ -565,6 +605,7 @@ private:
       .SetMultisample4()
       .SetShader(vert_shader_, frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
+      .SetInstanceInput({ {3, 4, 4} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
@@ -598,10 +639,11 @@ private:
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
         .BindVertexBuffers({ vertex_buffer_, vertex_buffer_, vertex_buffer_ }, { 0, normal_offset_, tex_coord_offset_ })
+        .BindVertexBuffers({ instance_buffer_ }, { 0 }, 3)
         .BindIndexBuffer(index_buffer_)
         .BindPipeline(pipeline_)
         .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(num_indices_, 1)
+        .DrawIndexed(num_indices_, num_instances_)
         .EndRenderPass()
         .End();
     }
@@ -719,13 +761,17 @@ private:
   vkw::DeviceMemory vertex_staging_buffer_memory_;
   vkw::Buffer vertex_buffer_;
   vkw::DeviceMemory vertex_buffer_memory_;
+  vkw::Buffer instance_buffer_;
+  vkw::DeviceMemory instance_buffer_memory_;
   vkw::Buffer index_buffer_;
   vkw::DeviceMemory index_buffer_memory_;
   std::vector<vkw::Buffer> uniform_buffers_;
   std::vector<vkw::DeviceMemory> uniform_buffer_memories_;
   uint64_t normal_offset_ = 0;
   uint64_t tex_coord_offset_ = 0;
+  uint64_t instance_offset_ = 0;
   uint64_t num_indices_ = 0;
+  uint64_t num_instances_ = 0;
 
   vkw::DescriptorPool descriptor_pool_;
   std::vector<vkw::DescriptorSet> descriptor_sets_;

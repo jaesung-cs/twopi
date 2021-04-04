@@ -382,5 +382,11 @@
     <None Include="..\..\src\twopi\shader\triangle_3d.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\mesh_instance.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\mesh_instance.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
