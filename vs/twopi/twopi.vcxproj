@@ -158,7 +158,6 @@ python compile.py</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\lib\glad.c" />
     <ClCompile Include="..\..\src\twopi\application\application.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\image.cc" />
     <ClCompile Include="..\..\src\twopi\geometry\image_loader.cc" />
@@ -263,6 +262,8 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\window\win32_window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\.gitignore" />
+    <None Include="..\..\README.md" />
     <None Include="..\..\src\twopi\shader\gl\mesh.frag" />
     <None Include="..\..\src\twopi\shader\gl\mesh.vert" />
     <None Include="..\..\src\twopi\shader\gl\screen.frag" />

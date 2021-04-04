@@ -75,8 +75,6 @@ public:
     glfwSetWindowSizeCallback(window_, resize_callback);
 
     glfwSetWindowPos(window_, 100, 100);
-
-    glfwMakeContextCurrent(window_);
   }
 
   ~Impl()

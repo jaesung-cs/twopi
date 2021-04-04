@@ -19,12 +19,6 @@
     <Filter Include="src\twopi\core">
       <UniqueIdentifier>{1814cbad-e84f-4437-968d-2bf3c19a06c8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{349a0d4c-fdd3-43f6-9a11-6e7a52f4928c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib\glad">
-      <UniqueIdentifier>{df455c95-ee7b-452c-afe9-097f21280d67}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src\twopi\shader">
       <UniqueIdentifier>{a6f72518-8c6a-4ad1-832e-bb8abc525609}</UniqueIdentifier>
     </Filter>
@@ -46,6 +40,9 @@
     <Filter Include="src\twopi\shader\vk">
       <UniqueIdentifier>{cb5431ee-7065-48bc-b2c7-34097f469e59}</UniqueIdentifier>
     </Filter>
+    <Filter Include="git">
+      <UniqueIdentifier>{bea589a4-9ffb-45ca-b63d-b1e23f85ba9b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -62,9 +59,6 @@
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\window\glfw_window.cc">
       <Filter>src\twopi\window</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\lib\glad.c">
-      <Filter>lib\glad</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc">
       <Filter>src\twopi\window\event</Filter>
@@ -396,6 +390,12 @@
     </None>
     <None Include="..\..\src\twopi\shader\vk\mesh.vert">
       <Filter>src\twopi\shader\vk</Filter>
+    </None>
+    <None Include="..\..\.gitignore">
+      <Filter>git</Filter>
+    </None>
+    <None Include="..\..\README.md">
+      <Filter>git</Filter>
     </None>
   </ItemGroup>
 </Project>
