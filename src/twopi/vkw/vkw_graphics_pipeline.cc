@@ -2,6 +2,7 @@
 
 #include <twopi/vkw/vkw_device.h>
 #include <twopi/vkw/vkw_shader_module.h>
+#include <twopi/vkw/vkw_pipeline_cache.h>
 #include <twopi/vkw/vkw_pipeline_layout.h>
 #include <twopi/vkw/vkw_render_pass.h>
 
@@ -64,6 +65,12 @@ GraphicsPipeline::Creator::Creator(Device device)
 }
 
 GraphicsPipeline::Creator::~Creator() = default;
+
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetPipelineCache(PipelineCache pipeline_cache)
+{
+  pipeline_cache_ = pipeline_cache;
+  return *this;
+}
 
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetMultisample4()
 {
@@ -193,7 +200,7 @@ GraphicsPipeline GraphicsPipeline::Creator::Create()
     .setBasePipelineHandle(nullptr)
     .setBasePipelineIndex(-1);
 
-  auto create_result = device_.createGraphicsPipeline(nullptr, create_info_);
+  auto create_result = device_.createGraphicsPipeline(pipeline_cache_, create_info_);
   // TODO: check result
   return GraphicsPipeline{ device_, create_result.value };
 }

@@ -19,6 +19,7 @@
 #include <twopi/vkw/vkw_image.h>
 #include <twopi/vkw/vkw_image_view.h>
 #include <twopi/vkw/vkw_shader_module.h>
+#include <twopi/vkw/vkw_pipeline_cache.h>
 #include <twopi/vkw/vkw_pipeline_layout.h>
 #include <twopi/vkw/vkw_render_pass.h>
 #include <twopi/vkw/vkw_graphics_pipeline.h>
@@ -129,6 +130,8 @@ public:
       .AddUniformBuffer()
       .AddSampler()
       .Create();
+
+    pipeline_cache_ = vkw::PipelineCache::Creator{ device_ }.Create();
 
     CreateGraphicsPipeline();
 
@@ -332,6 +335,8 @@ public:
     device_.WaitIdle();
 
     CleanupSwapchain();
+
+    pipeline_cache_.Destroy();
 
     depth_image_memory_.Free();
 
@@ -556,6 +561,7 @@ private:
       .Create();
 
     pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+      .SetPipelineCache(pipeline_cache_)
       .SetMultisample4()
       .SetShader(vert_shader_, frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
@@ -695,6 +701,7 @@ private:
   vkw::ShaderModule frag_shader_;
   vkw::DescriptorSetLayout descriptor_set_layout_;
   vkw::DescriptorSetLayout sampler_layout_;
+  vkw::PipelineCache pipeline_cache_;
   vkw::PipelineLayout pipeline_layout_;
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;

@@ -190,6 +190,7 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vkw\vkw_image_view.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_instance.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_physical_device.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_pipeline_cache.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_pipeline_layout.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_queue.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_render_pass.cc" />
@@ -242,6 +243,7 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vkw\vkw_image_view.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_instance.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_physical_device.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_pipeline_cache.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_pipeline_layout.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_queue.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_render_pass.h" />

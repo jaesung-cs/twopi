@@ -11,6 +11,7 @@ namespace vkw
 {
 class Device;
 class ShaderModule;
+class PipelineCache;
 class PipelineLayout;
 class RenderPass;
 
@@ -34,6 +35,7 @@ public:
     Creator(Device device);
     ~Creator();
 
+    Creator& SetPipelineCache(PipelineCache pipeline_cache);
     Creator& SetMultisample4();
     Creator& SetShader(ShaderModule vert_shader, ShaderModule frag_shader);
     Creator& SetVertexInput(std::initializer_list<Attribute> attributes);
@@ -47,6 +49,7 @@ public:
     const vk::Device device_;
 
     vk::GraphicsPipelineCreateInfo create_info_;
+    vk::PipelineCache pipeline_cache_;
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages_;
     std::vector<vk::VertexInputBindingDescription> binding_descriptions_;
     std::vector<vk::VertexInputAttributeDescription> attribute_descriptions_;
