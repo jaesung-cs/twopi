@@ -11,6 +11,7 @@ namespace vkw
 {
 class Device;
 class ShaderModule;
+class PipelineCache;
 class PipelineLayout;
 class RenderPass;
 
@@ -22,11 +23,17 @@ public:
   private:
     struct Attribute
     {
+      Attribute() = delete;
+
       Attribute(int index, int size)
-        : index(index), size(size) {}
+        : index(index), rows(size) {}
+
+      Attribute(int index, int rows, int cols)
+        : index(index), rows(rows), cols(cols) {}
 
       int index;
-      int size;
+      int rows;
+      int cols = 0;
     };
 
   public:
@@ -34,9 +41,11 @@ public:
     Creator(Device device);
     ~Creator();
 
+    Creator& SetPipelineCache(PipelineCache pipeline_cache);
     Creator& SetMultisample4();
     Creator& SetShader(ShaderModule vert_shader, ShaderModule frag_shader);
     Creator& SetVertexInput(std::initializer_list<Attribute> attributes);
+    Creator& SetInstanceInput(std::initializer_list<Attribute> attributes);
     Creator& SetViewport(int width, int height);
     Creator& SetPipelineLayout(PipelineLayout pipeline_layout);
     Creator& SetRenderPass(RenderPass render_pass);
@@ -44,9 +53,12 @@ public:
     GraphicsPipeline Create();
 
   private:
+    void SetInput(std::initializer_list<Attribute> attributes, vk::VertexInputRate input_rate);
+
     const vk::Device device_;
 
     vk::GraphicsPipelineCreateInfo create_info_;
+    vk::PipelineCache pipeline_cache_;
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages_;
     std::vector<vk::VertexInputBindingDescription> binding_descriptions_;
     std::vector<vk::VertexInputAttributeDescription> attribute_descriptions_;

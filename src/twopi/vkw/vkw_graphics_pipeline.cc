@@ -2,6 +2,7 @@
 
 #include <twopi/vkw/vkw_device.h>
 #include <twopi/vkw/vkw_shader_module.h>
+#include <twopi/vkw/vkw_pipeline_cache.h>
 #include <twopi/vkw/vkw_pipeline_layout.h>
 #include <twopi/vkw/vkw_render_pass.h>
 
@@ -65,6 +66,12 @@ GraphicsPipeline::Creator::Creator(Device device)
 
 GraphicsPipeline::Creator::~Creator() = default;
 
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetPipelineCache(PipelineCache pipeline_cache)
+{
+  pipeline_cache_ = pipeline_cache;
+  return *this;
+}
+
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetMultisample4()
 {
   multisample_info_
@@ -96,37 +103,80 @@ GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetShader(ShaderModule ver
 
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput(std::initializer_list<Attribute> attributes)
 {
+  SetInput(std::move(attributes), vk::VertexInputRate::eVertex);
+  return *this;
+}
+
+GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetInstanceInput(std::initializer_list<Attribute> attributes)
+{
+  SetInput(std::move(attributes), vk::VertexInputRate::eInstance);
+  return *this;
+}
+
+void GraphicsPipeline::Creator::SetInput(std::initializer_list<Attribute> attributes, vk::VertexInputRate input_rate)
+{
   // TODO: bindings
   for (const auto& attribute : attributes)
   {
     const auto& index = attribute.index;
-    const auto& size = attribute.size;
+    const auto& size = attribute.rows;
+    const auto& cols = attribute.cols;
 
-    vk::Format format;
+    vk::Format format = vk::Format::eR32G32B32A32Sfloat;
     switch (size)
     {
+    case 1:
+      format = vk::Format::eR32Sfloat;
+      break;
     case 2:
       format = vk::Format::eR32G32Sfloat;
       break;
     case 3:
       format = vk::Format::eR32G32B32Sfloat;
       break;
+    case 4:
+      format = vk::Format::eR32G32B32A32Sfloat;
+      break;
     }
 
-    vk::VertexInputBindingDescription binding_description{};
-    binding_description
-      .setBinding(index)
-      .setStride(size * sizeof(float))
-      .setInputRate(vk::VertexInputRate::eVertex);
-    binding_descriptions_.emplace_back(std::move(binding_description));
+    const int binding = binding_descriptions_.size();
+    if (cols <= 1)
+    {
+      vk::VertexInputBindingDescription binding_description{};
+      binding_description
+        .setBinding(binding)
+        .setStride(size * sizeof(float))
+        .setInputRate(input_rate);
+      binding_descriptions_.emplace_back(std::move(binding_description));
 
-    vk::VertexInputAttributeDescription attribute_description{};
-    attribute_description
-      .setBinding(index)
-      .setLocation(index)
-      .setFormat(format)
-      .setOffset(0);
-    attribute_descriptions_.emplace_back(std::move(attribute_description));
+      vk::VertexInputAttributeDescription attribute_description{};
+      attribute_description
+        .setBinding(binding)
+        .setLocation(index)
+        .setFormat(format)
+        .setOffset(0);
+      attribute_descriptions_.emplace_back(std::move(attribute_description));
+    }
+    else
+    {
+      vk::VertexInputBindingDescription binding_description{};
+      binding_description
+        .setBinding(binding)
+        .setStride(size * cols * sizeof(float))
+        .setInputRate(input_rate);
+      binding_descriptions_.emplace_back(std::move(binding_description));
+
+      for (int col = 0; col < cols; col++)
+      {
+        vk::VertexInputAttributeDescription attribute_description{};
+        attribute_description
+          .setBinding(binding)
+          .setLocation(index + col)
+          .setFormat(format)
+          .setOffset(size * col * sizeof(float));
+        attribute_descriptions_.emplace_back(std::move(attribute_description));
+      }
+    }
   }
 
   // Set with binding and attribute descriptions
@@ -137,8 +187,6 @@ GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetVertexInput(std::initia
   input_assembly_info_
     .setTopology(vk::PrimitiveTopology::eTriangleList)
     .setPrimitiveRestartEnable(VK_FALSE);
-
-  return *this;
 }
 
 GraphicsPipeline::Creator& GraphicsPipeline::Creator::SetViewport(int width, int height)
@@ -193,7 +241,7 @@ GraphicsPipeline GraphicsPipeline::Creator::Create()
     .setBasePipelineHandle(nullptr)
     .setBasePipelineIndex(-1);
 
-  auto create_result = device_.createGraphicsPipeline(nullptr, create_info_);
+  auto create_result = device_.createGraphicsPipeline(pipeline_cache_, create_info_);
   // TODO: check result
   return GraphicsPipeline{ device_, create_result.value };
 }

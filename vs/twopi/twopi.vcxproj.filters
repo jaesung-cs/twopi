@@ -189,6 +189,9 @@
     <ClCompile Include="..\..\src\twopi\vke\vke_engine.cc">
       <Filter>src\twopi\vke</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_pipeline_cache.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -344,6 +347,9 @@
     <ClInclude Include="..\..\src\twopi\vke\vke_engine.h">
       <Filter>src\twopi\vke</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_pipeline_cache.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\.gitignore">
@@ -374,6 +380,12 @@
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\triangle_3d.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\mesh_instance.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\mesh_instance.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
   </ItemGroup>

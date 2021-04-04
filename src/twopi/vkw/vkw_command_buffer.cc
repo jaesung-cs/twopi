@@ -83,10 +83,10 @@ CommandBuffer& CommandBuffer::BeginRenderPass(RenderPass render_pass, Framebuffe
   return *this;
 }
 
-CommandBuffer& CommandBuffer::BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets)
+CommandBuffer& CommandBuffer::BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets, int first_binding)
 {
   std::vector<vk::Buffer> buffer_handles(buffers.cbegin(), buffers.cend());
-  command_buffer_.bindVertexBuffers(0, buffer_handles, offsets);
+  command_buffer_.bindVertexBuffers(first_binding, buffer_handles, offsets);
 
   return *this;
 }

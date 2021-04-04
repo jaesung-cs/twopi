@@ -50,7 +50,7 @@ public:
 
   CommandBuffer& BeginRenderPass(RenderPass render_pass, Framebuffer framebuffer);
   CommandBuffer& BindPipeline(GraphicsPipeline graphics_pipeline);
-  CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets);
+  CommandBuffer& BindVertexBuffers(std::vector<Buffer> buffers, std::vector<uint64_t> offsets, int first_binding = 0);
   CommandBuffer& BindIndexBuffer(Buffer buffer);
   CommandBuffer& BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
