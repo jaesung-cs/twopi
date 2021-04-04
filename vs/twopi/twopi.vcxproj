@@ -129,7 +129,7 @@
       <AdditionalLibraryDirectories>../../lib;C:\VulkanSDK\1.2.162.0\Lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)..\src\twopi\shader\vk\
+      <Command>cd $(SolutionDir)..\src\twopi\shader\
 python compile.py</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -153,7 +153,7 @@ python compile.py</Command>
       <AdditionalLibraryDirectories>../../lib;C:\VulkanSDK\1.2.162.0\Lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)..\src\twopi\shader\vk\
+      <Command>cd $(SolutionDir)..\src\twopi\shader\
 python compile.py</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -174,30 +174,30 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
     <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_buffer.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_command_buffer.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_command_pool.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_pool.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_device.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_device_memory.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_engine.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_fence.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_framebuffer.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_graphics_pipeline.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_image.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_image_view.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_instance.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_pipeline_layout.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_queue.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_render_pass.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_sampler.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_semaphore.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_shader_module.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_surface.cc" />
-    <ClCompile Include="..\..\src\twopi\vk\vk_swapchain.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_pool.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_set.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_set_layout.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_device.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_device_memory.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_fence.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_framebuffer.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_graphics_pipeline.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_image.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_image_view.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_instance.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_physical_device.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_pipeline_layout.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_queue.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_render_pass.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_sampler.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_semaphore.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_shader_module.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_surface.cc" />
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_swapchain.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\keyboard_event.cc" />
     <ClCompile Include="..\..\src\twopi\window\event\mouse_button_event.cc" />
@@ -226,30 +226,30 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_buffer.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_command_buffer.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_command_pool.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_pool.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_device.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_device_memory.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_engine.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_fence.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_framebuffer.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_graphics_pipeline.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_image.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_image_view.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_instance.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_pipeline_layout.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_queue.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_render_pass.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_sampler.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_semaphore.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_shader_module.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_surface.h" />
-    <ClInclude Include="..\..\src\twopi\vk\vk_swapchain.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_engine.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_pool.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_set.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_set_layout.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_device.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_device_memory.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_fence.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_framebuffer.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_graphics_pipeline.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_image.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_image_view.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_instance.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_physical_device.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_pipeline_layout.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_queue.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_render_pass.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_sampler.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_semaphore.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_shader_module.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_surface.h" />
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_swapchain.h" />
     <ClInclude Include="..\..\src\twopi\window\event\event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\keyboard_event.h" />
     <ClInclude Include="..\..\src\twopi\window\event\mouse_button_event.h" />
@@ -264,20 +264,14 @@ python compile.py</Command>
   <ItemGroup>
     <None Include="..\..\.gitignore" />
     <None Include="..\..\README.md" />
-    <None Include="..\..\src\twopi\shader\gl\mesh.frag" />
-    <None Include="..\..\src\twopi\shader\gl\mesh.vert" />
-    <None Include="..\..\src\twopi\shader\gl\screen.frag" />
-    <None Include="..\..\src\twopi\shader\gl\screen.vert" />
-    <None Include="..\..\src\twopi\shader\gl\vr_screen.frag" />
-    <None Include="..\..\src\twopi\shader\gl\vr_screen.vert" />
-    <None Include="..\..\src\twopi\shader\vk\.gitignore" />
-    <None Include="..\..\src\twopi\shader\vk\compile.py" />
-    <None Include="..\..\src\twopi\shader\vk\mesh.frag" />
-    <None Include="..\..\src\twopi\shader\vk\mesh.vert" />
-    <None Include="..\..\src\twopi\shader\vk\triangle.frag" />
-    <None Include="..\..\src\twopi\shader\vk\triangle.vert" />
-    <None Include="..\..\src\twopi\shader\vk\triangle_3d.frag" />
-    <None Include="..\..\src\twopi\shader\vk\triangle_3d.vert" />
+    <None Include="..\..\src\twopi\shader\.gitignore" />
+    <None Include="..\..\src\twopi\shader\compile.py" />
+    <None Include="..\..\src\twopi\shader\mesh.frag" />
+    <None Include="..\..\src\twopi\shader\mesh.vert" />
+    <None Include="..\..\src\twopi\shader\triangle.frag" />
+    <None Include="..\..\src\twopi\shader\triangle.vert" />
+    <None Include="..\..\src\twopi\shader\triangle_3d.frag" />
+    <None Include="..\..\src\twopi\shader\triangle_3d.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

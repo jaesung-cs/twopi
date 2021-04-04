@@ -31,17 +31,14 @@
     <Filter Include="src\twopi\geometry">
       <UniqueIdentifier>{facba208-12bb-4fd8-a890-635b06856462}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\twopi\vk">
-      <UniqueIdentifier>{50166774-ce63-402c-a2ae-f51da0669074}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\twopi\shader\gl">
-      <UniqueIdentifier>{7259b72c-da57-4e7a-835d-8a12bd8be2a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\twopi\shader\vk">
-      <UniqueIdentifier>{cb5431ee-7065-48bc-b2c7-34097f469e59}</UniqueIdentifier>
-    </Filter>
     <Filter Include="git">
       <UniqueIdentifier>{bea589a4-9ffb-45ca-b63d-b1e23f85ba9b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\vkw">
+      <UniqueIdentifier>{f3630560-1d96-417c-8125-5a025cbe51ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\vke">
+      <UniqueIdentifier>{50166774-ce63-402c-a2ae-f51da0669074}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -117,80 +114,80 @@
     <ClCompile Include="..\..\src\twopi\scene\light.cc">
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_instance.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_engine.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_physical_device.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_device.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_queue.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_surface.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_swapchain.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_image.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_image_view.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_shader_module.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_pipeline_layout.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_graphics_pipeline.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_render_pass.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_framebuffer.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_command_pool.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_command_buffer.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_semaphore.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_fence.cc">
-      <Filter>src\twopi\vk</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\twopi\scene\geometry.cc">
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_buffer.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc">
+      <Filter>src\twopi\vkw</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_device_memory.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc">
+      <Filter>src\twopi\vkw</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set_layout.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc">
+      <Filter>src\twopi\vkw</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_pool.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_pool.cc">
+      <Filter>src\twopi\vkw</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_descriptor_set.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_set.cc">
+      <Filter>src\twopi\vkw</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vk\vk_sampler.cc">
-      <Filter>src\twopi\vk</Filter>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_descriptor_set_layout.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_device.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_device_memory.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_fence.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_framebuffer.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_graphics_pipeline.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_image.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_image_view.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_instance.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_physical_device.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_pipeline_layout.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_queue.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_render_pass.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_sampler.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_semaphore.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_shader_module.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_surface.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkw\vkw_swapchain.cc">
+      <Filter>src\twopi\vkw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vke\vke_engine.cc">
+      <Filter>src\twopi\vke</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -272,130 +269,112 @@
     <ClInclude Include="..\..\src\twopi\scene\light.h">
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_instance.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_engine.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_physical_device.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_device.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_queue.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_surface.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_swapchain.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_image.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_image_view.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_shader_module.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_pipeline_layout.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_graphics_pipeline.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_render_pass.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_framebuffer.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_command_pool.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_command_buffer.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_semaphore.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_fence.h">
-      <Filter>src\twopi\vk</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\scene\geometry.h">
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_buffer.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h">
+      <Filter>src\twopi\vkw</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_device_memory.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h">
+      <Filter>src\twopi\vkw</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set_layout.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h">
+      <Filter>src\twopi\vkw</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_pool.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_pool.h">
+      <Filter>src\twopi\vkw</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_descriptor_set.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_set.h">
+      <Filter>src\twopi\vkw</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vk\vk_sampler.h">
-      <Filter>src\twopi\vk</Filter>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_descriptor_set_layout.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_device.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_device_memory.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_fence.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_framebuffer.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_graphics_pipeline.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_image.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_image_view.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_instance.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_physical_device.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_pipeline_layout.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_queue.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_render_pass.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_sampler.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_semaphore.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_shader_module.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_surface.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkw\vkw_swapchain.h">
+      <Filter>src\twopi\vkw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vke\vke_engine.h">
+      <Filter>src\twopi\vke</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\twopi\shader\gl\mesh.frag">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\gl\mesh.vert">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\gl\screen.frag">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\gl\screen.vert">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\gl\vr_screen.frag">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\gl\vr_screen.vert">
-      <Filter>src\twopi\shader\gl</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle.frag">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle.vert">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\.gitignore">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\compile.py">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle_3d.frag">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\triangle_3d.vert">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\mesh.frag">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\vk\mesh.vert">
-      <Filter>src\twopi\shader\vk</Filter>
-    </None>
     <None Include="..\..\.gitignore">
       <Filter>git</Filter>
     </None>
     <None Include="..\..\README.md">
       <Filter>git</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\.gitignore">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\compile.py">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\mesh.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\mesh.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle_3d.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\triangle_3d.vert">
+      <Filter>src\twopi\shader</Filter>
     </None>
   </ItemGroup>
 </Project>
