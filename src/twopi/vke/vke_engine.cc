@@ -726,21 +726,59 @@ private:
 
 private:
   vkw::Instance instance_;
+
+  // Device
   vkw::PhysicalDevice physical_device_;
   vkw::Device device_;
-
-  std::shared_ptr<MemoryManager> memory_manager_;
-
   vkw::Queue graphics_queue_;
   vkw::Queue present_queue_;
 
   vkw::Surface surface_;
 
+  // Memory
+  std::shared_ptr<MemoryManager> memory_manager_;
+
+  // Depth buffer
+  std::unique_ptr<vke::Image> depth_image_;
+  vkw::ImageView depth_image_view_;
+
+  // Multisample image
+  std::unique_ptr<vke::Image> rendertarget_image_;
+  vkw::ImageView rendertarget_image_view_;
+
+  // Vertex attributes
+  std::unique_ptr<vke::Buffer> vertex_staging_buffer_;
+  std::unique_ptr<vke::Buffer> vertex_buffer_;
+  std::unique_ptr<vke::Buffer> index_buffer_;
+  std::unique_ptr<vke::Buffer> instance_buffer_;
+  uint64_t normal_offset_ = 0;
+  uint64_t tex_coord_offset_ = 0;
+  uint64_t instance_offset_ = 0;
+  uint64_t num_indices_ = 0;
+  uint64_t num_instances_ = 0;
+
+  // Texture
+  std::unique_ptr<vke::Image> image_;
+  vkw::ImageView image_view_;
+  std::unique_ptr<vke::Buffer> image_staging_buffer_;
+  vkw::Sampler sampler_;
+
+  // Uniform buffer
+  std::vector<std::unique_ptr<vke::Buffer>> uniform_buffers_;
+  glm::mat4 projection_matrix_;
+  glm::mat4 view_matrix_;
+
+  // Descriptors
+  vkw::DescriptorPool descriptor_pool_;
+  std::vector<vkw::DescriptorSet> descriptor_sets_;
+
+  // Swapchain
   vkw::Swapchain swapchain_;
   std::vector<vkw::Image> swapchain_images_;
   std::vector<vkw::ImageView> swapchain_image_views_;
   std::vector<vkw::Framebuffer> swapchain_framebuffers_;
 
+  // Graphics pipeline
   vkw::ShaderModule vert_shader_;
   vkw::ShaderModule frag_shader_;
   vkw::DescriptorSetLayout descriptor_set_layout_;
@@ -750,43 +788,18 @@ private:
   vkw::RenderPass render_pass_;
   vkw::GraphicsPipeline pipeline_;
 
+  // Commands
   vkw::CommandPool command_pool_;
   std::vector<vkw::CommandBuffer> command_buffers_;
 
+  // Rendering & presentation synchronization
   size_t current_frame_ = 0;
   std::vector<vkw::Semaphore> image_available_semaphores_;
   std::vector<vkw::Semaphore> render_finished_semaphores_;
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
 
-  std::unique_ptr<vke::Buffer> vertex_staging_buffer_;
-  std::unique_ptr<vke::Buffer> vertex_buffer_;
-  std::unique_ptr<vke::Buffer> instance_buffer_;
-  std::unique_ptr<vke::Buffer> index_buffer_;
-  std::vector<std::unique_ptr<vke::Buffer>> uniform_buffers_;
-  uint64_t normal_offset_ = 0;
-  uint64_t tex_coord_offset_ = 0;
-  uint64_t instance_offset_ = 0;
-  uint64_t num_indices_ = 0;
-  uint64_t num_instances_ = 0;
-
-  vkw::DescriptorPool descriptor_pool_;
-  std::vector<vkw::DescriptorSet> descriptor_sets_;
-
-  glm::mat4 projection_matrix_;
-  glm::mat4 view_matrix_;
-
-  std::unique_ptr<vke::Image> image_;
-  vkw::ImageView image_view_;
-  std::unique_ptr<vke::Buffer> image_staging_buffer_;
-  vkw::Sampler sampler_;
-
-  std::unique_ptr<vke::Image> depth_image_;
-  vkw::ImageView depth_image_view_;
-
-  std::unique_ptr<vke::Image> rendertarget_image_;
-  vkw::ImageView rendertarget_image_view_;
-
+  // Window
   int width_ = 0;
   int height_ = 0;
 };
