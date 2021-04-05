@@ -46,7 +46,7 @@ public:
 
   operator vk::Buffer() const;
 
-  void Bind(DeviceMemory memory);
+  void Bind(DeviceMemory memory, uint64_t offset = 0);
 
 private:
   vk::Device device_;

@@ -85,9 +85,9 @@ Buffer::operator vk::Buffer() const
   return buffer_;
 }
 
-void Buffer::Bind(DeviceMemory memory)
+void Buffer::Bind(DeviceMemory memory, uint64_t offset)
 {
-  device_.bindBufferMemory(buffer_, memory, 0);
+  device_.bindBufferMemory(buffer_, memory, offset);
 }
 }
 }

@@ -138,9 +138,9 @@ vk::Format Image::Format() const
   return format_;
 }
 
-void Image::Bind(DeviceMemory memory)
+void Image::Bind(DeviceMemory memory, uint64_t offset)
 {
-  device_.bindImageMemory(image_, memory, 0);
+  device_.bindImageMemory(image_, memory, offset);
 }
 }
 }

@@ -54,7 +54,7 @@ public:
 
   vk::Format Format() const;
 
-  void Bind(DeviceMemory memory);
+  void Bind(DeviceMemory memory, uint64_t offset = 0);
 
   auto Width() const { return width_; }
   auto Height() const { return height_; }

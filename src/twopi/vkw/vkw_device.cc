@@ -16,7 +16,7 @@ namespace vkw
 //
 // Creator
 //
-Device::Creator::Creator(PhysicalDevice physical_device)
+Device::Creator::Creator(vkw::PhysicalDevice physical_device)
   : physical_device_(physical_device)
 {
   create_info_
@@ -109,6 +109,7 @@ Device Device::Creator::Create()
 
   const auto handle = physical_device_.createDevice(create_info_, nullptr);
   auto device = Device{ handle };
+  device.physical_device_ = physical_device_;
   device.queue_indices_ = std::move(queue_indices);
   return device;
 }
@@ -142,6 +143,11 @@ void Device::Destroy()
 Device::operator vk::Device() const
 {
   return device_;
+}
+
+vk::PhysicalDevice Device::PhysicalDevice() const
+{
+  return physical_device_;
 }
 
 std::pair<uint32_t, vk::Result> Device::AcquireNextImage(Swapchain swapchain, Semaphore semaphore)
