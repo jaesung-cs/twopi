@@ -138,6 +138,11 @@ vk::Format Image::Format() const
   return format_;
 }
 
+vk::DeviceSize Image::RequiredMemorySize() const
+{
+  return device_.getImageMemoryRequirements(image_).size;
+}
+
 void Image::Bind(DeviceMemory memory, uint64_t offset)
 {
   device_.bindImageMemory(image_, memory, offset);

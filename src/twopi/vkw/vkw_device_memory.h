@@ -56,7 +56,7 @@ public:
 
   operator vk::DeviceMemory() const;
 
-  void* Map(uint64_t offset = 0);
+  void* Map(uint64_t offset = 0, uint64_t size = 0);
   void Unmap();
 
 private:

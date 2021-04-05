@@ -153,9 +153,9 @@ DeviceMemory::operator vk::DeviceMemory() const
   return device_memory_;
 }
 
-void* DeviceMemory::Map(uint64_t offset)
+void* DeviceMemory::Map(uint64_t offset, uint64_t size)
 {
-  return device_.mapMemory(device_memory_, offset, size_ - offset);
+  return device_.mapMemory(device_memory_, offset, (size == 0 ? size_ - offset : size));
 }
 
 void DeviceMemory::Unmap()
