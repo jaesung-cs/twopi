@@ -524,6 +524,7 @@ private:
   {
     auto depth_image = vkw::Image::Creator{ device_ }
       .SetDepthStencilImage()
+      .SetMultisample4()
       .SetSize(width_, height_)
       .Create();
 
