@@ -10,25 +10,28 @@ namespace twopi
 {
 namespace vke
 {
-Buffer::Buffer(std::shared_ptr<Context> context, vk::BufferCreateInfo create_info, MemoryType memory_type)
+Buffer::Buffer(std::shared_ptr<vke::Context> context, vk::BufferCreateInfo create_info, MemoryType memory_type)
   : context_(context)
 {
-  buffer_ = context_->Device().createBuffer(create_info);
+  buffer_ = context->Device().createBuffer(create_info);
 
   switch (memory_type)
   {
   case MemoryType::Host:
-    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateHostVisibleMemory(buffer_));
+    memory_ = std::make_unique<Memory>(context->MemoryManager()->AllocateHostVisibleMemory(buffer_));
     break;
   case MemoryType::Device:
-    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateDeviceLocalMemory(buffer_));
+    memory_ = std::make_unique<Memory>(context->MemoryManager()->AllocateDeviceLocalMemory(buffer_));
     break;
   }
 
-  context_->Device().bindBufferMemory(buffer_, *memory_, memory_->Size());
+  context->Device().bindBufferMemory(buffer_, *memory_, memory_->Size());
 }
 
-Buffer::~Buffer() = default;
+Buffer::~Buffer()
+{
+  Context()->Device().destroyBuffer(buffer_);
+}
 
 Buffer::operator vk::Buffer() const
 {
@@ -37,12 +40,17 @@ Buffer::operator vk::Buffer() const
 
 void* Buffer::Map()
 {
-  return context_->Device().mapMemory(*memory_, memory_->Offset(), memory_->Size());
+  return Context()->Device().mapMemory(*memory_, memory_->Offset(), memory_->Size());
 }
 
 void Buffer::Unmap()
 {
-  context_->Device().unmapMemory(*memory_);
+  Context()->Device().unmapMemory(*memory_);
+}
+
+std::shared_ptr<Context> Buffer::Context() const
+{
+  return context_.lock();
 }
 }
 }

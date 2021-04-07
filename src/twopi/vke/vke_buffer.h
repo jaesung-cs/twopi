@@ -32,7 +32,9 @@ public:
   void Unmap();
 
 private:
-  std::shared_ptr<Context> context_;
+  std::shared_ptr<Context> Context() const;
+
+  std::weak_ptr<vke::Context> context_;
 
   vk::Buffer buffer_;
 

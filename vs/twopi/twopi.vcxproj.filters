@@ -207,6 +207,9 @@
     <ClCompile Include="..\..\src\twopi\vke\vke_context.cc">
       <Filter>src\twopi\vke</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vke\vke_swapchain.cc">
+      <Filter>src\twopi\vke</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -378,6 +381,9 @@
       <Filter>src\twopi\vke</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vke\vke_context.h">
+      <Filter>src\twopi\vke</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vke\vke_swapchain.h">
       <Filter>src\twopi\vke</Filter>
     </ClInclude>
   </ItemGroup>

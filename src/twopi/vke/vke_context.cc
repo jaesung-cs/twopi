@@ -131,6 +131,8 @@ Context::Context(GLFWwindow* window)
     .setPEnabledFeatures(&features);
   device_ = physical_device_.createDevice(device_create_info);
 
+  queue_family_indices_[0] = graphics_family_index;
+  queue_family_indices_[1] = present_family_index;
   graphics_queue_ = device_.getQueue(graphics_family_index, 0);
   present_queue_ = device_.getQueue(present_family_index, 0);
 
@@ -139,9 +141,13 @@ Context::Context(GLFWwindow* window)
 
 Context::~Context()
 {
+  memory_manager_.reset();
+
   device_.waitIdle();
 
   device_.destroy();
+
+  instance_.destroySurfaceKHR(surface_);
 
   vk::DynamicLoader dl;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -165,6 +171,16 @@ vk::Device Context::Device() const
 std::shared_ptr<MemoryManager> Context::MemoryManager() const
 {
   return memory_manager_;
+}
+
+vk::SurfaceKHR Context::Surface() const
+{
+  return surface_;
+}
+
+const std::array<uint32_t, 2>& Context::QueueFamilyIndices() const
+{
+  return queue_family_indices_;
 }
 }
 }

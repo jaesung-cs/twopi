@@ -180,6 +180,7 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vke\vke_image.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory_manager.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_swapchain.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc" />
@@ -238,6 +239,7 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vke\vke_image.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory_manager.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_swapchain.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h" />

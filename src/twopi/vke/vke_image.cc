@@ -8,7 +8,7 @@ namespace twopi
 {
 namespace vke
 {
-Image::Image(std::shared_ptr<Context> context, vk::ImageCreateInfo create_info, MemoryType memory_type)
+Image::Image(std::shared_ptr<vke::Context> context, vk::ImageCreateInfo create_info, MemoryType memory_type)
   : context_(context)
 {
   width_ = create_info.extent.width;
@@ -17,24 +17,24 @@ Image::Image(std::shared_ptr<Context> context, vk::ImageCreateInfo create_info, 
   format_ = create_info.format;
   mip_levels_ = create_info.mipLevels;
 
-  image_ = context_->Device().createImage(create_info);
+  image_ = context->Device().createImage(create_info);
 
   switch (memory_type)
   {
   case MemoryType::Host:
-    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateHostVisibleMemory(image_));
+    memory_ = std::make_unique<Memory>(context->MemoryManager()->AllocateHostVisibleMemory(image_));
     break;
   case MemoryType::Device:
-    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateDeviceLocalMemory(image_));
+    memory_ = std::make_unique<Memory>(context->MemoryManager()->AllocateDeviceLocalMemory(image_));
     break;
   }
 
-  context_->Device().bindImageMemory(image_, *memory_, memory_->Offset());
+  context->Device().bindImageMemory(image_, *memory_, memory_->Offset());
 }
 
 Image::~Image()
 {
-  context_->Device().destroyImage(image_);
+  Context()->Device().destroyImage(image_);
 }
 
 Image::operator vk::Image() const
@@ -44,12 +44,17 @@ Image::operator vk::Image() const
 
 void* Image::Map()
 {
-  return context_->Device().mapMemory(*memory_, memory_->Offset(), memory_->Size());
+  return Context()->Device().mapMemory(*memory_, memory_->Offset(), memory_->Size());
 }
 
 void Image::Unmap()
 {
-  context_->Device().unmapMemory(*memory_);
+  Context()->Device().unmapMemory(*memory_);
+}
+
+std::shared_ptr<Context> Image::Context() const
+{
+  return context_.lock();
 }
 }
 }

@@ -2,6 +2,7 @@
 #define TWOPI_VKE_VKE_CONTEXT_H_
 
 #include <memory>
+#include <array>
 
 #include <vulkan/vulkan.hpp>
 
@@ -25,6 +26,8 @@ public:
   vk::PhysicalDevice PhysicalDevice() const;
   vk::Device Device() const;
   std::shared_ptr<MemoryManagerType> MemoryManager() const;
+  vk::SurfaceKHR Surface() const;
+  const std::array<uint32_t, 2>& QueueFamilyIndices() const;
 
 private:
   vk::Instance instance_;
@@ -35,6 +38,7 @@ private:
   vk::PhysicalDevice physical_device_;
   vk::Device device_;
 
+  std::array<uint32_t, 2> queue_family_indices_{ ~0u, ~0u };
   vk::Queue graphics_queue_;
   vk::Queue present_queue_;
 

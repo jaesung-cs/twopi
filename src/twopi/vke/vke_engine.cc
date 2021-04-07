@@ -19,8 +19,7 @@
 #include <twopi/vke/vke_context.h>
 #include <twopi/vke/vke_buffer.h>
 #include <twopi/vke/vke_image.h>
-#include <twopi/vke/vke_memory.h>
-#include <twopi/vke/vke_memory_manager.h>
+#include <twopi/vke/vke_swapchain.h>
 
 namespace twopi
 {
@@ -41,6 +40,8 @@ public:
     height_ = window->Height();
 
     context_ = std::make_shared<vke::Context>(std::dynamic_pointer_cast<window::GlfwWindow>(window)->Handle());
+
+    swapchain_ = std::make_unique<vke::Swapchain>(context_, width_, height_);
 
     // Load image
     const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
@@ -121,6 +122,14 @@ public:
       .setSize(mesh_index_buffer_size);
     index_buffer_ = std::make_unique<vke::Buffer>(context_, buffer_create_info, vke::Buffer::MemoryType::Device);
 
+    // Uniform buffers per swapchain images
+    buffer_create_info
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer)
+      .setSize(3 * 16 * sizeof(float));
+
+    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
+      uniform_buffers_.emplace_back(std::make_unique<vke::Buffer>(context_, buffer_create_info, vke::Buffer::MemoryType::Host));
+
     // Load image
     const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
     geometry::ImageLoader image_loader{};
@@ -150,19 +159,23 @@ public:
     auto* image_ptr = static_cast<uint8_t*>(image_staging_buffer_->Map());
     std::memcpy(image_ptr, texture_image->Buffer().data(), texture_image->Buffer().size());
     image_staging_buffer_->Unmap();
-
-    // Depth buffer storage
-    image_create_info
-      .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
-      .setFormat(vk::Format::eD24UnormS8Uint)
-      .setMipLevels(1)
-      .setSamples(vk::SampleCountFlagBits::e4)
-      .setExtent(vk::Extent3D{ 1920, 1080, 1 });
-    depth_image_ = std::make_unique<vke::Image>(context_, image_create_info, vke::Image::MemoryType::Device);
   }
 
   ~Impl()
   {
+    vertex_staging_buffer_.reset();
+    vertex_buffer_.reset();
+    index_buffer_.reset();
+    instance_buffer_.reset();
+
+    image_.reset();
+    image_staging_buffer_.reset();
+
+    for (auto& uniform_buffer : uniform_buffers_)
+      uniform_buffer.reset();
+    uniform_buffers_.clear();
+
+    swapchain_.reset();
     context_.reset();
   }
 
@@ -206,11 +219,8 @@ private:
   // Context and memory management
   std::shared_ptr<vke::Context> context_;
 
-  // Depth buffer
-  std::unique_ptr<vke::Image> depth_image_;
-
-  // Multisample image
-  std::unique_ptr<vke::Image> rendertarget_image_;
+  // Swapchain
+  std::unique_ptr<vke::Swapchain> swapchain_;
 
   // Vertex attributes
   std::unique_ptr<vke::Buffer> vertex_staging_buffer_;
