@@ -1,37 +1,42 @@
-#ifndef TWOPI_VKE_VKE_IMAGE_H_
+#ifndef TWOPI_VKE_VKE_BUFFER_H_
 #define TWOPI_VKE_VKE_BUFFER_H_
 
 #include <memory>
 
+#include <vulkan/vulkan.hpp>
+
 namespace twopi
 {
-namespace vkw
-{
-class Buffer;
-class DeviceMemory;
-}
-
 namespace vke
 {
+class Context;
 class Memory;
 
 class Buffer
 {
 public:
+  enum class MemoryType
+  {
+    Host,
+    Device,
+  };
+
+public:
   Buffer() = delete;
-  Buffer(vkw::Buffer&& buffer, vkw::DeviceMemory memory, uint64_t offset, uint64_t size);
-  Buffer(vkw::Buffer&& buffer, Memory memory);
+  Buffer(std::shared_ptr<Context> context, vk::BufferCreateInfo create_info, MemoryType memory_type);
   ~Buffer();
 
-  operator vkw::Buffer() const;
-  uint64_t Offset() const;
+  operator vk::Buffer() const;
 
   void* Map();
   void Unmap();
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Context> context_;
+
+  vk::Buffer buffer_;
+
+  std::unique_ptr<Memory> memory_;
 };
 }
 }

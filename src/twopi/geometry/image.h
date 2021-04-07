@@ -18,8 +18,8 @@ public:
 
   void CopyBuffer(const T* const buffer);
 
-  int Width() const;
-  int Height() const;
+  uint32_t Width() const;
+  uint32_t Height() const;
   int Comp() const;
   const std::vector<T>& Buffer() const;
 

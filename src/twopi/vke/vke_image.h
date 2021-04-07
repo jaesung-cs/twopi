@@ -1,37 +1,45 @@
 #ifndef TWOPI_VKE_VKE_IMAGE_H_
 #define TWOPI_VKE_VKE_IMAGE_H_
 
-#include <memory>
+#include <vulkan/vulkan.hpp>
 
 namespace twopi
 {
-namespace vkw
-{
-class Image;
-class DeviceMemory;
-}
-
 namespace vke
 {
+class Context;
 class Memory;
 
 class Image
 {
 public:
+  enum class MemoryType
+  {
+    Host,
+    Device,
+  };
+
+public:
   Image() = delete;
-  Image(vkw::Image&& image, vkw::DeviceMemory memory, uint64_t offset, uint64_t size);
-  Image(vkw::Image&& image, Memory memory);
+  Image(std::shared_ptr<Context> context, vk::ImageCreateInfo create_info, MemoryType memory_type);
   ~Image();
 
-  operator vkw::Image() const;
-  uint64_t Offset() const;
+  operator vk::Image() const;
 
   void* Map();
   void Unmap();
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Context> context_;
+
+  vk::Image image_;
+
+  std::unique_ptr<Memory> memory_;
+
+  uint32_t width_;
+  uint32_t height_;
+  vk::Format format_;
+  uint32_t mip_levels_;
 };
 }
 }

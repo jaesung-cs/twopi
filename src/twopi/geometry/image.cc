@@ -84,13 +84,13 @@ void Image<T>::CopyBuffer(const T* const buffer)
 }
 
 template <typename T>
-int Image<T>::Width() const
+uint32_t Image<T>::Width() const
 {
   return impl_->Width();
 }
 
 template <typename T>
-int Image<T>::Height() const
+uint32_t Image<T>::Height() const
 {
   return impl_->Height();
 }

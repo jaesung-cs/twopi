@@ -1,88 +1,55 @@
 #include <twopi/vke/vke_image.h>
 
-#include <twopi/vkw/vkw_image.h>
-#include <twopi/vkw/vkw_device_memory.h>
+#include <twopi/vke/vke_context.h>
 #include <twopi/vke/vke_memory.h>
+#include <twopi/vke/vke_memory_manager.h>
 
 namespace twopi
 {
 namespace vke
 {
-class Image::Impl
+Image::Image(std::shared_ptr<Context> context, vk::ImageCreateInfo create_info, MemoryType memory_type)
+  : context_(context)
 {
-public:
-  Impl() = delete;
+  width_ = create_info.extent.width;
+  height_ = create_info.extent.height;
 
-  Impl(vkw::Image&& image, vkw::DeviceMemory memory, uint64_t offset, uint64_t size)
-    : Impl(std::move(image), Memory(memory, offset, size)) {}
+  format_ = create_info.format;
+  mip_levels_ = create_info.mipLevels;
 
-  Impl(vkw::Image&& image, Memory memory)
-    : image_(std::move(image))
-    , memory_(memory)
+  image_ = context_->Device().createImage(create_info);
+
+  switch (memory_type)
   {
-    image_.Bind(memory_.DeviceMemory(), memory_.Offset());
+  case MemoryType::Host:
+    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateHostVisibleMemory(image_));
+    break;
+  case MemoryType::Device:
+    memory_ = std::make_unique<Memory>(context_->MemoryManager()->AllocateDeviceLocalMemory(image_));
+    break;
   }
 
-  ~Impl()
-  {
-    image_.Destroy();
-  }
-
-  operator vkw::Image() const
-  {
-    return image_;
-  }
-
-  uint64_t Offset() const
-  {
-    return memory_.Offset();
-  }
-
-  void* Map()
-  {
-    return memory_.DeviceMemory().Map(memory_.Offset(), memory_.Size());
-  }
-
-  void Unmap()
-  {
-    memory_.DeviceMemory().Unmap();
-  }
-
-private:
-  vkw::Image image_;
-  Memory memory_;
-};
-
-Image::Image(vkw::Image&& image, vkw::DeviceMemory memory, uint64_t offset, uint64_t size)
-  : impl_(std::make_unique<Impl>(std::move(image), memory, offset, size))
-{
+  context_->Device().bindImageMemory(image_, *memory_, memory_->Offset());
 }
 
-Image::Image(vkw::Image&& image, Memory memory)
-  : impl_(std::make_unique<Impl>(std::move(image), memory))
+Image::~Image()
 {
+  context_->Device().destroyImage(image_);
 }
 
-Image::~Image() = default;
-
-Image::operator vkw::Image() const
+Image::operator vk::Image() const
 {
-  return impl_->operator vkw::Image();
-}
-
-uint64_t Image::Offset() const
-{
-  return impl_->Offset();
+  return image_;
 }
 
 void* Image::Map()
 {
-  return impl_->Map();
+  return context_->Device().mapMemory(*memory_, memory_->Offset(), memory_->Size());
 }
 
 void Image::Unmap()
 {
-  impl_->Unmap();
+  context_->Device().unmapMemory(*memory_);
 }
 }
 }

@@ -86,7 +86,7 @@ void DeviceMemory::Allocator::SetMemory(vk::MemoryRequirements memory_requiremen
   const auto memory_properties = physical_device.MemoryProperties();
 
   int memory_type_index = -1;
-  for (int i = 0; i < memory_properties.memoryTypeCount; i++)
+  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
   {
     if ((memory_requirements.memoryTypeBits & (1 << i)) &&
       (memory_properties.memoryTypes[i].propertyFlags & required_memory_properties) == required_memory_properties)
