@@ -46,6 +46,10 @@ private:
 
   std::unique_ptr<Image> multisample_depth_image_;
   vk::ImageView multisample_depth_image_view_;
+
+  vk::RenderPass render_pass_;
+
+  std::vector<vk::Framebuffer> framebuffers_;
 };
 }
 }

@@ -140,11 +140,114 @@ Swapchain::Swapchain(std::shared_ptr<vke::Context> context, uint32_t width, uint
     .setFormat(vk::Format::eD24UnormS8Uint)
     .setSubresourceRange(image_subresource_range);
   multisample_depth_image_view_ = device.createImageView(image_view_create_info);
+
+  // Render pass
+  vk::AttachmentDescription color_attachment_description;
+  color_attachment_description
+    .setLoadOp(vk::AttachmentLoadOp::eClear)
+    .setStoreOp(vk::AttachmentStoreOp::eStore)
+    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setInitialLayout(vk::ImageLayout::eUndefined)
+    .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+    .setSamples(vk::SampleCountFlagBits::e4)
+    .setFormat(format_);
+
+  vk::AttachmentReference color_attachment_reference;
+  color_attachment_reference
+    .setAttachment(0)
+    .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+  vk::AttachmentDescription depth_attachment_description;
+  depth_attachment_description
+    .setLoadOp(vk::AttachmentLoadOp::eClear)
+    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setInitialLayout(vk::ImageLayout::eUndefined)
+    .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    .setSamples(vk::SampleCountFlagBits::e4)
+    .setFormat(vk::Format::eD24UnormS8Uint);
+
+  vk::AttachmentReference depth_attachment_reference;
+  depth_attachment_reference
+    .setAttachment(1)
+    .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+  vk::AttachmentDescription resolve_attachment_description;
+  resolve_attachment_description
+    .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStoreOp(vk::AttachmentStoreOp::eStore)
+    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+    .setInitialLayout(vk::ImageLayout::eUndefined)
+    .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
+    .setSamples(vk::SampleCountFlagBits::e1)
+    .setFormat(format_);
+
+  vk::AttachmentReference resolve_attachment_reference;
+  resolve_attachment_reference
+    .setAttachment(2)
+    .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+  vk::SubpassDescription subpass_description;
+  subpass_description
+    .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+    .setColorAttachments(color_attachment_reference)
+    .setPDepthStencilAttachment(&depth_attachment_reference);
+
+  vk::SubpassDependency subpass_dependency;
+  subpass_dependency
+    .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+    .setDstSubpass(0)
+    .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
+    .setSrcAccessMask(vk::AccessFlags{})
+    .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
+    .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+
+  std::vector<vk::AttachmentDescription> attachment_descriptions = {
+    color_attachment_description,
+    depth_attachment_description,
+    resolve_attachment_description
+  };
+  vk::RenderPassCreateInfo render_pass_create_info;
+  render_pass_create_info
+    .setAttachments(attachment_descriptions)
+    .setSubpasses(subpass_description)
+    .setDependencies(subpass_dependency);
+
+  render_pass_ = device.createRenderPass(render_pass_create_info);
+
+  // Framebuffers
+  vk::FramebufferCreateInfo framebuffer_create_info;
+  framebuffer_create_info
+    .setWidth(width_)
+    .setHeight(height_)
+    .setLayers(1)
+    .setRenderPass(render_pass_);
+
+  for (int i = 0; i < image_count_; i++)
+  {
+    std::vector<vk::ImageView> attachments = {
+      multisample_color_image_view_,
+      multisample_depth_image_view_,
+      swapchain_image_views_[i]
+    };
+    framebuffer_create_info.setAttachments(attachments);
+
+    framebuffers_.emplace_back(device.createFramebuffer(framebuffer_create_info));
+  }
 }
 
 Swapchain::~Swapchain()
 {
   const auto device = Context()->Device();
+
+  device.destroyRenderPass(render_pass_);
+
+  for (auto& framebuffer : framebuffers_)
+    device.destroyFramebuffer(framebuffer);
+  framebuffers_.clear();
 
   multisample_color_image_.reset();
   device.destroyImageView(multisample_color_image_view_);
