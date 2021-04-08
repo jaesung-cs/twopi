@@ -282,6 +282,11 @@ uint32_t Swapchain::ImageCount() const
   return image_count_;
 }
 
+vk::RenderPass Swapchain::RenderPass() const
+{
+  return render_pass_;
+}
+
 std::shared_ptr<Context> Swapchain::Context() const
 {
   return context_.lock();

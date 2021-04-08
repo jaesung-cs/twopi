@@ -8,6 +8,7 @@
 #include <glfw/glfw3.h>
 
 #include <twopi/vke/vke_memory_manager.h>
+#include <twopi/vke/vke_swapchain.h>
 
 namespace twopi
 {
@@ -137,10 +138,14 @@ Context::Context(GLFWwindow* window)
   present_queue_ = device_.getQueue(present_family_index, 0);
 
   memory_manager_ = std::make_shared<MemoryManagerType>(*this);
+
+  pipeline_cache_ = device_.createPipelineCache({});
 }
 
 Context::~Context()
 {
+  device_.destroyPipelineCache(pipeline_cache_);
+
   memory_manager_.reset();
 
   device_.waitIdle();
@@ -181,6 +186,11 @@ vk::SurfaceKHR Context::Surface() const
 const std::array<uint32_t, 2>& Context::QueueFamilyIndices() const
 {
   return queue_family_indices_;
+}
+
+vk::PipelineCache Context::PipelineCache() const
+{
+  return pipeline_cache_;
 }
 }
 }

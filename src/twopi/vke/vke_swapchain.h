@@ -23,6 +23,7 @@ public:
   uint32_t Width() const;
   uint32_t Height() const;
   uint32_t ImageCount() const;
+  vk::RenderPass RenderPass() const;
 
 private:
   std::shared_ptr<Context> Context() const;

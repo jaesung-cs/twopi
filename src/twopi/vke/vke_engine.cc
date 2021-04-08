@@ -41,7 +41,7 @@ public:
 
     context_ = std::make_shared<vke::Context>(std::dynamic_pointer_cast<window::GlfwWindow>(window)->Handle());
 
-    swapchain_ = std::make_unique<vke::Swapchain>(context_, width_, height_);
+    swapchain_ = std::make_shared<vke::Swapchain>(context_, width_, height_);
 
     // Load image
     const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
@@ -220,7 +220,7 @@ private:
   std::shared_ptr<vke::Context> context_;
 
   // Swapchain
-  std::unique_ptr<vke::Swapchain> swapchain_;
+  std::shared_ptr<vke::Swapchain> swapchain_;
 
   // Vertex attributes
   std::unique_ptr<vke::Buffer> vertex_staging_buffer_;

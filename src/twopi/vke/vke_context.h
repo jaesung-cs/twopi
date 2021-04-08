@@ -28,6 +28,7 @@ public:
   std::shared_ptr<MemoryManagerType> MemoryManager() const;
   vk::SurfaceKHR Surface() const;
   const std::array<uint32_t, 2>& QueueFamilyIndices() const;
+  vk::PipelineCache PipelineCache() const;
 
 private:
   vk::Instance instance_;
@@ -43,6 +44,8 @@ private:
   vk::Queue present_queue_;
 
   std::shared_ptr<MemoryManagerType> memory_manager_;
+
+  vk::PipelineCache pipeline_cache_;
 };
 }
 }
