@@ -70,7 +70,7 @@ public:
     switch (type_)
     {
     case Type::PERSPECTIVE:
-      return glm::perspective(glm::degrees(fovy_), aspect, near_, far_);
+      return glm::perspective(fovy_, aspect, near_, far_);
     case Type::ORTHO:
       return glm::ortho(-aspect * zoom_, aspect * zoom_, -zoom_, zoom_, near_, far_);
     default:
@@ -96,7 +96,7 @@ private:
   float near_ = 0.01f;
   float far_ = 1000.f;
 
-  float fovy_ = 45.f / 180.f * glm::pi<float>();
+  float fovy_ = 90.f / 180.f * glm::pi<float>();
 
   float zoom_ = 1.f;
 
