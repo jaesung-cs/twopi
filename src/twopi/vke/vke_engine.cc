@@ -273,11 +273,10 @@ public:
     constexpr uint64_t mat4_size = sizeof(float) * 16;
     glm::mat4 model_matrix{ 1.f };
 
-    auto* ptr = static_cast<unsigned char*>(uniform_buffers_[image_index]->Map());
+    auto* ptr = uniform_buffer_map_ + (256 * image_index);
     std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
-    uniform_buffers_[image_index]->Unmap();
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -636,21 +635,17 @@ private:
   void CreateUniformBuffers()
   {
     // Uniform buffers
-    constexpr int uniform_buffer_size = sizeof(float) * 16 * 3;
-    auto uniform_buffer_creator = vkw::Buffer::Creator{ device_ }
+    const int uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto uniform_buffer = vkw::Buffer::Creator{ device_ }
       .SetSize(uniform_buffer_size)
-      .SetUniformBuffer();
+      .SetUniformBuffer()
+      .Create();
 
-    for (int i = 0; i < swapchain_image_views_.size(); i++)
-    {
-      auto buffer = uniform_buffer_creator.Create();
+    uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(uniform_buffer).size));
 
-      auto uniform_buffer = std::make_unique<vke::Buffer>(
-        std::move(buffer),
-        memory_manager_->AllocateHostVisibleMemory(uniform_buffer_size));
-
-      uniform_buffers_.emplace_back(std::move(uniform_buffer));
-    }
+    uniform_buffer_map_ = static_cast<unsigned char*>(uniform_buffer_->Map());
   }
 
   void CreateDescriptorSets()
@@ -669,7 +664,7 @@ private:
         .Allocate();
 
       for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
-        descriptor_framebuffer_sets[j].Update(*uniform_buffers_[j], textures_[i].image_view, sampler_);
+        descriptor_framebuffer_sets[j].Update(*uniform_buffer_, j * 256, sizeof(float) * 16 * 3, textures_[i].image_view, sampler_);
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
     }
@@ -745,9 +740,8 @@ private:
 
   void CleanupUniformBuffers()
   {
-    for (auto& uniform_buffer : uniform_buffers_)
-      uniform_buffer.reset();
-    uniform_buffers_.clear();
+    uniform_buffer_->Unmap();
+    uniform_buffer_.reset();
   }
 
   void CleanupDescriptors()
@@ -839,7 +833,9 @@ private:
   std::vector<vkw::Fence> images_in_flight_;
 
   // Uniform buffer
-  std::vector<std::unique_ptr<vke::Buffer>> uniform_buffers_;
+  std::unique_ptr<vke::Buffer> uniform_buffer_;
+  unsigned char* uniform_buffer_map_;
+
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrix_;
 

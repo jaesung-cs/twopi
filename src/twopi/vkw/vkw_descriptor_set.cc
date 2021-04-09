@@ -68,14 +68,24 @@ DescriptorSet::operator vk::DescriptorSet() const
 
 void DescriptorSet::Update(Buffer buffer, ImageView image_view, Sampler sampler)
 {
+  Update(buffer, 0, image_view, sampler);
+}
+
+void DescriptorSet::Update(Buffer buffer, uint64_t offset, ImageView image_view, Sampler sampler)
+{
+  Update(buffer, offset, VK_WHOLE_SIZE, image_view, sampler);
+}
+
+void DescriptorSet::Update(Buffer buffer, uint64_t offset, uint64_t size, ImageView image_view, Sampler sampler)
+{
   vk::DescriptorBufferInfo buffer_info;
   vk::DescriptorImageInfo image_info;
   std::vector<vk::WriteDescriptorSet> writes;
 
   buffer_info
     .setBuffer(buffer)
-    .setOffset(0)
-    .setRange(VK_WHOLE_SIZE);
+    .setOffset(offset)
+    .setRange(size);
 
   image_info
     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)

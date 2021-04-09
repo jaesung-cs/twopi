@@ -47,6 +47,8 @@ public:
   operator vk::DescriptorSet() const;
 
   void Update(Buffer buffer, ImageView image_view, Sampler sampler);
+  void Update(Buffer buffer, uint64_t offset, ImageView image_view, Sampler sampler);
+  void Update(Buffer buffer, uint64_t offset, uint64_t size, ImageView image_view, Sampler sampler);
 
 private:
   vk::Device device_;

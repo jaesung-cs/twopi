@@ -25,6 +25,7 @@ public:
   explicit MemoryManager(vkw::Device device);
   ~MemoryManager();
 
+  Memory AllocatePersistenlyMappedMemory(uint64_t size);
   Memory AllocateHostVisibleMemory(uint64_t size);
   Memory AllocateDeviceLocalMemory(uint64_t size);
 

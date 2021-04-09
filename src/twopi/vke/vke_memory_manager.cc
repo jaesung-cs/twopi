@@ -35,12 +35,12 @@ public:
     const auto physical_device = device_.PhysicalDevice();
     const auto device_memory_property = physical_device.getMemoryProperties();
 
-    for (int i = 0; i < device_memory_property.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < device_memory_property.memoryTypeCount; i++)
     {
       const auto heap_index = device_memory_property.memoryTypes[i].heapIndex;
       auto property = device_memory_property.memoryTypes[i].propertyFlags;
 
-      for (int j = 0; j < 2; j++)
+      for (uint32_t j = 0; j < memory_properties_.size(); j++)
       {
         if ((property & memory_properties_[j]) == memory_properties_[j])
         {
@@ -65,8 +65,23 @@ public:
 
   ~Impl()
   {
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < memories_.size(); i++)
       memories_[i].Free();
+
+    for (auto& persistently_mapped_memory : persistently_mapped_memories_)
+      persistently_mapped_memory.Free();
+  }
+
+  Memory AllocatePersistenlyMappedMemory(uint64_t size)
+  {
+    auto memory = vkw::DeviceMemory::Allocator{ device_ }
+      .SetHostVisibleCoherentMemory(vkw::PhysicalDevice(device_.PhysicalDevice()))
+      .SetSize(size)
+      .Allocate();
+
+    persistently_mapped_memories_.emplace_back(memory);
+
+    return Memory(memory, 0, size);
   }
 
   Memory AllocateHostVisibleMemory(uint64_t size)
@@ -92,6 +107,8 @@ private:
 
   std::array<vkw::DeviceMemory, 2> memories_;
   std::array<uint64_t, 2> memory_offsets_{ 0, 0 };
+
+  std::vector<vkw::DeviceMemory> persistently_mapped_memories_;
 };
 
 MemoryManager::MemoryManager(vkw::Device device)
@@ -100,6 +117,11 @@ MemoryManager::MemoryManager(vkw::Device device)
 }
 
 MemoryManager::~MemoryManager() = default;
+
+Memory MemoryManager::AllocatePersistenlyMappedMemory(uint64_t size)
+{
+  return impl_->AllocatePersistenlyMappedMemory(size);
+}
 
 Memory MemoryManager::AllocateHostVisibleMemory(uint64_t size)
 {
