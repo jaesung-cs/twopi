@@ -28,6 +28,12 @@ DeviceMemory::Allocator& DeviceMemory::Allocator::SetSize(uint64_t size)
   return *this;
 }
 
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetMemoryTypeIndex(uint32_t memory_type_index)
+{
+  allocate_info_.setMemoryTypeIndex(memory_type_index);
+  return *this;
+}
+
 DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Image image, PhysicalDevice physical_device)
 {
   constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
@@ -42,10 +48,24 @@ DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(Buffer bu
   return *this;
 }
 
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetDeviceLocalMemory(PhysicalDevice physical_device)
+{
+  constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+  SetMemory(physical_device, required_memory_properties);
+  return *this;
+}
+
 DeviceMemory::Allocator& DeviceMemory::Allocator::SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device)
 {
   constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
   SetMemory(buffer, physical_device, required_memory_properties);
+  return *this;
+}
+
+DeviceMemory::Allocator& DeviceMemory::Allocator::SetHostVisibleCoherentMemory(PhysicalDevice physical_device)
+{
+  constexpr auto required_memory_properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+  SetMemory(physical_device, required_memory_properties);
   return *this;
 }
 
@@ -83,6 +103,24 @@ void DeviceMemory::Allocator::SetMemory(vk::MemoryRequirements memory_requiremen
   size_ = memory_requirements.size;
 }
 
+void DeviceMemory::Allocator::SetMemory(PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties)
+{
+  const auto memory_properties = physical_device.MemoryProperties();
+
+  int memory_type_index = -1;
+  for (int i = 0; i < memory_properties.memoryTypeCount; i++)
+  {
+    if ((memory_properties.memoryTypes[i].propertyFlags & required_memory_properties) == required_memory_properties)
+    {
+      memory_type_index = i;
+      break;
+    }
+  }
+
+  allocate_info_
+    .setMemoryTypeIndex(memory_type_index);
+}
+
 DeviceMemory DeviceMemory::Allocator::Allocate()
 {
   const auto handle = static_cast<vk::Device>(device_).allocateMemory(allocate_info_);
@@ -115,9 +153,9 @@ DeviceMemory::operator vk::DeviceMemory() const
   return device_memory_;
 }
 
-void* DeviceMemory::Map()
+void* DeviceMemory::Map(uint64_t offset, uint64_t size)
 {
-  return device_.mapMemory(device_memory_, 0, size_);
+  return device_.mapMemory(device_memory_, offset, (size == 0 ? size_ - offset : size));
 }
 
 void DeviceMemory::Unmap()

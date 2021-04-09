@@ -58,6 +58,7 @@ public:
   CommandBuffer& EndRenderPass();
 
   CommandBuffer& BeginOneTime();
+  CommandBuffer& CopyBuffer(Buffer src, Buffer dst);
   CommandBuffer& CopyBuffer(Buffer src, Buffer dst, uint64_t size);
   CommandBuffer& CopyBuffer(Buffer src, uint64_t src_offset, Buffer dst, uint64_t dst_offset, uint64_t size);
   CommandBuffer& PipelineBarrier(Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels = 1, int mip_level = 0);

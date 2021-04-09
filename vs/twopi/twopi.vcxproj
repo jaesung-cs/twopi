@@ -174,7 +174,11 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
     <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_image.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_memory.cc" />
+    <ClCompile Include="..\..\src\twopi\vke\vke_memory_manager.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc" />
@@ -227,7 +231,11 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_engine.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_image.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_memory.h" />
+    <ClInclude Include="..\..\src\twopi\vke\vke_memory_manager.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h" />

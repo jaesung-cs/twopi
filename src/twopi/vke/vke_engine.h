@@ -1,7 +1,9 @@
-#ifndef TWOPI_VK_VK_ENGINE_H_
-#define TWOPI_VK_VK_ENGINE_H_
+#ifndef TWOPI_VKE_VKE_ENGINE_H_
+#define TWOPI_VKE_VKE_ENGINE_H_
 
 #include <memory>
+
+#include <twopi/core/timestamp.h>
 
 namespace twopi
 {
@@ -24,7 +26,7 @@ public:
   explicit Engine(std::shared_ptr<window::Window> window);
   ~Engine();
 
-  void Draw();
+  void Draw(core::Duration duration);
   void Resize(int width, int height);
   void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 
@@ -35,4 +37,4 @@ private:
 }
 }
 
-#endif // TWOPI_VK_VK_ENGINE_H_
+#endif // TWOPI_VKE_VKE_ENGINE_H_

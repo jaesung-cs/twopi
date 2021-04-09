@@ -23,11 +23,14 @@ public:
     ~Allocator();
 
     Allocator& SetSize(uint64_t size);
+    Allocator& SetMemoryTypeIndex(uint32_t memory_type_index);
 
     // TODO: do not update size when image/buffer is given. Fix the implementation to use SetSize
     Allocator& SetDeviceLocalMemory(Image image, PhysicalDevice physical_device);
     Allocator& SetDeviceLocalMemory(Buffer buffer, PhysicalDevice physical_device);
+    Allocator& SetDeviceLocalMemory(PhysicalDevice physical_device);
     Allocator& SetHostVisibleCoherentMemory(Buffer buffer, PhysicalDevice physical_device);
+    Allocator& SetHostVisibleCoherentMemory(PhysicalDevice physical_device);
 
     DeviceMemory Allocate();
 
@@ -35,6 +38,7 @@ public:
     void SetMemory(Image image, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
     void SetMemory(Buffer buffer, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
     void SetMemory(vk::MemoryRequirements memory_requirements, PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
+    void SetMemory(PhysicalDevice physical_device, vk::MemoryPropertyFlags required_memory_properties);
 
     const Device& device_;
 
@@ -52,7 +56,7 @@ public:
 
   operator vk::DeviceMemory() const;
 
-  void* Map();
+  void* Map(uint64_t offset = 0, uint64_t size = 0);
   void Unmap();
 
 private:

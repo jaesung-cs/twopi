@@ -62,13 +62,15 @@ public:
 
 public:
   Device();
-  Device(vk::Device device);
+  explicit Device(vk::Device device);
 
   ~Device();
 
   void Destroy();
 
   operator vk::Device() const;
+
+  vk::PhysicalDevice PhysicalDevice() const;
 
   vkw::Queue Queue(int index) const;
   std::pair<uint32_t, vk::Result> AcquireNextImage(Swapchain swapchain, Semaphore semaphore);
@@ -80,6 +82,7 @@ public:
 
 private:
   vk::Device device_;
+  vk::PhysicalDevice physical_device_;
   std::vector<QueueIndex> queue_indices_;
 };
 }

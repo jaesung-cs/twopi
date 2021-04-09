@@ -9,6 +9,7 @@ namespace core
 {
 using Clock = std::chrono::high_resolution_clock;
 using Timestamp = Clock::time_point;
+using Duration = std::chrono::duration<double>;
 }
 }
 
