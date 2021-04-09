@@ -147,8 +147,10 @@ public:
       memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
 
     // Load mesh and texture
-    mesh_ = LoadMesh("C:\\workspace\\twopi\\resources\\viking_room.obj");
-    texture_ = LoadTexture("C:\\workspace\\twopi\\resources\\viking_room.png");
+    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
+    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
+    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
+    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -200,16 +202,24 @@ public:
 
     pipeline_cache_.Destroy();
 
-    texture_.image.reset();
-    texture_.image_view.Destroy();
+    for (auto& texture : textures_)
+    {
+      texture.image.reset();
+      texture.image_view.Destroy();
+    }
+    textures_.clear();
 
     sampler_.Destroy();
 
     descriptor_set_layout_.Destroy();
 
-    mesh_.vertex_buffer.reset();
-    mesh_.index_buffer.reset();
-    mesh_.instance_buffer.reset();
+    for (auto& mesh : meshes_)
+    {
+      mesh.vertex_buffer.reset();
+      mesh.index_buffer.reset();
+      mesh.instance_buffer.reset();
+    }
+    meshes_.clear();
 
     staging_buffer_.reset();
 
@@ -323,14 +333,14 @@ private:
     std::cout << "    Memory properties:" << std::endl;
     const auto memory_properties = physical_device_.MemoryProperties();
 
-    for (int i = 0; i < memory_properties.memoryHeapCount; i++)
+    for (uint32_t i = 0; i < memory_properties.memoryHeapCount; i++)
     {
       std::cout
         << "      Heap " << i << ": " << memory_properties.memoryHeaps[i].size << " bytes ("
         << memory_properties.memoryHeaps[i].size / 1024 / 1024 << " MB)" << std::endl
         << "        Memories: " << std::endl;
 
-      for (int j = 0; j < memory_properties.memoryTypeCount; j++)
+      for (uint32_t j = 0; j < memory_properties.memoryTypeCount; j++)
       {
         if (memory_properties.memoryTypes[j].heapIndex == i)
         {
@@ -648,16 +658,21 @@ private:
     descriptor_pool_ = vkw::DescriptorPool::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
-      .SetSize(swapchain_image_views_.size())
+      .SetSize(textures_.size() * swapchain_image_views_.size())
       .Create();
 
-    descriptor_sets_ = vkw::DescriptorSet::Allocator{ device_, descriptor_pool_ }
-      .SetLayout(descriptor_set_layout_)
-      .SetSize(swapchain_image_views_.size())
-      .Allocate();
+    for (int i = 0; i < textures_.size(); i++)
+    {
+      auto descriptor_framebuffer_sets = vkw::DescriptorSet::Allocator{ device_, descriptor_pool_ }
+        .SetLayout(descriptor_set_layout_)
+        .SetSize(swapchain_image_views_.size())
+        .Allocate();
 
-    for (int i = 0; i < descriptor_sets_.size(); i++)
-      descriptor_sets_[i].Update(*uniform_buffers_[i], texture_.image_view, sampler_);
+      for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
+        descriptor_framebuffer_sets[j].Update(*uniform_buffers_[j], textures_[i].image_view, sampler_);
+
+      descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
+    }
   }
 
   void CreateGraphicsPipeline()
@@ -688,13 +703,20 @@ private:
       auto& command_buffer = command_buffers_[i];
       command_buffer
         .Begin()
-        .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ *mesh_.vertex_buffer, *mesh_.vertex_buffer, *mesh_.vertex_buffer }, { 0, mesh_.normal_offset, mesh_.tex_coord_offset })
-        .BindVertexBuffers({ *mesh_.instance_buffer }, { 0 }, 3)
-        .BindIndexBuffer(*mesh_.index_buffer)
-        .BindPipeline(pipeline_)
-        .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(mesh_.num_indices, mesh_.num_instances)
+        .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
+
+      for (int j = 0; j < meshes_.size(); j++)
+      {
+        command_buffer
+          .BindVertexBuffers({ *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer }, { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
+          .BindVertexBuffers({ *meshes_[j].instance_buffer }, { 0 }, 3)
+          .BindIndexBuffer(*meshes_[j].index_buffer)
+          .BindPipeline(pipeline_)
+          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
+          .DrawIndexed(meshes_[j].num_indices, meshes_[j].num_instances);
+      }
+
+      command_buffer
         .EndRenderPass()
         .End();
     }
@@ -823,7 +845,7 @@ private:
 
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
-  std::vector<vkw::DescriptorSet> descriptor_sets_;
+  std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
 
   // Graphics pipeline
   vkw::ShaderModule vert_shader_;
@@ -839,10 +861,10 @@ private:
   vkw::CommandPool command_pool_;
 
   // Vertex attributes
-  Mesh mesh_;
+  std::vector<Mesh> meshes_;
 
   // Texture
-  Texture texture_;
+  std::vector<Texture> textures_;
   vkw::Sampler sampler_;
 
   // Window
