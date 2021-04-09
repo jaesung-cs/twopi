@@ -1,4 +1,4 @@
-#ifndef TWOPI_VKE_VKE_IMAGE_H_
+#ifndef TWOPI_VKE_VKE_BUFFER_H_
 #define TWOPI_VKE_VKE_BUFFER_H_
 
 #include <memory>

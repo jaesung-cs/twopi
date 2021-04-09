@@ -1,5 +1,5 @@
-#ifndef TWOPI_VK_VK_ENGINE_H_
-#define TWOPI_VK_VK_ENGINE_H_
+#ifndef TWOPI_VKE_VKE_ENGINE_H_
+#define TWOPI_VKE_VKE_ENGINE_H_
 
 #include <memory>
 
@@ -35,4 +35,4 @@ private:
 }
 }
 
-#endif // TWOPI_VK_VK_ENGINE_H_
+#endif // TWOPI_VKE_VKE_ENGINE_H_
