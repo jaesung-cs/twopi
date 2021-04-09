@@ -96,7 +96,7 @@ private:
   float near_ = 0.01f;
   float far_ = 1000.f;
 
-  float fovy_ = 90.f / 180.f * glm::pi<float>();
+  float fovy_ = 60. / 180.f * glm::pi<float>();
 
   float zoom_ = 1.f;
 
