@@ -93,6 +93,12 @@ public:
     graphics_queue_ = device_.Queue(0);
     present_queue_ = device_.Queue(1);
 
+    // Transient command buffer pool
+    transient_command_pool_ = vkw::CommandPool::Creator{ device_ }
+      .SetTransient()
+      .SetQueue(graphics_queue_)
+      .Create();
+
     // Create memory manager
     memory_manager_ = std::make_shared<vke::MemoryManager>(device_);
 
@@ -111,7 +117,20 @@ public:
 
     CreateGraphicsPipeline();
 
-    LoadResources();
+    // Allocate staging buffer
+    constexpr uint64_t staging_buffer_size = 256 * 1024 * 1024; // 256MB
+    auto staging_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(256 * 1024 * 1024)
+      .SetTransferSrcBuffer()
+      .Create();
+
+    staging_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(staging_buffer),
+      memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
+
+    // Load mesh and texture
+    LoadMesh("C:\\workspace\\twopi\\resources\\viking_room.obj");
+    LoadTexture("C:\\workspace\\twopi\\resources\\viking_room.png");
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -153,6 +172,8 @@ public:
     CleanupDescriptors();
     CleanupPipeline();
     CleanupCommandBuffers();
+
+    transient_command_pool_.Destroy();
 
     vert_shader_.Destroy();
     frag_shader_.Destroy();
@@ -302,26 +323,9 @@ private:
     }
   }
 
-  void LoadResources()
+  void LoadMesh(const std::string& mesh_filepath)
   {
-    // Allocate staging buffer
-    constexpr uint64_t staging_buffer_size = 256 * 1024 * 1024; // 256MB
-    auto staging_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(256 * 1024 * 1024)
-      .SetTransferSrcBuffer()
-      .Create();
-
-    staging_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(staging_buffer),
-      memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
-
-    // One time transfer for vertex buffer
-    auto transient_command_pool = vkw::CommandPool::Creator{ device_ }
-      .SetTransient()
-      .Create();
-
     // Load mesh
-    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
     geometry::MeshLoader mesh_loader{};
     auto mesh = mesh_loader.Load(mesh_filepath);
 
@@ -409,18 +413,22 @@ private:
       memory_manager_->AllocateDeviceLocalMemory(mesh_instance_buffer_size));
 
     // Transfer from staging buffer to device local memory
-    auto copy_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
-    copy_commands[0]
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
       .BeginOneTime()
       .CopyBuffer(*staging_buffer_, *vertex_buffer_, mesh_buffer_size)
       .CopyBuffer(*staging_buffer_, mesh_buffer_size, *index_buffer_, 0, mesh_index_buffer_size)
       .CopyBuffer(*staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *instance_buffer_, 0, mesh_instance_buffer_size)
       .End();
-    graphics_queue_.Submit(copy_commands[0]);
+    graphics_queue_.Submit(copy_command);
     graphics_queue_.WaitIdle();
 
+    copy_command.Free();
+  }
+
+  void LoadTexture(const std::string& image_filepath)
+  {
     // Load image
-    const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
     geometry::ImageLoader image_loader{};
     auto texture_image = image_loader.Load<uint8_t>(image_filepath);
 
@@ -445,28 +453,25 @@ private:
     std::memcpy(image_ptr, texture_image->Buffer().data(), texture_image->Buffer().size());
     staging_buffer_->Unmap();
 
-    // One time transfer for image
-    auto single_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
-    ChangeImageLayout(single_commands[0], *image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
+    // One time image layout transition
+    auto layout_transition_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(2);
+    ChangeImageLayout(layout_transition_commands[0], *image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
 
-    copy_commands[1]
+    // Transfer from staging buffer to device local memory
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
       .BeginOneTime()
       .CopyBuffer(*staging_buffer_, *image_)
       .End();
-    graphics_queue_.Submit(copy_commands[1]);
+    graphics_queue_.Submit(copy_command);
     graphics_queue_.WaitIdle();
 
-    GenerateMipmaps(single_commands[1], *image_, 3);
+    GenerateMipmaps(layout_transition_commands[1], *image_, 3);
 
-    for (auto& single_command : single_commands)
-      single_command.Free();
-    single_commands.clear();
+    for (auto& layout_transition_command : layout_transition_commands)
+      layout_transition_command.Free();
 
-    for (auto& copy_command : copy_commands)
-      copy_command.Free();
-    copy_commands.clear();
-
-    transient_command_pool.Destroy();
+    copy_command.Free();
   }
 
   void CreateShaders()
@@ -776,6 +781,7 @@ private:
   vkw::ImageView rendertarget_image_view_;
   vkw::RenderPass render_pass_;
   std::vector<vkw::Framebuffer> swapchain_framebuffers_;
+  std::vector<vkw::CommandBuffer> command_buffers_;
 
   // Rendering & presentation synchronization
   size_t current_frame_ = 0;
@@ -803,8 +809,8 @@ private:
   vkw::GraphicsPipeline pipeline_;
 
   // Commands
+  vkw::CommandPool transient_command_pool_;
   vkw::CommandPool command_pool_;
-  std::vector<vkw::CommandBuffer> command_buffers_;
 
   // Vertex attributes
   std::unique_ptr<vke::Buffer> vertex_buffer_;
