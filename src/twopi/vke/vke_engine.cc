@@ -52,6 +52,12 @@ private:
   static constexpr int max_frames_in_flight_ = 2;
   static constexpr int alignment_ = 256;
 
+  struct Texture
+  {
+    std::unique_ptr<vke::Image> image;
+    vkw::ImageView image_view;
+  };
+
 public:
   Impl() = delete;
 
@@ -130,7 +136,7 @@ public:
 
     // Load mesh and texture
     LoadMesh("C:\\workspace\\twopi\\resources\\viking_room.obj");
-    LoadTexture("C:\\workspace\\twopi\\resources\\viking_room.png");
+    texture_ = LoadTexture("C:\\workspace\\twopi\\resources\\viking_room.png");
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -182,8 +188,8 @@ public:
 
     pipeline_cache_.Destroy();
 
-    image_.reset();
-    image_view_.Destroy();
+    texture_.image.reset();
+    texture_.image_view.Destroy();
 
     sampler_.Destroy();
 
@@ -426,8 +432,10 @@ private:
     copy_command.Free();
   }
 
-  void LoadTexture(const std::string& image_filepath)
+  Texture LoadTexture(const std::string& image_filepath)
   {
+    Texture texture;
+
     // Load image
     geometry::ImageLoader image_loader{};
     auto texture_image = image_loader.Load<uint8_t>(image_filepath);
@@ -439,12 +447,12 @@ private:
       .SetTransferSrc()
       .Create();
 
-    image_ = std::make_unique<vke::Image>(
+    texture.image = std::make_unique<vke::Image>(
       std::move(image),
       memory_manager_->AllocateDeviceLocalMemory(image.RequiredMemorySize()));
 
-    image_view_ = vkw::ImageView::Creator{ device_ }
-      .SetImage(*image_)
+    texture.image_view = vkw::ImageView::Creator{ device_ }
+      .SetImage(*texture.image)
       .SetMipLevels(3)
       .Create();
 
@@ -455,23 +463,25 @@ private:
 
     // One time image layout transition
     auto layout_transition_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(2);
-    ChangeImageLayout(layout_transition_commands[0], *image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
+    ChangeImageLayout(layout_transition_commands[0], *texture.image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
 
     // Transfer from staging buffer to device local memory
     auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
     copy_command
       .BeginOneTime()
-      .CopyBuffer(*staging_buffer_, *image_)
+      .CopyBuffer(*staging_buffer_, *texture.image)
       .End();
     graphics_queue_.Submit(copy_command);
     graphics_queue_.WaitIdle();
 
-    GenerateMipmaps(layout_transition_commands[1], *image_, 3);
+    GenerateMipmaps(layout_transition_commands[1], *texture.image, 3);
 
     for (auto& layout_transition_command : layout_transition_commands)
       layout_transition_command.Free();
 
     copy_command.Free();
+
+    return texture;
   }
 
   void CreateShaders()
@@ -631,7 +641,7 @@ private:
       .Allocate();
 
     for (int i = 0; i < descriptor_sets_.size(); i++)
-      descriptor_sets_[i].Update(*uniform_buffers_[i], image_view_, sampler_);
+      descriptor_sets_[i].Update(*uniform_buffers_[i], texture_.image_view, sampler_);
   }
 
   void CreateGraphicsPipeline()
@@ -823,8 +833,7 @@ private:
   uint64_t num_instances_ = 0;
 
   // Texture
-  std::unique_ptr<vke::Image> image_;
-  vkw::ImageView image_view_;
+  Texture texture_;
   vkw::Sampler sampler_;
 
   // Window
