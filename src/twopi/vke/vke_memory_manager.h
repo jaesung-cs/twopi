@@ -18,7 +18,7 @@ class Memory;
 class MemoryManager
 {
 public:
-  static constexpr uint32_t alignment = 256;
+  static constexpr uint32_t alignment = 1024;
 
 public:
   MemoryManager() = delete;

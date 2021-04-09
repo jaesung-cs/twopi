@@ -41,6 +41,7 @@ Memory::Memory(const Memory& rhs)
 Memory& Memory::operator = (const Memory& rhs)
 {
   impl_ = std::make_unique<Impl>(*rhs.impl_);
+  return *this;
 }
 
 Memory::Memory(Memory&& rhs) noexcept = default;
