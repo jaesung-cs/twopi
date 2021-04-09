@@ -58,6 +58,18 @@ private:
     vkw::ImageView image_view;
   };
 
+  struct Mesh
+  {
+    std::unique_ptr<vke::Buffer> vertex_buffer;
+    std::unique_ptr<vke::Buffer> index_buffer;
+    std::unique_ptr<vke::Buffer> instance_buffer;
+    uint64_t normal_offset = 0;
+    uint64_t tex_coord_offset = 0;
+    uint64_t instance_offset = 0;
+    uint64_t num_indices = 0;
+    uint64_t num_instances = 0;
+  };
+
 public:
   Impl() = delete;
 
@@ -135,7 +147,7 @@ public:
       memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
 
     // Load mesh and texture
-    LoadMesh("C:\\workspace\\twopi\\resources\\viking_room.obj");
+    mesh_ = LoadMesh("C:\\workspace\\twopi\\resources\\viking_room.obj");
     texture_ = LoadTexture("C:\\workspace\\twopi\\resources\\viking_room.png");
 
     // Create image sampler
@@ -195,9 +207,9 @@ public:
 
     descriptor_set_layout_.Destroy();
 
-    vertex_buffer_.reset();
-    index_buffer_.reset();
-    instance_buffer_.reset();
+    mesh_.vertex_buffer.reset();
+    mesh_.index_buffer.reset();
+    mesh_.instance_buffer.reset();
 
     staging_buffer_.reset();
 
@@ -329,8 +341,10 @@ private:
     }
   }
 
-  void LoadMesh(const std::string& mesh_filepath)
+  Mesh LoadMesh(const std::string& mesh_filepath)
   {
+    Mesh vk_mesh;
+
     // Load mesh
     geometry::MeshLoader mesh_loader{};
     auto mesh = mesh_loader.Load(mesh_filepath);
@@ -382,11 +396,11 @@ private:
 
     staging_buffer_->Unmap();
 
-    normal_offset_ = mesh_vertex_buffer.size() * sizeof(float);
-    tex_coord_offset_ = normal_offset_ + mesh_normal_buffer.size() * sizeof(float);
-    instance_offset_ = tex_coord_offset_ + mesh_tex_coords_buffer.size() * sizeof(float);
-    num_indices_ = mesh_index_buffer.size();
-    num_instances_ = models.size();
+    vk_mesh.normal_offset = mesh_vertex_buffer.size() * sizeof(float);
+    vk_mesh.tex_coord_offset = vk_mesh.normal_offset + mesh_normal_buffer.size() * sizeof(float);
+    vk_mesh.instance_offset = vk_mesh.tex_coord_offset + mesh_tex_coords_buffer.size() * sizeof(float);
+    vk_mesh.num_indices = mesh_index_buffer.size();
+    vk_mesh.num_instances = models.size();
 
     auto vertex_buffer = vkw::Buffer::Creator{ device_ }
       .SetSize(mesh_buffer_size)
@@ -394,7 +408,7 @@ private:
       .SetVertexBuffer()
       .Create();
 
-    vertex_buffer_ = std::make_unique<vke::Buffer>(
+    vk_mesh.vertex_buffer = std::make_unique<vke::Buffer>(
       std::move(vertex_buffer),
       memory_manager_->AllocateDeviceLocalMemory(mesh_buffer_size));
 
@@ -404,7 +418,7 @@ private:
       .SetIndexBuffer()
       .Create();
 
-    index_buffer_ = std::make_unique<vke::Buffer>(
+    vk_mesh.index_buffer = std::make_unique<vke::Buffer>(
       std::move(index_buffer),
       memory_manager_->AllocateDeviceLocalMemory(mesh_index_buffer_size));
 
@@ -414,7 +428,7 @@ private:
       .SetVertexBuffer()
       .Create();
 
-    instance_buffer_ = std::make_unique<vke::Buffer>(
+    vk_mesh.instance_buffer = std::make_unique<vke::Buffer>(
       std::move(instance_buffer),
       memory_manager_->AllocateDeviceLocalMemory(mesh_instance_buffer_size));
 
@@ -422,14 +436,16 @@ private:
     auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
     copy_command
       .BeginOneTime()
-      .CopyBuffer(*staging_buffer_, *vertex_buffer_, mesh_buffer_size)
-      .CopyBuffer(*staging_buffer_, mesh_buffer_size, *index_buffer_, 0, mesh_index_buffer_size)
-      .CopyBuffer(*staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *instance_buffer_, 0, mesh_instance_buffer_size)
+      .CopyBuffer(*staging_buffer_, *vk_mesh.vertex_buffer, mesh_buffer_size)
+      .CopyBuffer(*staging_buffer_, mesh_buffer_size, *vk_mesh.index_buffer, 0, mesh_index_buffer_size)
+      .CopyBuffer(*staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *vk_mesh.instance_buffer, 0, mesh_instance_buffer_size)
       .End();
     graphics_queue_.Submit(copy_command);
     graphics_queue_.WaitIdle();
 
     copy_command.Free();
+
+    return vk_mesh;
   }
 
   Texture LoadTexture(const std::string& image_filepath)
@@ -673,12 +689,12 @@ private:
       command_buffer
         .Begin()
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i])
-        .BindVertexBuffers({ *vertex_buffer_, *vertex_buffer_, *vertex_buffer_ }, { 0, normal_offset_, tex_coord_offset_ })
-        .BindVertexBuffers({ *instance_buffer_ }, { 0 }, 3)
-        .BindIndexBuffer(*index_buffer_)
+        .BindVertexBuffers({ *mesh_.vertex_buffer, *mesh_.vertex_buffer, *mesh_.vertex_buffer }, { 0, mesh_.normal_offset, mesh_.tex_coord_offset })
+        .BindVertexBuffers({ *mesh_.instance_buffer }, { 0 }, 3)
+        .BindIndexBuffer(*mesh_.index_buffer)
         .BindPipeline(pipeline_)
         .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[i] })
-        .DrawIndexed(num_indices_, num_instances_)
+        .DrawIndexed(mesh_.num_indices, mesh_.num_instances)
         .EndRenderPass()
         .End();
     }
@@ -823,14 +839,7 @@ private:
   vkw::CommandPool command_pool_;
 
   // Vertex attributes
-  std::unique_ptr<vke::Buffer> vertex_buffer_;
-  std::unique_ptr<vke::Buffer> index_buffer_;
-  std::unique_ptr<vke::Buffer> instance_buffer_;
-  uint64_t normal_offset_ = 0;
-  uint64_t tex_coord_offset_ = 0;
-  uint64_t instance_offset_ = 0;
-  uint64_t num_indices_ = 0;
-  uint64_t num_instances_ = 0;
+  Mesh mesh_;
 
   // Texture
   Texture texture_;
