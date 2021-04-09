@@ -60,18 +60,9 @@ public:
     width_ = window->Width();
     height_ = window->Height();
 
-    const auto extensions = vkw::Instance::Extensions();
-    std::cout << "Available instance extensions:" << std::endl;
-    for (const auto& extension : extensions)
-      std::cout << "  " << extension.extensionName << std::endl;
-    std::cout << std::endl;
+    PrintInstanceInfo();
 
-    const auto layers = vkw::Instance::Layers();
-    std::cout << "Available instance layers:" << std::endl;
-    for (const auto& layer : layers)
-      std::cout << "  " << layer.layerName << ": " << layer.description << std::endl;
-    std::cout << std::endl;
-
+    // Create instance
     instance_ = vkw::Instance::Creator{}
       .AddGlfwRequiredExtensions()
 #ifdef __APPLE__
@@ -80,50 +71,16 @@ public:
       .EnableValidationLayer()
       .Create();
 
-    std::cout << "Physical devices:" << std::endl;
-    const auto physical_devices = instance_.PhysicalDevices();
-    for (const auto& physical_device : physical_devices)
-    {
-      std::cout << "  " << physical_device.Properties().deviceName << std::endl;
-      if (physical_device.Properties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
-        std::cout << "    " << "Discrete GPU" << std::endl;
-      if (physical_device.Features().geometryShader)
-        std::cout << "    " << "Has Geometry Shader" << std::endl;
-      if (physical_device.Features().samplerAnisotropy)
-        std::cout << "    " << "Has Sampler Anisotropy" << std::endl;
-
-      std::cout << "    Extensions:" << std::endl;
-      const auto extensions = physical_device.Extensions();
-      for (const auto& extension : extensions)
-        std::cout << "      " << extension.extensionName << std::endl;
-
-      std::cout << "    Memory properties:" << std::endl;
-      const auto memory_properties = physical_device.MemoryProperties();
-
-      for (int i = 0; i < memory_properties.memoryHeapCount; i++)
-      {
-        std::cout
-          << "      Heap " << i << ": " << memory_properties.memoryHeaps[i].size << " bytes ("
-          << memory_properties.memoryHeaps[i].size / 1024 / 1024 << " MB)" << std::endl
-          << "        Memories: " << std::endl;
-
-        for (int j = 0; j < memory_properties.memoryTypeCount; j++)
-        {
-          if (memory_properties.memoryTypes[j].heapIndex == i)
-          {
-            std::cout << "          Memory Type " << j << ": "
-              << vk::to_string(memory_properties.memoryTypes[j].propertyFlags) << std::endl;
-          }
-        }
-      }
-    }
-
+    // Create surface
     const auto glfw_window = std::dynamic_pointer_cast<window::GlfwWindow>(window)->Handle();
     surface_ = vkw::Surface::Creator{ instance_, glfw_window }.Create();
 
     // TODO: pick the most suitable device, now simply use physical device of index 0
+    const auto physical_devices = instance_.PhysicalDevices();
     physical_device_ = physical_devices[0];
+    PrintPhysicalDeviceInfo();
 
+    // Create device
     device_ = vkw::Device::Creator{ physical_device_ }
       .AddGraphicsQueue()
       .AddPresentQueue(surface_)
@@ -136,22 +93,14 @@ public:
     graphics_queue_ = device_.Queue(0);
     present_queue_ = device_.Queue(1);
 
+    // Create memory manager
     memory_manager_ = std::make_shared<vke::MemoryManager>(device_);
 
+    // Create shaders
+    CreateShaders();
+
+    // Create swapchain
     CreateSwapchain();
-
-    CreateSwapchainImageViews();
-
-#ifdef _WIN32
-    const std::string dirpath = "C:\\workspace\\twopi\\src";
-#elif __APPLE__
-    const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
-#endif
-    vkw::ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.frag.spv").Create();
-
-    CreateRenderPass();
 
     descriptor_set_layout_ = vkw::DescriptorSetLayout::Creator{ device_ }
       .AddUniformBuffer()
@@ -162,192 +111,7 @@ public:
 
     CreateGraphicsPipeline();
 
-    // Load image
-    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
-    geometry::MeshLoader mesh_loader{};
-    auto mesh = mesh_loader.Load(mesh_filepath);
-
-    const auto& mesh_vertex_buffer = mesh->Vertices();
-    const auto& mesh_normal_buffer = mesh->Normals();
-    const auto& mesh_tex_coords_buffer = mesh->TexCoords();
-    const auto mesh_buffer_size = (mesh_vertex_buffer.size() + mesh_normal_buffer.size() + mesh_tex_coords_buffer.size()) * sizeof(float);
-
-    const auto& mesh_index_buffer = mesh->Indices();
-    const auto mesh_index_buffer_size = mesh_index_buffer.size() * sizeof(uint32_t);
-
-    constexpr int grid_size = 5;
-    std::vector<glm::mat4> models;
-    for (int x = 0; x < grid_size; x++)
-    {
-      for (int y = 0; y < grid_size; y++)
-      {
-        for (int z = 0; z < grid_size; z++)
-        {
-          glm::mat4 m = glm::mat4(1.f);
-          m[3][0] = x;
-          m[3][1] = y;
-          m[3][2] = z;
-          models.emplace_back(std::move(m));
-        }
-      }
-    }
-
-    const float* mesh_instance_buffer = glm::value_ptr(models[0]);
-    const auto mesh_instance_buffer_size = models.size() * 16 * sizeof(float);
-
-    auto vertex_staging_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(mesh_buffer_size + mesh_index_buffer_size + mesh_instance_buffer_size)
-      .SetTransferSrcBuffer()
-      .Create();
-
-    vertex_staging_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(vertex_staging_buffer),
-      memory_manager_->AllocateHostVisibleMemory(mesh_buffer_size + mesh_index_buffer_size + mesh_instance_buffer_size));
-
-    auto ptr = static_cast<unsigned char*>(vertex_staging_buffer_->Map());
-
-    std::memcpy(ptr, mesh_vertex_buffer.data(), mesh_vertex_buffer.size() * sizeof(float));
-    ptr += mesh_vertex_buffer.size() * sizeof(float);
-
-    std::memcpy(ptr, mesh_normal_buffer.data(), mesh_normal_buffer.size() * sizeof(float));
-    ptr += mesh_normal_buffer.size() * sizeof(float);
-
-    std::memcpy(ptr, mesh_tex_coords_buffer.data(), mesh_tex_coords_buffer.size() * sizeof(float));
-    ptr += mesh_tex_coords_buffer.size() * sizeof(float);
-
-    std::memcpy(ptr, mesh_index_buffer.data(), mesh_index_buffer.size() * sizeof(uint32_t));
-    ptr += mesh_index_buffer.size() * sizeof(uint32_t);
-
-    std::memcpy(ptr, mesh_instance_buffer, mesh_instance_buffer_size);
-    ptr += mesh_instance_buffer_size;
-
-    vertex_staging_buffer_->Unmap();
-
-    normal_offset_ = mesh_vertex_buffer.size() * sizeof(float);
-    tex_coord_offset_ = normal_offset_ + mesh_normal_buffer.size() * sizeof(float);
-    instance_offset_ = tex_coord_offset_ + mesh_tex_coords_buffer.size() * sizeof(float);
-    num_indices_ = mesh_index_buffer.size();
-    num_instances_ = models.size();
-
-    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(mesh_buffer_size)
-      .SetTransferDstBuffer()
-      .SetVertexBuffer()
-      .Create();
-
-    vertex_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(vertex_buffer),
-      memory_manager_->AllocateDeviceLocalMemory(mesh_buffer_size));
-
-    auto index_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(mesh_index_buffer_size)
-      .SetTransferDstBuffer()
-      .SetIndexBuffer()
-      .Create();
-
-    index_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(index_buffer),
-      memory_manager_->AllocateDeviceLocalMemory(mesh_index_buffer_size));
-
-    auto instance_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(mesh_instance_buffer_size)
-      .SetTransferDstBuffer()
-      .SetVertexBuffer()
-      .Create();
-
-    instance_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(instance_buffer),
-      memory_manager_->AllocateDeviceLocalMemory(mesh_instance_buffer_size));
-
-    // Load image
-    const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
-    geometry::ImageLoader image_loader{};
-    auto texture_image = image_loader.Load<uint8_t>(image_filepath);
-
-    // Create vulkan image
-    auto image = vkw::Image::Creator{ device_ }
-      .SetSize(texture_image->Width(), texture_image->Height())
-      .SetMipLevels(3)
-      .SetTransferSrc()
-      .Create();
-
-    image_ = std::make_unique<vke::Image>(
-      std::move(image),
-      memory_manager_->AllocateDeviceLocalMemory(image.RequiredMemorySize()));
-
-    image_view_ = vkw::ImageView::Creator{ device_ }
-      .SetImage(*image_)
-      .SetMipLevels(3)
-      .Create();
-
-    auto image_staging_buffer = vkw::Buffer::Creator{ device_ }
-      .SetTransferSrcBuffer()
-      .SetSize(image.Width() * image.Height() * 4)
-      .Create();
-
-    image_staging_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(image_staging_buffer),
-      memory_manager_->AllocateHostVisibleMemory(image.Width() * image.Height() * 4));
-
-    // Copy image pixels to image staging buffer
-    auto* image_ptr = static_cast<uint8_t*>(image_staging_buffer_->Map());
-    std::memcpy(image_ptr, texture_image->Buffer().data(), texture_image->Buffer().size());
-    image_staging_buffer_->Unmap();
-
-    // One time transfer for vertex buffer
-    auto transient_command_pool = vkw::CommandPool::Creator{ device_ }
-      .SetTransient()
-      .Create();
-
-    auto copy_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
-    copy_commands[0]
-      .BeginOneTime()
-      .CopyBuffer(*vertex_staging_buffer_, *vertex_buffer_, mesh_buffer_size)
-      .CopyBuffer(*vertex_staging_buffer_, mesh_buffer_size, *index_buffer_, 0, mesh_index_buffer_size)
-      .CopyBuffer(*vertex_staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *instance_buffer_, 0, mesh_instance_buffer_size)
-      .End();
-    graphics_queue_.Submit(copy_commands[0]);
-
-    // One time transfer for image
-    auto single_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
-    ChangeImageLayout(single_commands[0], *image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
-
-    copy_commands[1]
-      .BeginOneTime()
-      .CopyBuffer(*image_staging_buffer_, *image_)
-      .End();
-    graphics_queue_.Submit(copy_commands[1]);
-    graphics_queue_.WaitIdle();
-
-    GenerateMipmaps(single_commands[1], *image_, 3);
-
-    // Depth buffer
-    auto depth_image = vkw::Image::Creator{ device_ }
-      .SetDepthStencilImage()
-      .SetMultisample4()
-      .SetSize(width_, height_)
-      .Create();
-
-    depth_image_ = std::make_unique<vke::Image>(
-      std::move(depth_image),
-      memory_manager_->AllocateDeviceLocalMemory(depth_image.RequiredMemorySize()));
-
-    depth_image_view_ = vkw::ImageView::Creator{ device_ }
-      .SetDepthImage(*depth_image_)
-      .Create();
-
-    // Color rendertarget
-    CreateRendertargetImage();
-
-    for (auto& single_command : single_commands)
-      single_command.Free();
-    single_commands.clear();
-
-    for (auto& copy_command : copy_commands)
-      copy_command.Free();
-    copy_commands.clear();
-
-    transient_command_pool.Destroy();
+    LoadResources();
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -355,18 +119,18 @@ public:
       .EnableAnisotropy(physical_device_)
       .Create();
 
-    CreateFramebuffers();
-
+    // Create uniform
     CreateUniformBuffers();
-
     CreateDescriptorSets();
 
+    // Commands
     command_pool_ = vkw::CommandPool::Creator{ device_ }
       .SetQueue(graphics_queue_)
       .Create();
 
     CreateCommandBuffers();
 
+    // Synchronizations
     auto semaphore_creator = vkw::Semaphore::Creator{ device_ };
     auto fence_creator = vkw::Fence::Creator{ device_ };
     for (int i = 0; i < max_frames_in_flight_; i++)
@@ -385,6 +149,13 @@ public:
     device_.WaitIdle();
 
     CleanupSwapchain();
+    CleanupUniformBuffers();
+    CleanupDescriptors();
+    CleanupPipeline();
+    CleanupCommandBuffers();
+
+    vert_shader_.Destroy();
+    frag_shader_.Destroy();
 
     memory_manager_.reset();
 
@@ -392,16 +163,16 @@ public:
 
     image_.reset();
     image_view_.Destroy();
-    image_staging_buffer_.reset();
 
     sampler_.Destroy();
 
     descriptor_set_layout_.Destroy();
 
-    vertex_staging_buffer_.reset();
     vertex_buffer_.reset();
     index_buffer_.reset();
     instance_buffer_.reset();
+
+    staging_buffer_.reset();
 
     for (auto& in_flight_fence : in_flight_fences_)
       in_flight_fence.Destroy();
@@ -416,9 +187,6 @@ public:
     render_finished_semaphores_.clear();
 
     command_pool_.Destroy();
-
-    vert_shader_.Destroy();
-    frag_shader_.Destroy();
 
     surface_.Destroy();
     device_.Destroy();
@@ -482,21 +250,252 @@ public:
   }
 
 private:
+  void PrintInstanceInfo()
+  {
+    const auto extensions = vkw::Instance::Extensions();
+    std::cout << "Available instance extensions:" << std::endl;
+    for (const auto& extension : extensions)
+      std::cout << "  " << extension.extensionName << std::endl;
+    std::cout << std::endl;
+
+    const auto layers = vkw::Instance::Layers();
+    std::cout << "Available instance layers:" << std::endl;
+    for (const auto& layer : layers)
+      std::cout << "  " << layer.layerName << ": " << layer.description << std::endl;
+    std::cout << std::endl;
+  }
+
+  void PrintPhysicalDeviceInfo()
+  {
+    std::cout << "Physical devices:" << std::endl;
+    std::cout << "  " << physical_device_.Properties().deviceName << std::endl;
+    if (physical_device_.Properties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
+      std::cout << "    " << "Discrete GPU" << std::endl;
+    if (physical_device_.Features().geometryShader)
+      std::cout << "    " << "Has Geometry Shader" << std::endl;
+    if (physical_device_.Features().samplerAnisotropy)
+      std::cout << "    " << "Has Sampler Anisotropy" << std::endl;
+
+    std::cout << "    Extensions:" << std::endl;
+    const auto extensions = physical_device_.Extensions();
+    for (const auto& extension : extensions)
+      std::cout << "      " << extension.extensionName << std::endl;
+
+    std::cout << "    Memory properties:" << std::endl;
+    const auto memory_properties = physical_device_.MemoryProperties();
+
+    for (int i = 0; i < memory_properties.memoryHeapCount; i++)
+    {
+      std::cout
+        << "      Heap " << i << ": " << memory_properties.memoryHeaps[i].size << " bytes ("
+        << memory_properties.memoryHeaps[i].size / 1024 / 1024 << " MB)" << std::endl
+        << "        Memories: " << std::endl;
+
+      for (int j = 0; j < memory_properties.memoryTypeCount; j++)
+      {
+        if (memory_properties.memoryTypes[j].heapIndex == i)
+        {
+          std::cout << "          Memory Type " << j << ": "
+            << vk::to_string(memory_properties.memoryTypes[j].propertyFlags) << std::endl;
+        }
+      }
+    }
+  }
+
+  void LoadResources()
+  {
+    // Allocate staging buffer
+    constexpr uint64_t staging_buffer_size = 256 * 1024 * 1024; // 256MB
+    auto staging_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(256 * 1024 * 1024)
+      .SetTransferSrcBuffer()
+      .Create();
+
+    staging_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(staging_buffer),
+      memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
+
+    // One time transfer for vertex buffer
+    auto transient_command_pool = vkw::CommandPool::Creator{ device_ }
+      .SetTransient()
+      .Create();
+
+    // Load mesh
+    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\viking_room.obj";
+    geometry::MeshLoader mesh_loader{};
+    auto mesh = mesh_loader.Load(mesh_filepath);
+
+    const auto& mesh_vertex_buffer = mesh->Vertices();
+    const auto& mesh_normal_buffer = mesh->Normals();
+    const auto& mesh_tex_coords_buffer = mesh->TexCoords();
+    const auto mesh_buffer_size = (mesh_vertex_buffer.size() + mesh_normal_buffer.size() + mesh_tex_coords_buffer.size()) * sizeof(float);
+
+    const auto& mesh_index_buffer = mesh->Indices();
+    const auto mesh_index_buffer_size = mesh_index_buffer.size() * sizeof(uint32_t);
+
+    // Instance buffer
+    constexpr int grid_size = 5;
+    std::vector<glm::mat4> models;
+    for (int x = 0; x < grid_size; x++)
+    {
+      for (int y = 0; y < grid_size; y++)
+      {
+        for (int z = 0; z < grid_size; z++)
+        {
+          glm::mat4 m = glm::mat4(1.f);
+          m[3][0] = x * 2.f;
+          m[3][1] = y * 2.f;
+          m[3][2] = z * 2.f;
+          models.emplace_back(std::move(m));
+        }
+      }
+    }
+    const float* mesh_instance_buffer = glm::value_ptr(models[0]);
+    const auto mesh_instance_buffer_size = models.size() * 16 * sizeof(float);
+
+    auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
+
+    std::memcpy(ptr, mesh_vertex_buffer.data(), mesh_vertex_buffer.size() * sizeof(float));
+    ptr += mesh_vertex_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_normal_buffer.data(), mesh_normal_buffer.size() * sizeof(float));
+    ptr += mesh_normal_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_tex_coords_buffer.data(), mesh_tex_coords_buffer.size() * sizeof(float));
+    ptr += mesh_tex_coords_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_index_buffer.data(), mesh_index_buffer.size() * sizeof(uint32_t));
+    ptr += mesh_index_buffer.size() * sizeof(uint32_t);
+
+    std::memcpy(ptr, mesh_instance_buffer, mesh_instance_buffer_size);
+    ptr += mesh_instance_buffer_size;
+
+    staging_buffer_->Unmap();
+
+    normal_offset_ = mesh_vertex_buffer.size() * sizeof(float);
+    tex_coord_offset_ = normal_offset_ + mesh_normal_buffer.size() * sizeof(float);
+    instance_offset_ = tex_coord_offset_ + mesh_tex_coords_buffer.size() * sizeof(float);
+    num_indices_ = mesh_index_buffer.size();
+    num_instances_ = models.size();
+
+    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(mesh_buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    vertex_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(vertex_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(mesh_buffer_size));
+
+    auto index_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(mesh_index_buffer_size)
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    index_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(index_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(mesh_index_buffer_size));
+
+    auto instance_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(mesh_instance_buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    instance_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(instance_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(mesh_instance_buffer_size));
+
+    // Transfer from staging buffer to device local memory
+    auto copy_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    copy_commands[0]
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *vertex_buffer_, mesh_buffer_size)
+      .CopyBuffer(*staging_buffer_, mesh_buffer_size, *index_buffer_, 0, mesh_index_buffer_size)
+      .CopyBuffer(*staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *instance_buffer_, 0, mesh_instance_buffer_size)
+      .End();
+    graphics_queue_.Submit(copy_commands[0]);
+    graphics_queue_.WaitIdle();
+
+    // Load image
+    const std::string image_filepath = "C:\\workspace\\twopi\\resources\\viking_room.png";
+    geometry::ImageLoader image_loader{};
+    auto texture_image = image_loader.Load<uint8_t>(image_filepath);
+
+    // Create vulkan image
+    auto image = vkw::Image::Creator{ device_ }
+      .SetSize(texture_image->Width(), texture_image->Height())
+      .SetMipLevels(3)
+      .SetTransferSrc()
+      .Create();
+
+    image_ = std::make_unique<vke::Image>(
+      std::move(image),
+      memory_manager_->AllocateDeviceLocalMemory(image.RequiredMemorySize()));
+
+    image_view_ = vkw::ImageView::Creator{ device_ }
+      .SetImage(*image_)
+      .SetMipLevels(3)
+      .Create();
+
+    // Copy image pixels to image staging buffer
+    auto* image_ptr = static_cast<uint8_t*>(staging_buffer_->Map());
+    std::memcpy(image_ptr, texture_image->Buffer().data(), texture_image->Buffer().size());
+    staging_buffer_->Unmap();
+
+    // One time transfer for image
+    auto single_commands = vkw::CommandBuffer::Allocator{ device_, transient_command_pool }.Allocate(2);
+    ChangeImageLayout(single_commands[0], *image_, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 3);
+
+    copy_commands[1]
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *image_)
+      .End();
+    graphics_queue_.Submit(copy_commands[1]);
+    graphics_queue_.WaitIdle();
+
+    GenerateMipmaps(single_commands[1], *image_, 3);
+
+    for (auto& single_command : single_commands)
+      single_command.Free();
+    single_commands.clear();
+
+    for (auto& copy_command : copy_commands)
+      copy_command.Free();
+    copy_commands.clear();
+
+    transient_command_pool.Destroy();
+  }
+
+  void CreateShaders()
+  {
+#ifdef _WIN32
+    const std::string dirpath = "C:\\workspace\\twopi\\src";
+#elif __APPLE__
+    const std::string dirpath = "/Users/jaesung/workspace/twopi/src";
+#endif
+
+    vkw::ShaderModule::Creator shader_module_creator{ device_ };
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.frag.spv").Create();
+  }
+
   void RecreateSwapchain()
   {
     device_.WaitIdle();
 
     CleanupSwapchain();
+    CleanupUniformBuffers();
+    CleanupDescriptors();
+    CleanupPipeline();
+    CleanupCommandBuffers();
 
     CreateSwapchain();
-    CreateSwapchainImageViews();
-    RecreateDepthBuffer();
-    CreateRendertargetImage();
     CreateUniformBuffers();
     CreateDescriptorSets();
-    CreateRenderPass();
     CreateGraphicsPipeline();
-    CreateFramebuffers();
     CreateCommandBuffers();
   }
 
@@ -509,6 +508,21 @@ private:
       .Create();
 
     swapchain_images_ = swapchain_.Images();
+
+    // Create image views from swapchain images
+    CreateSwapchainImageViews();
+
+    // Create depth buffer
+    CreateDepthBuffer();
+
+    // Color rendertarget
+    CreateRendertargetImage();
+
+    // Create render pass
+    CreateRenderPass();
+
+    // Create framebuffers
+    CreateFramebuffers();
   }
 
   void CreateSwapchainImageViews()
@@ -520,7 +534,7 @@ private:
     }
   }
 
-  void RecreateDepthBuffer()
+  void CreateDepthBuffer()
   {
     auto depth_image = vkw::Image::Creator{ device_ }
       .SetDepthStencilImage()
@@ -553,6 +567,29 @@ private:
     rendertarget_image_view_ = vkw::ImageView::Creator{ device_ }
       .SetImage(*rendertarget_image_)
       .Create();
+  }
+
+  void CreateRenderPass()
+  {
+    render_pass_ = vkw::RenderPass::Creator{ device_ }
+      .SetFormat(swapchain_images_[0])
+      .SetMultisample4()
+      .Create();
+  }
+
+  void CreateFramebuffers()
+  {
+    auto framebuffer_creator = vkw::Framebuffer::Creator{ device_ };
+    for (const auto& swapchain_image_view : swapchain_image_views_)
+    {
+      auto swapchain_framebuffer = framebuffer_creator
+        .SetAttachments({ rendertarget_image_view_, depth_image_view_, swapchain_image_view })
+        .SetExtent(width_, height_)
+        .SetRenderPass(render_pass_)
+        .Create();
+
+      swapchain_framebuffers_.emplace_back(std::move(swapchain_framebuffer));
+    }
   }
 
   void CreateUniformBuffers()
@@ -592,14 +629,6 @@ private:
       descriptor_sets_[i].Update(*uniform_buffers_[i], image_view_, sampler_);
   }
 
-  void CreateRenderPass()
-  {
-    render_pass_ = vkw::RenderPass::Creator{ device_ }
-      .SetFormat(swapchain_images_[0])
-      .SetMultisample4()
-      .Create();
-  }
-
   void CreateGraphicsPipeline()
   {
     pipeline_layout_ = vkw::PipelineLayout::Creator{ device_ }
@@ -618,21 +647,6 @@ private:
       .Create();
   }
   
-  void CreateFramebuffers()
-  {
-    auto framebuffer_creator = vkw::Framebuffer::Creator{ device_ };
-    for (const auto& swapchain_image_view : swapchain_image_views_)
-    {
-      auto swapchain_framebuffer = framebuffer_creator
-        .SetAttachments({ rendertarget_image_view_, depth_image_view_, swapchain_image_view })
-        .SetExtent(width_, height_)
-        .SetRenderPass(render_pass_)
-        .Create();
-
-      swapchain_framebuffers_.emplace_back(std::move(swapchain_framebuffer));
-    }
-  }
-
   void CreateCommandBuffers()
   {
     command_buffers_ = vkw::CommandBuffer::Allocator{ device_, command_pool_ }
@@ -657,36 +671,49 @@ private:
 
   void CleanupSwapchain()
   {
-    depth_image_.reset();
-    depth_image_view_.Destroy();
-
-    rendertarget_image_.reset();
-    rendertarget_image_view_.Destroy();
-
-    for (auto& uniform_buffer : uniform_buffers_)
-      uniform_buffer.reset();
-    uniform_buffers_.clear();
-
-    descriptor_pool_.Destroy();
-    descriptor_sets_.clear();
-
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       swapchain_framebuffer.Destroy();
     swapchain_framebuffers_.clear();
 
-    for (auto& command_buffer : command_buffers_)
-      command_buffer.Free();
-    command_buffers_.clear();
-
-    pipeline_.Destroy();
-    pipeline_layout_.Destroy();
     render_pass_.Destroy();
+
+    rendertarget_image_.reset();
+    rendertarget_image_view_.Destroy();
+
+    depth_image_.reset();
+    depth_image_view_.Destroy();
 
     for (auto& swapchain_image_view : swapchain_image_views_)
       swapchain_image_view.Destroy();
     swapchain_image_views_.clear();
 
     swapchain_.Destroy();
+  }
+
+  void CleanupUniformBuffers()
+  {
+    for (auto& uniform_buffer : uniform_buffers_)
+      uniform_buffer.reset();
+    uniform_buffers_.clear();
+  }
+
+  void CleanupDescriptors()
+  {
+    descriptor_pool_.Destroy();
+    descriptor_sets_.clear();
+  }
+
+  void CleanupCommandBuffers()
+  {
+    for (auto& command_buffer : command_buffers_)
+      command_buffer.Free();
+    command_buffers_.clear();
+  }
+
+  void CleanupPipeline()
+  {
+    pipeline_.Destroy();
+    pipeline_layout_.Destroy();
   }
 
   void ChangeImageLayout(vkw::CommandBuffer command_buffer, vkw::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, int mip_levels = 1)
@@ -734,21 +761,52 @@ private:
   vkw::Queue graphics_queue_;
   vkw::Queue present_queue_;
 
-  vkw::Surface surface_;
-
   // Memory
   std::shared_ptr<MemoryManager> memory_manager_;
+  std::unique_ptr<vke::Buffer> staging_buffer_;
 
-  // Depth buffer
+  // Swapchain resources
+  vkw::Surface surface_;
+  vkw::Swapchain swapchain_;
+  std::vector<vkw::Image> swapchain_images_;
+  std::vector<vkw::ImageView> swapchain_image_views_;
   std::unique_ptr<vke::Image> depth_image_;
   vkw::ImageView depth_image_view_;
-
-  // Multisample image
   std::unique_ptr<vke::Image> rendertarget_image_;
   vkw::ImageView rendertarget_image_view_;
+  vkw::RenderPass render_pass_;
+  std::vector<vkw::Framebuffer> swapchain_framebuffers_;
+
+  // Rendering & presentation synchronization
+  size_t current_frame_ = 0;
+  std::vector<vkw::Semaphore> image_available_semaphores_;
+  std::vector<vkw::Semaphore> render_finished_semaphores_;
+  std::vector<vkw::Fence> in_flight_fences_;
+  std::vector<vkw::Fence> images_in_flight_;
+
+  // Uniform buffer
+  std::vector<std::unique_ptr<vke::Buffer>> uniform_buffers_;
+  glm::mat4 projection_matrix_;
+  glm::mat4 view_matrix_;
+
+  // Descriptors
+  vkw::DescriptorPool descriptor_pool_;
+  std::vector<vkw::DescriptorSet> descriptor_sets_;
+
+  // Graphics pipeline
+  vkw::ShaderModule vert_shader_;
+  vkw::ShaderModule frag_shader_;
+  vkw::DescriptorSetLayout descriptor_set_layout_;
+  vkw::DescriptorSetLayout sampler_layout_;
+  vkw::PipelineCache pipeline_cache_;
+  vkw::PipelineLayout pipeline_layout_;
+  vkw::GraphicsPipeline pipeline_;
+
+  // Commands
+  vkw::CommandPool command_pool_;
+  std::vector<vkw::CommandBuffer> command_buffers_;
 
   // Vertex attributes
-  std::unique_ptr<vke::Buffer> vertex_staging_buffer_;
   std::unique_ptr<vke::Buffer> vertex_buffer_;
   std::unique_ptr<vke::Buffer> index_buffer_;
   std::unique_ptr<vke::Buffer> instance_buffer_;
@@ -761,44 +819,7 @@ private:
   // Texture
   std::unique_ptr<vke::Image> image_;
   vkw::ImageView image_view_;
-  std::unique_ptr<vke::Buffer> image_staging_buffer_;
   vkw::Sampler sampler_;
-
-  // Uniform buffer
-  std::vector<std::unique_ptr<vke::Buffer>> uniform_buffers_;
-  glm::mat4 projection_matrix_;
-  glm::mat4 view_matrix_;
-
-  // Descriptors
-  vkw::DescriptorPool descriptor_pool_;
-  std::vector<vkw::DescriptorSet> descriptor_sets_;
-
-  // Swapchain
-  vkw::Swapchain swapchain_;
-  std::vector<vkw::Image> swapchain_images_;
-  std::vector<vkw::ImageView> swapchain_image_views_;
-  std::vector<vkw::Framebuffer> swapchain_framebuffers_;
-
-  // Graphics pipeline
-  vkw::ShaderModule vert_shader_;
-  vkw::ShaderModule frag_shader_;
-  vkw::DescriptorSetLayout descriptor_set_layout_;
-  vkw::DescriptorSetLayout sampler_layout_;
-  vkw::PipelineCache pipeline_cache_;
-  vkw::PipelineLayout pipeline_layout_;
-  vkw::RenderPass render_pass_;
-  vkw::GraphicsPipeline pipeline_;
-
-  // Commands
-  vkw::CommandPool command_pool_;
-  std::vector<vkw::CommandBuffer> command_buffers_;
-
-  // Rendering & presentation synchronization
-  size_t current_frame_ = 0;
-  std::vector<vkw::Semaphore> image_available_semaphores_;
-  std::vector<vkw::Semaphore> render_finished_semaphores_;
-  std::vector<vkw::Fence> in_flight_fences_;
-  std::vector<vkw::Fence> images_in_flight_;
 
   // Window
   int width_ = 0;
