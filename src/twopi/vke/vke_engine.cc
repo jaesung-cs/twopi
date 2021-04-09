@@ -1,6 +1,7 @@
 #include <twopi/vke/vke_engine.h>
 
 #include <iostream>
+#include <random>
 
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
@@ -40,6 +41,7 @@
 #include <twopi/vke/vke_memory_manager.h>
 
 #include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 namespace twopi
@@ -70,11 +72,37 @@ private:
     uint64_t num_instances = 0;
   };
 
+  struct Motion
+  {
+    glm::vec3 axis;
+    float angular_velocity;
+  };
+
 public:
   Impl() = delete;
 
   Impl(std::shared_ptr<window::Window> window)
   {
+    // Initialize motion
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> distribution(0., 1.);
+    for (int i = 0; i < grid_size_; i++)
+    {
+      for (int j = 0; j < grid_size_; j++)
+      {
+        for (int k = 0; k < grid_size_; k++)
+        {
+          const auto theta = std::acos(distribution(gen));
+          const auto phi = std::acos(distribution(gen) * 2. - 1.);
+          motion_[i][j][k].axis.x = std::cos(theta) * std::sin(phi);
+          motion_[i][j][k].axis.y = std::sin(theta) * std::sin(phi);
+          motion_[i][j][k].axis.z = std::cos(phi);
+          motion_[i][j][k].angular_velocity = (distribution(gen) + 1.) * 5.;
+        }
+      }
+    }
+
     width_ = window->Width();
     height_ = window->Height();
 
@@ -152,6 +180,18 @@ public:
     textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
     textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
 
+    // Instance update every frame
+    auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
+      .SetTransferSrcBuffer()
+      .SetSize(sizeof(float) * 16 * grid_size_ * grid_size_ * grid_size_)
+      .Create();
+
+    instance_update_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(instance_update_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(instance_update_buffer).size));
+
+    instance_update_buffer_map_ = static_cast<unsigned char*>(instance_update_buffer_->Map());
+
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
       .SetMipLevels(3)
@@ -192,6 +232,9 @@ public:
     CleanupDescriptors();
     CleanupPipeline();
     CleanupCommandBuffers();
+
+    instance_update_buffer_->Unmap();
+    instance_update_buffer_.reset();
 
     transient_command_pool_.Destroy();
 
@@ -250,7 +293,7 @@ public:
     view_matrix_ = camera->ViewMatrix();
   }
 
-  void Draw()
+  void Draw(core::Duration duration)
   {
     in_flight_fences_[current_frame_].Wait();
 
@@ -277,6 +320,24 @@ public:
     std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
+
+    // Update instance buffer
+    std::vector<glm::mat4> models;
+    for (int x = 0; x < grid_size_; x++)
+    {
+      for (int y = 0; y < grid_size_; y++)
+      {
+        for (int z = 0; z < grid_size_; z++)
+        {
+          glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
+          m[3][0] = x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+          m[3][1] = y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+          m[3][2] = z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+          models.emplace_back(std::move(m));
+        }
+      }
+    }
+    std::memcpy(instance_update_buffer_map_, glm::value_ptr(models[0]), mat4_size * models.size());
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -367,13 +428,12 @@ private:
     const auto mesh_index_buffer_size = mesh_index_buffer.size() * sizeof(uint32_t);
 
     // Instance buffer
-    constexpr int grid_size = 5;
     std::vector<glm::mat4> models;
-    for (int x = 0; x < grid_size; x++)
+    for (int x = 0; x < grid_size_; x++)
     {
-      for (int y = 0; y < grid_size; y++)
+      for (int y = 0; y < grid_size_; y++)
       {
-        for (int z = 0; z < grid_size; z++)
+        for (int z = 0; z < grid_size_; z++)
         {
           glm::mat4 m = glm::mat4(1.f);
           m[3][0] = x * 2.f;
@@ -439,7 +499,7 @@ private:
 
     vk_mesh.instance_buffer = std::make_unique<vke::Buffer>(
       std::move(instance_buffer),
-      memory_manager_->AllocateDeviceLocalMemory(mesh_instance_buffer_size));
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(instance_buffer).size));
 
     // Transfer from staging buffer to device local memory
     auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
@@ -697,7 +757,12 @@ private:
     {
       auto& command_buffer = command_buffers_[i];
       command_buffer
-        .Begin()
+        .Begin();
+
+      for (int j = 0; j < meshes_.size(); j++)
+        command_buffer.CopyBuffer(*instance_update_buffer_, *meshes_[j].instance_buffer);
+
+      command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
 
       for (int j = 0; j < meshes_.size(); j++)
@@ -800,6 +865,8 @@ private:
   }
 
 private:
+  static constexpr int grid_size_ = 10;
+
   vkw::Instance instance_;
 
   // Device
@@ -808,9 +875,14 @@ private:
   vkw::Queue graphics_queue_;
   vkw::Queue present_queue_;
 
+  // Motion
+  Motion motion_[grid_size_][grid_size_][grid_size_];
+
   // Memory
   std::shared_ptr<MemoryManager> memory_manager_;
   std::unique_ptr<vke::Buffer> staging_buffer_;
+  std::unique_ptr<vke::Buffer> instance_update_buffer_;
+  unsigned char* instance_update_buffer_map_;
 
   // Swapchain resources
   vkw::Surface surface_;
@@ -875,9 +947,9 @@ Engine::Engine(std::shared_ptr<window::Window> window)
 
 Engine::~Engine() = default;
 
-void Engine::Draw()
+void Engine::Draw(core::Duration duration)
 {
-  impl_->Draw();
+  impl_->Draw(duration);
 }
 
 void Engine::Resize(int width, int height)

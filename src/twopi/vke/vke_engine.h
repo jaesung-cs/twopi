@@ -3,6 +3,8 @@
 
 #include <memory>
 
+#include <twopi/core/timestamp.h>
+
 namespace twopi
 {
 namespace window
@@ -24,7 +26,7 @@ public:
   explicit Engine(std::shared_ptr<window::Window> window);
   ~Engine();
 
-  void Draw();
+  void Draw(core::Duration duration);
   void Resize(int width, int height);
   void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 

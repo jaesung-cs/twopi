@@ -138,6 +138,11 @@ CommandBuffer& CommandBuffer::BeginOneTime()
   return *this;
 }
 
+CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst)
+{
+  return CopyBuffer(src, dst, src.Size());
+}
+
 CommandBuffer& CommandBuffer::CopyBuffer(Buffer src, Buffer dst, uint64_t size)
 {
   return CopyBuffer(src, 0, dst, 0, size);

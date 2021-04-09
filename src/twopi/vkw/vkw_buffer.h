@@ -46,11 +46,15 @@ public:
 
   operator vk::Buffer() const;
 
+  uint64_t Size() const;
+
   void Bind(DeviceMemory memory, uint64_t offset = 0);
 
 private:
   vk::Device device_;
   vk::Buffer buffer_;
+
+  uint64_t size_;
 };
 }
 }

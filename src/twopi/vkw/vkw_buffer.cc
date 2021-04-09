@@ -58,7 +58,9 @@ Buffer Buffer::Creator::Create()
 {
   create_info_.setUsage(usage_);
   const auto handle = device_.createBuffer(create_info_);
-  return Buffer{ device_, handle };
+  auto buffer = Buffer{ device_, handle };
+  buffer.size_ = create_info_.size;
+  return buffer;
 }
 
 //
@@ -83,6 +85,11 @@ void Buffer::Destroy()
 Buffer::operator vk::Buffer() const
 {
   return buffer_;
+}
+
+uint64_t Buffer::Size() const
+{
+  return size_;
 }
 
 void Buffer::Bind(DeviceMemory memory, uint64_t offset)

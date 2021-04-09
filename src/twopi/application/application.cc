@@ -76,7 +76,7 @@ public:
 
       // Draw on Vulkan surface
       vk_engine_->UpdateCamera(current_camera_);
-      vk_engine_->Draw();
+      vk_engine_->Draw(current_timestamp - start_timestamp);
 
       SwapBuffers();
 
