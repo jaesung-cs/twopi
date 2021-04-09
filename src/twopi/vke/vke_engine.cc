@@ -428,23 +428,7 @@ private:
     const auto mesh_index_buffer_size = mesh_index_buffer.size() * sizeof(uint32_t);
 
     // Instance buffer
-    std::vector<glm::mat4> models;
-    for (int x = 0; x < grid_size_; x++)
-    {
-      for (int y = 0; y < grid_size_; y++)
-      {
-        for (int z = 0; z < grid_size_; z++)
-        {
-          glm::mat4 m = glm::mat4(1.f);
-          m[3][0] = x * 2.f;
-          m[3][1] = y * 2.f;
-          m[3][2] = z * 2.f;
-          models.emplace_back(std::move(m));
-        }
-      }
-    }
-    const float* mesh_instance_buffer = glm::value_ptr(models[0]);
-    const auto mesh_instance_buffer_size = models.size() * 16 * sizeof(float);
+    const auto mesh_instance_buffer_size = grid_size_ * grid_size_ * grid_size_ * 16 * sizeof(float);
 
     auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
 
@@ -460,16 +444,13 @@ private:
     std::memcpy(ptr, mesh_index_buffer.data(), mesh_index_buffer.size() * sizeof(uint32_t));
     ptr += mesh_index_buffer.size() * sizeof(uint32_t);
 
-    std::memcpy(ptr, mesh_instance_buffer, mesh_instance_buffer_size);
-    ptr += mesh_instance_buffer_size;
-
     staging_buffer_->Unmap();
 
     vk_mesh.normal_offset = mesh_vertex_buffer.size() * sizeof(float);
     vk_mesh.tex_coord_offset = vk_mesh.normal_offset + mesh_normal_buffer.size() * sizeof(float);
     vk_mesh.instance_offset = vk_mesh.tex_coord_offset + mesh_tex_coords_buffer.size() * sizeof(float);
     vk_mesh.num_indices = mesh_index_buffer.size();
-    vk_mesh.num_instances = models.size();
+    vk_mesh.num_instances = grid_size_ * grid_size_ * grid_size_;
 
     auto vertex_buffer = vkw::Buffer::Creator{ device_ }
       .SetSize(mesh_buffer_size)
@@ -507,7 +488,6 @@ private:
       .BeginOneTime()
       .CopyBuffer(*staging_buffer_, *vk_mesh.vertex_buffer, mesh_buffer_size)
       .CopyBuffer(*staging_buffer_, mesh_buffer_size, *vk_mesh.index_buffer, 0, mesh_index_buffer_size)
-      .CopyBuffer(*staging_buffer_, mesh_buffer_size + mesh_index_buffer_size, *vk_mesh.instance_buffer, 0, mesh_instance_buffer_size)
       .End();
     graphics_queue_.Submit(copy_command);
     graphics_queue_.WaitIdle();
