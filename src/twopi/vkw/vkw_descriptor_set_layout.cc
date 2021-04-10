@@ -22,7 +22,7 @@ DescriptorSetLayout::Creator& DescriptorSetLayout::Creator::AddUniformBuffer()
   binding
     .setBinding(bindings_.size())
     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-    .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+    .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
     .setDescriptorCount(1);
 
   bindings_.emplace_back(std::move(binding));

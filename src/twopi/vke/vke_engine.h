@@ -2,6 +2,7 @@
 #define TWOPI_VKE_VKE_ENGINE_H_
 
 #include <memory>
+#include <vector>
 
 #include <twopi/core/timestamp.h>
 
@@ -14,6 +15,7 @@ class Window;
 
 namespace scene
 {
+class Light;
 class Camera;
 }
 
@@ -28,6 +30,7 @@ public:
 
   void Draw(core::Duration duration);
   void Resize(int width, int height);
+  void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights);
   void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 
 private:

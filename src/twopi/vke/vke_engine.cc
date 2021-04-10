@@ -10,6 +10,7 @@
 #include <twopi/geometry/image.h>
 #include <twopi/geometry/mesh_loader.h>
 #include <twopi/geometry/mesh.h>
+#include <twopi/scene/light.h>
 #include <twopi/scene/camera.h>
 #include <twopi/vkw/vkw_instance.h>
 #include <twopi/vkw/vkw_physical_device.h>
@@ -78,6 +79,14 @@ private:
     float angular_velocity;
   };
 
+  struct Light
+  {
+    alignas(16) glm::vec3 position;
+    alignas(16) glm::vec3 ambient;
+    alignas(16) glm::vec3 diffuse;
+    alignas(16) glm::vec3 specular;
+  };
+
 public:
   Impl() = delete;
 
@@ -95,10 +104,10 @@ public:
         {
           const auto theta = std::acos(distribution(gen));
           const auto phi = std::acos(distribution(gen) * 2. - 1.);
-          motion_[i][j][k].axis.x = std::cos(theta) * std::sin(phi);
-          motion_[i][j][k].axis.y = std::sin(theta) * std::sin(phi);
-          motion_[i][j][k].axis.z = std::cos(phi);
-          motion_[i][j][k].angular_velocity = (distribution(gen) + 1.) * 5.;
+          motion_[i][j][k].axis.x = static_cast<float>(std::cos(theta) * std::sin(phi));
+          motion_[i][j][k].axis.y = static_cast<float>(std::sin(theta) * std::sin(phi));
+          motion_[i][j][k].axis.z = static_cast<float>(std::cos(phi));
+          motion_[i][j][k].angular_velocity = glm::pi<float>() * 2.f;
         }
       }
     }
@@ -157,6 +166,7 @@ public:
     descriptor_set_layout_ = vkw::DescriptorSetLayout::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
       .Create();
 
     pipeline_cache_ = vkw::PipelineCache::Creator{ device_ }.Create();
@@ -291,12 +301,27 @@ public:
     instance_.Destroy();
   }
 
+  void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+  {
+    lights_.resize(lights.size());
+
+    for (int i = 0; i < lights.size(); i++)
+    {
+      lights_[i].position = lights[i]->Position();
+      lights_[i].ambient = lights[i]->Ambient();
+      lights_[i].diffuse = lights[i]->Diffuse();
+      lights_[i].specular = lights[i]->Specular();
+    }
+  }
+
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
   {
     projection_matrix_ = camera->ProjectionMatrix();
     projection_matrix_[1][1] *= -1.f;
 
     view_matrix_ = camera->ViewMatrix();
+
+    eye_ = camera->Eye();
   }
 
   void Draw(core::Duration duration)
@@ -318,15 +343,19 @@ public:
 
     in_flight_fences_[current_frame_].Reset();
 
-    // Update uniform buffer
+    // Update camera uniform buffer
     constexpr uint64_t mat4_size = sizeof(float) * 16;
-    glm::mat4 model_matrix{ 1.f };
+    constexpr uint64_t vec3_size = sizeof(float) * 3;
 
-    auto* ptr = uniform_buffer_map_ + (256 * image_index);
+    auto* ptr = camera_uniform_buffer_map_ + (256 * image_index);
     std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
     std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
-    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
+    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(eye_), vec3_size);
 
+    // Update light uniform buffer
+    auto* light_ptr = light_uniform_buffer_map_ + (512 * image_index);
+    std::memcpy(light_ptr, glm::value_ptr(lights_[0].position), 512);
+    
     // Update instance buffer
     for (int i = 0; i < meshes_.size(); i++)
     {
@@ -338,9 +367,9 @@ public:
           for (int z = 0; z < grid_size_; z++)
           {
             glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
-            m[3][0] = i * 3.f * grid_size_ + x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-            m[3][1] = y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-            m[3][2] = z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+            m[3][0] = static_cast<float>(i * 3.f * grid_size_ + x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            m[3][1] = static_cast<float>(y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            m[3][2] = static_cast<float>(z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
             models.emplace_back(std::move(m));
           }
         }
@@ -567,8 +596,8 @@ private:
 #endif
 
     vkw::ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.frag.spv").Create();
+    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.vert.spv").Create();
+    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.frag.spv").Create();
   }
 
   void RecreateSwapchain()
@@ -684,17 +713,29 @@ private:
   void CreateUniformBuffers()
   {
     // Uniform buffers
-    const int uniform_buffer_size = 256 * swapchain_image_views_.size();
-    auto uniform_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(uniform_buffer_size)
+    const int camera_uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto camera_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(camera_uniform_buffer_size)
       .SetUniformBuffer()
       .Create();
 
-    uniform_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(uniform_buffer),
-      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(uniform_buffer).size));
+    camera_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(camera_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(camera_uniform_buffer).size));
 
-    uniform_buffer_map_ = static_cast<unsigned char*>(uniform_buffer_->Map());
+    camera_uniform_buffer_map_ = static_cast<unsigned char*>(camera_uniform_buffer_->Map());
+
+    const int light_uniform_buffer_size = 512 * swapchain_image_views_.size();
+    auto light_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(light_uniform_buffer_size)
+      .SetUniformBuffer()
+      .Create();
+
+    light_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(light_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(light_uniform_buffer).size));
+
+    light_uniform_buffer_map_ = static_cast<unsigned char*>(light_uniform_buffer_->Map());
   }
 
   void CreateDescriptorSets()
@@ -702,6 +743,7 @@ private:
     descriptor_pool_ = vkw::DescriptorPool::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
       .SetSize(textures_.size() * swapchain_image_views_.size())
       .Create();
 
@@ -713,7 +755,11 @@ private:
         .Allocate();
 
       for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
-        descriptor_framebuffer_sets[j].Update(*uniform_buffer_, j * 256, sizeof(float) * 16 * 3, textures_[i].image_view, sampler_);
+        descriptor_framebuffer_sets[j].Update({
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(float) * (16 * 2 + 3) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(float) * 4 * 4 * 8},
+          });
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
     }
@@ -794,8 +840,10 @@ private:
 
   void CleanupUniformBuffers()
   {
-    uniform_buffer_->Unmap();
-    uniform_buffer_.reset();
+    camera_uniform_buffer_->Unmap();
+    camera_uniform_buffer_.reset();
+    light_uniform_buffer_->Unmap();
+    light_uniform_buffer_.reset();
   }
 
   void CleanupDescriptors()
@@ -854,7 +902,7 @@ private:
   }
 
 private:
-  static constexpr int grid_size_ = 5;
+  static constexpr int grid_size_ = 3;
 
   vkw::Instance instance_;
 
@@ -893,12 +941,17 @@ private:
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
 
-  // Uniform buffer
-  std::unique_ptr<vke::Buffer> uniform_buffer_;
-  unsigned char* uniform_buffer_map_;
+  // Camera uniform buffer
+  std::unique_ptr<vke::Buffer> camera_uniform_buffer_;
+  unsigned char* camera_uniform_buffer_map_;
+
+  // Light uniform buffer
+  std::unique_ptr<vke::Buffer> light_uniform_buffer_;
+  unsigned char* light_uniform_buffer_map_;
 
   glm::mat4 projection_matrix_;
   glm::mat4 view_matrix_;
+  glm::vec3 eye_;
 
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
@@ -924,6 +977,9 @@ private:
   std::vector<Texture> textures_;
   vkw::Sampler sampler_;
 
+  // Lights
+  std::vector<Light> lights_;
+
   // Window
   int width_ = 0;
   int height_ = 0;
@@ -944,6 +1000,11 @@ void Engine::Draw(core::Duration duration)
 void Engine::Resize(int width, int height)
 {
   impl_->Resize(width, height);
+}
+
+void Engine::UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+{
+  impl_->UpdateLights(lights);
 }
 
 void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)
