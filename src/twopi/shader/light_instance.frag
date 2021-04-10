@@ -25,11 +25,13 @@ struct Light
 const int MAX_NUM_LIGHTS = 8;
 layout (std140, binding = 2) uniform LightUbo
 {
-  Light lights[MAX_NUM_LIGHTS];
+  Light directional_lights[MAX_NUM_LIGHTS];
+  Light point_lights[MAX_NUM_LIGHTS];
 } lights;
 
 // TODO
-layout (constant_id = 0) const uint num_lights = 1U;
+layout (constant_id = 0) const uint num_directional_lights = 1U;
+layout (constant_id = 1) const uint num_point_lights = 1U;
 
 layout (std140, binding = 3) uniform MaterialUbo
 {
@@ -39,7 +41,7 @@ layout (std140, binding = 3) uniform MaterialUbo
 
 layout (location = 0) out vec4 out_color;
 
-vec3 compute_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
+vec3 compute_directional_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
 {
   vec3 L = normalize(light.position);
   vec3 R = reflect(-L, N);
@@ -56,6 +58,25 @@ vec3 compute_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
   return color;
 }
 
+vec3 compute_point_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
+{
+  float d = length(light.position - frag_position);
+  float atten = 1.f / (0.1f * d * d + 1.f);
+  vec3 L = normalize(light.position - frag_position);
+  vec3 R = reflect(-L, N);
+  vec3 H = normalize(L + V);
+
+  float diffuse_strength = max(dot(L, N), 0.f);
+  float specular_strength = pow(max(dot(H, N), 0.f), material.shininess);
+
+  vec3 color = atten * (
+    light.ambient * diffuse_color
+    + diffuse_strength * light.diffuse * diffuse_color
+    + specular_strength * light.specular * material.specular);
+
+  return color;
+}
+
 void main()
 {
   // Directional light
@@ -65,9 +86,16 @@ void main()
   vec3 diffuse_color = texture(tex_sampler, frag_tex_coord).rgb;
 
   vec3 total_color = vec3(0.f, 0.f, 0.f);
-  for (int i = 0; i < num_lights; i++)
+
+  for (int i = 0; i < num_directional_lights; i++)
   {
-    vec3 light_color = compute_light_color(lights.lights[i], diffuse_color, N, V);
+    vec3 light_color = compute_directional_light_color(lights.directional_lights[i], diffuse_color, N, V);
+    total_color += light_color;
+  }
+  
+  for (int i = 0; i < num_point_lights; i++)
+  {
+    vec3 light_color = compute_point_light_color(lights.point_lights[i], diffuse_color, N, V);
     total_color += light_color;
   }
 

@@ -341,14 +341,21 @@ public:
 
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
   {
-    lights_.resize(lights.size());
+    directional_lights_.clear();
+    point_lights_.clear();
 
     for (int i = 0; i < lights.size(); i++)
     {
-      lights_[i].position = lights[i]->Position();
-      lights_[i].ambient = lights[i]->Ambient();
-      lights_[i].diffuse = lights[i]->Diffuse();
-      lights_[i].specular = lights[i]->Specular();
+      LightUbo light_ubo;
+      light_ubo.position = lights[i]->Position();
+      light_ubo.ambient = lights[i]->Ambient();
+      light_ubo.diffuse = lights[i]->Diffuse();
+      light_ubo.specular = lights[i]->Specular();
+
+      if (lights[i]->IsDirectionalLight())
+        directional_lights_.emplace_back(light_ubo);
+      else
+        point_lights_.emplace_back(light_ubo);
     }
   }
 
@@ -386,8 +393,9 @@ public:
     std::memcpy(ptr, &camera_, sizeof(CameraUbo));
 
     // Update light uniform buffer
-    auto* light_ptr = light_uniform_buffer_map_ + (512 * image_index);
-    std::memcpy(light_ptr, &lights_[0], sizeof(LightUbo) * 8);
+    auto* light_ptr = light_uniform_buffer_map_ + (1024 * image_index);
+    std::memcpy(light_ptr, &directional_lights_[0], sizeof(LightUbo) * 8);
+    std::memcpy(light_ptr + sizeof(LightUbo) * 8, &point_lights_[0], sizeof(LightUbo) * 8);
 
     // Update material uniform buffer
     auto* material_ptr = material_uniform_buffer_map_ + (256 * image_index);
@@ -841,7 +849,7 @@ private:
 
     camera_uniform_buffer_map_ = static_cast<unsigned char*>(camera_uniform_buffer_->Map());
 
-    const int light_uniform_buffer_size = 512 * swapchain_image_views_.size();
+    const int light_uniform_buffer_size = 1024 * swapchain_image_views_.size();
     auto light_uniform_buffer = vkw::Buffer::Creator{ device_ }
       .SetSize(light_uniform_buffer_size)
       .SetUniformBuffer()
@@ -862,7 +870,7 @@ private:
     material_uniform_buffer_ = std::make_unique<vke::Buffer>(
       std::move(material_uniform_buffer),
       memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(material_uniform_buffer).size));
-
+    
     material_uniform_buffer_map_ = static_cast<unsigned char*>(material_uniform_buffer_->Map());
   }
 
@@ -887,7 +895,7 @@ private:
         descriptor_framebuffer_sets[j].Update({
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(CameraUbo) },
           vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(instanced_mesh_textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
-          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(LightUbo) * 8},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 1024ull, sizeof(LightUbo) * 16},
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*material_uniform_buffer_)), j * 256ull, sizeof(MaterialUbo)},
           });
 
@@ -1142,7 +1150,8 @@ private:
   CameraUbo camera_;
 
   // Lights
-  std::vector<LightUbo> lights_;
+  std::vector<LightUbo> directional_lights_;
+  std::vector<LightUbo> point_lights_;
 
   // Material
   MaterialUbo material_;

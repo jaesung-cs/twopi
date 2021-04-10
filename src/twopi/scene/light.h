@@ -15,11 +15,15 @@ public:
   Light();
   ~Light();
 
+  void SetDirectionalLight();
+  void SetPointLight();
   void SetPosition(const glm::vec3& position);
   void SetAmbient(const glm::vec3& ambient);
   void SetDiffuse(const glm::vec3& diffuse);
   void SetSpecular(const glm::vec3& specular);
 
+  bool IsDirectionalLight() const;
+  bool IsPointLight() const;
   const glm::vec3& Position() const;
   const glm::vec3& Ambient() const;
   const glm::vec3& Diffuse() const;
