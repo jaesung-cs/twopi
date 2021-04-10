@@ -23,7 +23,7 @@ struct Light
 };
 
 const int MAX_NUM_LIGHTS = 8;
-layout (binding = 2) uniform LightUbo
+layout (std140, binding = 2) uniform LightUbo
 {
   Light lights[MAX_NUM_LIGHTS];
 } lights;
@@ -31,11 +31,13 @@ layout (binding = 2) uniform LightUbo
 // TODO
 layout (constant_id = 0) const uint num_lights = 1U;
 
-layout (location = 0) out vec4 out_color;
+layout (std140, binding = 3) uniform MaterialUbo
+{
+  vec3 specular;
+  float shininess;
+} material;
 
-// TODO: material
-const vec3 material_specular = vec3(1.f, 1.f, 1.f);
-const float material_shininess = 64.f;
+layout (location = 0) out vec4 out_color;
 
 vec3 compute_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
 {
@@ -44,12 +46,12 @@ vec3 compute_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
   vec3 H = normalize(L + V);
 
   float diffuse_strength = max(dot(L, N), 0.f);
-  float specular_strength = pow(max(dot(H, N), 0.f), material_shininess);
+  float specular_strength = pow(max(dot(H, N), 0.f), material.shininess);
 
   vec3 color = 
     light.ambient * diffuse_color
     + diffuse_strength * light.diffuse * diffuse_color
-    + specular_strength * light.specular * material_specular;
+    + specular_strength * light.specular * material.specular;
 
   return color;
 }

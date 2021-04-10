@@ -79,7 +79,7 @@ private:
     float angular_velocity;
   };
 
-  struct Light
+  struct LightUbo
   {
     alignas(16) glm::vec3 position;
     alignas(16) glm::vec3 ambient;
@@ -94,11 +94,21 @@ private:
     alignas(16) glm::vec3 eye;
   };
 
+  struct MaterialUbo
+  {
+    alignas(16) glm::vec3 specular;
+    float shininess; // packed after specular.rgb
+  };
+
 public:
   Impl() = delete;
 
   Impl(std::shared_ptr<window::Window> window)
   {
+    // Initialize material
+    material_.specular = glm::vec3(0.1f, 0.1f, 0.1f);
+    material_.shininess = 64.f;
+
     // Initialize motion
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -173,6 +183,7 @@ public:
     descriptor_set_layout_ = vkw::DescriptorSetLayout::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
       .AddUniformBuffer()
       .Create();
 
@@ -356,7 +367,11 @@ public:
 
     // Update light uniform buffer
     auto* light_ptr = light_uniform_buffer_map_ + (512 * image_index);
-    std::memcpy(light_ptr, glm::value_ptr(lights_[0].position), 512);
+    std::memcpy(light_ptr, &lights_[0], sizeof(LightUbo) * 8);
+
+    // Update material uniform buffer
+    auto* material_ptr = material_uniform_buffer_map_ + (256 * image_index);
+    std::memcpy(material_ptr, &material_, sizeof(MaterialUbo));
     
     // Update instance buffer
     constexpr uint64_t mat4_size = sizeof(float) * 16;
@@ -739,6 +754,18 @@ private:
       memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(light_uniform_buffer).size));
 
     light_uniform_buffer_map_ = static_cast<unsigned char*>(light_uniform_buffer_->Map());
+
+    const int material_uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto material_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(material_uniform_buffer_size)
+      .SetUniformBuffer()
+      .Create();
+
+    material_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(material_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(material_uniform_buffer).size));
+
+    material_uniform_buffer_map_ = static_cast<unsigned char*>(material_uniform_buffer_->Map());
   }
 
   void CreateDescriptorSets()
@@ -746,6 +773,7 @@ private:
     descriptor_pool_ = vkw::DescriptorPool::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
       .AddUniformBuffer()
       .SetSize(textures_.size() * swapchain_image_views_.size())
       .Create();
@@ -761,7 +789,8 @@ private:
         descriptor_framebuffer_sets[j].Update({
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(CameraUbo) },
           vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
-          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(Light) * 8},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(LightUbo) * 8},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*material_uniform_buffer_)), j * 256ull, sizeof(MaterialUbo)},
           });
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
@@ -847,6 +876,8 @@ private:
     camera_uniform_buffer_.reset();
     light_uniform_buffer_->Unmap();
     light_uniform_buffer_.reset();
+    material_uniform_buffer_->Unmap();
+    material_uniform_buffer_.reset();
   }
 
   void CleanupDescriptors()
@@ -952,6 +983,10 @@ private:
   std::unique_ptr<vke::Buffer> light_uniform_buffer_;
   unsigned char* light_uniform_buffer_map_;
 
+  // Material uniform buffer
+  std::unique_ptr<vke::Buffer> material_uniform_buffer_;
+  unsigned char* material_uniform_buffer_map_;
+
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
   std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
@@ -980,7 +1015,10 @@ private:
   CameraUbo camera_;
 
   // Lights
-  std::vector<Light> lights_;
+  std::vector<LightUbo> lights_;
+
+  // Material
+  MaterialUbo material_;
 
   // Window
   int width_ = 0;

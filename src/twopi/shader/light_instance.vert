@@ -9,7 +9,7 @@ layout (location = 2) in vec2 tex_coord;
 // Instance
 layout (location = 3) in mat4 instance_transform;
 
-layout (set = 0, binding = 0) uniform Camera
+layout (std140, binding = 0) uniform Camera
 {
   mat4 projection;
   mat4 view;
