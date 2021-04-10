@@ -87,6 +87,13 @@ private:
     alignas(16) glm::vec3 specular;
   };
 
+  struct CameraUbo
+  {
+    alignas(16) glm::mat4 projection_matrix;
+    alignas(16) glm::mat4 view_matrix;
+    alignas(16) glm::vec3 eye;
+  };
+
 public:
   Impl() = delete;
 
@@ -176,7 +183,7 @@ public:
     // Allocate staging buffer
     constexpr uint64_t staging_buffer_size = 256 * 1024 * 1024; // 256MB
     auto staging_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(256 * 1024 * 1024)
+      .SetSize(staging_buffer_size)
       .SetTransferSrcBuffer()
       .Create();
 
@@ -316,12 +323,12 @@ public:
 
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
   {
-    projection_matrix_ = camera->ProjectionMatrix();
-    projection_matrix_[1][1] *= -1.f;
+    camera_.projection_matrix = camera->ProjectionMatrix();
+    camera_.projection_matrix[1][1] *= -1.f;
 
-    view_matrix_ = camera->ViewMatrix();
+    camera_.view_matrix = camera->ViewMatrix();
 
-    eye_ = camera->Eye();
+    camera_.eye = camera->Eye();
   }
 
   void Draw(core::Duration duration)
@@ -344,19 +351,15 @@ public:
     in_flight_fences_[current_frame_].Reset();
 
     // Update camera uniform buffer
-    constexpr uint64_t mat4_size = sizeof(float) * 16;
-    constexpr uint64_t vec3_size = sizeof(float) * 3;
-
     auto* ptr = camera_uniform_buffer_map_ + (256 * image_index);
-    std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
-    std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
-    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(eye_), vec3_size);
+    std::memcpy(ptr, &camera_, sizeof(CameraUbo));
 
     // Update light uniform buffer
     auto* light_ptr = light_uniform_buffer_map_ + (512 * image_index);
     std::memcpy(light_ptr, glm::value_ptr(lights_[0].position), 512);
     
     // Update instance buffer
+    constexpr uint64_t mat4_size = sizeof(float) * 16;
     for (int i = 0; i < meshes_.size(); i++)
     {
       std::vector<glm::mat4> models;
@@ -374,7 +377,7 @@ public:
           }
         }
       }
-      std::memcpy(instance_update_buffer_maps_[i], glm::value_ptr(models[0]), mat4_size * models.size());
+      std::memcpy(instance_update_buffer_maps_[i], &models[0], sizeof(models[0]) * models.size());
     }
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
@@ -756,9 +759,9 @@ private:
 
       for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
         descriptor_framebuffer_sets[j].Update({
-          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(float) * (16 * 2 + 3) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(CameraUbo) },
           vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
-          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(float) * 4 * 4 * 8},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(Light) * 8},
           });
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
@@ -949,10 +952,6 @@ private:
   std::unique_ptr<vke::Buffer> light_uniform_buffer_;
   unsigned char* light_uniform_buffer_map_;
 
-  glm::mat4 projection_matrix_;
-  glm::mat4 view_matrix_;
-  glm::vec3 eye_;
-
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
   std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
@@ -976,6 +975,9 @@ private:
   // Texture
   std::vector<Texture> textures_;
   vkw::Sampler sampler_;
+
+  // Camera
+  CameraUbo camera_;
 
   // Lights
   std::vector<Light> lights_;
