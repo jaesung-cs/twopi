@@ -61,7 +61,7 @@ private:
     vkw::ImageView image_view;
   };
 
-  struct Mesh
+  struct InstancedMesh
   {
     std::unique_ptr<vke::Buffer> vertex_buffer;
     std::unique_ptr<vke::Buffer> index_buffer;
@@ -203,13 +203,13 @@ public:
       memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
 
     // Load mesh and texture
-    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
-    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
+    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
+    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
     textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
     textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
 
     // Instance update every frame
-    for (int i = 0; i < meshes_.size(); i++)
+    for (int i = 0; i < instanced_meshes_.size(); i++)
     {
       auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
         .SetTransferSrcBuffer()
@@ -290,13 +290,13 @@ public:
 
     descriptor_set_layout_.Destroy();
 
-    for (auto& mesh : meshes_)
+    for (auto& instanced_mesh : instanced_meshes_)
     {
-      mesh.vertex_buffer.reset();
-      mesh.index_buffer.reset();
-      mesh.instance_buffer.reset();
+      instanced_mesh.vertex_buffer.reset();
+      instanced_mesh.index_buffer.reset();
+      instanced_mesh.instance_buffer.reset();
     }
-    meshes_.clear();
+    instanced_meshes_.clear();
 
     staging_buffer_.reset();
 
@@ -375,7 +375,7 @@ public:
     
     // Update instance buffer
     constexpr uint64_t mat4_size = sizeof(float) * 16;
-    for (int i = 0; i < meshes_.size(); i++)
+    for (int i = 0; i < instanced_meshes_.size(); i++)
     {
       std::vector<glm::mat4> models;
       for (int x = 0; x < grid_size_; x++)
@@ -467,9 +467,9 @@ private:
     }
   }
 
-  Mesh LoadMesh(const std::string& mesh_filepath)
+  InstancedMesh LoadMesh(const std::string& mesh_filepath)
   {
-    Mesh vk_mesh;
+    InstancedMesh vk_mesh;
 
     // Load mesh
     geometry::MeshLoader mesh_loader{};
@@ -826,21 +826,23 @@ private:
       command_buffer
         .Begin();
 
-      for (int j = 0; j < meshes_.size(); j++)
-        command_buffer.CopyBuffer(*instance_update_buffers_[j], *meshes_[j].instance_buffer);
+      for (int j = 0; j < instanced_meshes_.size(); j++)
+        command_buffer.CopyBuffer(*instance_update_buffers_[j], *instanced_meshes_[j].instance_buffer);
 
       command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
 
-      for (int j = 0; j < meshes_.size(); j++)
+      for (int j = 0; j < instanced_meshes_.size(); j++)
       {
         command_buffer
-          .BindVertexBuffers({ *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer }, { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
-          .BindVertexBuffers({ *meshes_[j].instance_buffer }, { 0 }, 3)
-          .BindIndexBuffer(*meshes_[j].index_buffer)
+          .BindVertexBuffers(
+            { *instanced_meshes_[j].vertex_buffer, *instanced_meshes_[j].vertex_buffer, *instanced_meshes_[j].vertex_buffer },
+            { 0, instanced_meshes_[j].normal_offset, instanced_meshes_[j].tex_coord_offset })
+          .BindVertexBuffers({ *instanced_meshes_[j].instance_buffer }, { 0 }, 3)
+          .BindIndexBuffer(*instanced_meshes_[j].index_buffer)
           .BindPipeline(pipeline_)
           .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
-          .DrawIndexed(meshes_[j].num_indices, meshes_[j].num_instances);
+          .DrawIndexed(instanced_meshes_[j].num_indices, instanced_meshes_[j].num_instances);
       }
 
       command_buffer
@@ -1005,7 +1007,7 @@ private:
   vkw::CommandPool command_pool_;
 
   // Vertex attributes
-  std::vector<Mesh> meshes_;
+  std::vector<InstancedMesh> instanced_meshes_;
 
   // Texture
   std::vector<Texture> textures_;
