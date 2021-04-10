@@ -16,7 +16,7 @@ class MemoryManager::Impl
 {
 private:
   // 1GB
-  constexpr static uint64_t chunk_size_ = 1024 * 1024 * 1024;
+  constexpr static uint64_t chunk_size_ = 256 * 1024 * 1024;
 
   // Two types of memory:
   // - Device Local
