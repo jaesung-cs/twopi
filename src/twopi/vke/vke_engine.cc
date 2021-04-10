@@ -73,6 +73,15 @@ private:
     uint64_t num_instances = 0;
   };
 
+  struct Mesh
+  {
+    std::unique_ptr<vke::Buffer> vertex_buffer;
+    std::unique_ptr<vke::Buffer> index_buffer;
+    uint64_t normal_offset = 0;
+    uint64_t tex_coord_offset = 0;
+    uint64_t num_indices = 0;
+  };
+
   struct Motion
   {
     glm::vec3 axis;
@@ -205,8 +214,10 @@ public:
     // Load mesh and texture
     instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
     instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
-    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
-    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
+    instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
+    instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
+
+    meshes_.emplace_back(CreateFloorMesh());
 
     // Instance update every frame
     for (int i = 0; i < instanced_meshes_.size(); i++)
@@ -272,19 +283,21 @@ public:
 
     transient_command_pool_.Destroy();
 
-    vert_shader_.Destroy();
-    frag_shader_.Destroy();
+    light_instance_vert_shader_.Destroy();
+    light_instance_frag_shader_.Destroy();
+    light_floor_vert_shader_.Destroy();
+    light_floor_frag_shader_.Destroy();
 
     memory_manager_.reset();
 
     pipeline_cache_.Destroy();
 
-    for (auto& texture : textures_)
+    for (auto& texture : instanced_mesh_textures_)
     {
       texture.image.reset();
       texture.image_view.Destroy();
     }
-    textures_.clear();
+    instanced_mesh_textures_.clear();
 
     sampler_.Destroy();
 
@@ -297,6 +310,13 @@ public:
       instanced_mesh.instance_buffer.reset();
     }
     instanced_meshes_.clear();
+
+    for (auto& mesh : meshes_)
+    {
+      mesh.vertex_buffer.reset();
+      mesh.index_buffer.reset();
+    }
+    meshes_.clear();
 
     staging_buffer_.reset();
 
@@ -387,7 +407,7 @@ public:
             glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
             m[3][0] = static_cast<float>(i * 3.f * grid_size_ + x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
             m[3][1] = static_cast<float>(y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
-            m[3][2] = static_cast<float>(z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            m[3][2] = static_cast<float>((z + 1) * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
             models.emplace_back(std::move(m));
           }
         }
@@ -465,6 +485,81 @@ private:
         }
       }
     }
+  }
+
+  Mesh CreateFloorMesh()
+  {
+    Mesh mesh;
+
+    constexpr float grid_size = 1000.f;
+
+    float floor_vertex_buffer[] = {
+      // position
+      -grid_size, -grid_size, 0.f,
+      grid_size, -grid_size, 0.f,
+      -grid_size, grid_size, 0.f,
+      grid_size, grid_size, 0.f,
+      // normal
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      // tex_coord
+      -grid_size, -grid_size,
+      grid_size, -grid_size,
+      -grid_size, grid_size,
+      grid_size, grid_size,
+    };
+
+    uint32_t floor_index_buffer[] = {
+      0, 1, 2, 2, 1, 3
+    };
+
+    // Move to staging buffer
+    auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
+    std::memcpy(ptr, floor_vertex_buffer, sizeof(floor_vertex_buffer));
+    std::memcpy(ptr + sizeof(floor_vertex_buffer), floor_index_buffer, sizeof(floor_index_buffer));
+    staging_buffer_->Unmap();
+
+    // Offsets
+    mesh.normal_offset = 12 * sizeof(float);
+    mesh.tex_coord_offset = 24 * sizeof(float);
+    mesh.num_indices = 6;
+
+    // Buffers
+    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(sizeof(floor_vertex_buffer))
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    mesh.vertex_buffer = std::make_unique<vke::Buffer>(
+      std::move(vertex_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(vertex_buffer).size));
+
+    auto index_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(sizeof(floor_index_buffer))
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    mesh.index_buffer = std::make_unique<vke::Buffer>(
+      std::move(index_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(index_buffer).size));
+
+    // Transfer from staging buffer to device local memory
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *mesh.vertex_buffer, sizeof(floor_vertex_buffer))
+      .CopyBuffer(*staging_buffer_, sizeof(floor_vertex_buffer), *mesh.index_buffer, 0, sizeof(floor_index_buffer))
+      .End();
+    graphics_queue_.Submit(copy_command);
+    graphics_queue_.WaitIdle();
+
+    copy_command.Free();
+
+    return mesh;
   }
 
   InstancedMesh LoadMesh(const std::string& mesh_filepath)
@@ -614,8 +709,11 @@ private:
 #endif
 
     vkw::ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.frag.spv").Create();
+    light_instance_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.vert.spv").Create();
+    light_instance_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.frag.spv").Create();
+
+    light_floor_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.vert.spv").Create();
+    light_floor_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.frag.spv").Create();
   }
 
   void RecreateSwapchain()
@@ -775,10 +873,10 @@ private:
       .AddSampler()
       .AddUniformBuffer()
       .AddUniformBuffer()
-      .SetSize(textures_.size() * swapchain_image_views_.size())
+      .SetSize(instanced_mesh_textures_.size() * swapchain_image_views_.size())
       .Create();
 
-    for (int i = 0; i < textures_.size(); i++)
+    for (int i = 0; i < instanced_mesh_textures_.size(); i++)
     {
       auto descriptor_framebuffer_sets = vkw::DescriptorSet::Allocator{ device_, descriptor_pool_ }
         .SetLayout(descriptor_set_layout_)
@@ -788,7 +886,7 @@ private:
       for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
         descriptor_framebuffer_sets[j].Update({
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(CameraUbo) },
-          vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(instanced_mesh_textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 512ull, sizeof(LightUbo) * 8},
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*material_uniform_buffer_)), j * 256ull, sizeof(MaterialUbo)},
           });
@@ -803,12 +901,22 @@ private:
       .SetLayouts({ descriptor_set_layout_ })
       .Create();
 
-    pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+    instanced_mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
       .SetPipelineCache(pipeline_cache_)
       .SetMultisample4()
-      .SetShader(vert_shader_, frag_shader_)
+      .SetShader(light_instance_vert_shader_, light_instance_frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetInstanceInput({ {3, 4, 4} })
+      .SetViewport(width_, height_)
+      .SetPipelineLayout(pipeline_layout_)
+      .SetRenderPass(render_pass_)
+      .Create();
+
+    mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+      .SetPipelineCache(pipeline_cache_)
+      .SetMultisample4()
+      .SetShader(light_floor_vert_shader_, light_floor_frag_shader_)
+      .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
@@ -832,6 +940,18 @@ private:
       command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
 
+      for (int j = 0; j < meshes_.size(); j++)
+      {
+        command_buffer
+          .BindVertexBuffers(
+            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
+            { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
+          .BindIndexBuffer(*meshes_[j].index_buffer)
+          .BindPipeline(mesh_pipeline_)
+          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
+          .DrawIndexed(meshes_[j].num_indices);
+      }
+      
       for (int j = 0; j < instanced_meshes_.size(); j++)
       {
         command_buffer
@@ -840,7 +960,7 @@ private:
             { 0, instanced_meshes_[j].normal_offset, instanced_meshes_[j].tex_coord_offset })
           .BindVertexBuffers({ *instanced_meshes_[j].instance_buffer }, { 0 }, 3)
           .BindIndexBuffer(*instanced_meshes_[j].index_buffer)
-          .BindPipeline(pipeline_)
+          .BindPipeline(instanced_mesh_pipeline_)
           .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
           .DrawIndexed(instanced_meshes_[j].num_indices, instanced_meshes_[j].num_instances);
       }
@@ -897,7 +1017,8 @@ private:
 
   void CleanupPipeline()
   {
-    pipeline_.Destroy();
+    instanced_mesh_pipeline_.Destroy();
+    mesh_pipeline_.Destroy();
     pipeline_layout_.Destroy();
   }
 
@@ -994,13 +1115,16 @@ private:
   std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
 
   // Graphics pipeline
-  vkw::ShaderModule vert_shader_;
-  vkw::ShaderModule frag_shader_;
+  vkw::ShaderModule light_instance_vert_shader_;
+  vkw::ShaderModule light_instance_frag_shader_;
+  vkw::ShaderModule light_floor_vert_shader_;
+  vkw::ShaderModule light_floor_frag_shader_;
   vkw::DescriptorSetLayout descriptor_set_layout_;
   vkw::DescriptorSetLayout sampler_layout_;
   vkw::PipelineCache pipeline_cache_;
   vkw::PipelineLayout pipeline_layout_;
-  vkw::GraphicsPipeline pipeline_;
+  vkw::GraphicsPipeline instanced_mesh_pipeline_;
+  vkw::GraphicsPipeline mesh_pipeline_;
 
   // Commands
   vkw::CommandPool transient_command_pool_;
@@ -1008,9 +1132,10 @@ private:
 
   // Vertex attributes
   std::vector<InstancedMesh> instanced_meshes_;
+  std::vector<Mesh> meshes_;
 
   // Texture
-  std::vector<Texture> textures_;
+  std::vector<Texture> instanced_mesh_textures_;
   vkw::Sampler sampler_;
 
   // Camera
