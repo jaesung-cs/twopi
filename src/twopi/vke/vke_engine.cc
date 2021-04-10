@@ -181,16 +181,19 @@ public:
     textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
 
     // Instance update every frame
-    auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
-      .SetTransferSrcBuffer()
-      .SetSize(sizeof(float) * 16 * grid_size_ * grid_size_ * grid_size_)
-      .Create();
+    for (int i = 0; i < meshes_.size(); i++)
+    {
+      auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
+        .SetTransferSrcBuffer()
+        .SetSize(sizeof(float) * 16 * grid_size_ * grid_size_ * grid_size_)
+        .Create();
 
-    instance_update_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(instance_update_buffer),
-      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(instance_update_buffer).size));
+      instance_update_buffers_.emplace_back(std::make_unique<vke::Buffer>(
+        std::move(instance_update_buffer),
+        memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(instance_update_buffer).size)));
 
-    instance_update_buffer_map_ = static_cast<unsigned char*>(instance_update_buffer_->Map());
+      instance_update_buffer_maps_.push_back(static_cast<unsigned char*>(instance_update_buffers_[i]->Map()));
+    }
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -233,8 +236,11 @@ public:
     CleanupPipeline();
     CleanupCommandBuffers();
 
-    instance_update_buffer_->Unmap();
-    instance_update_buffer_.reset();
+    for (auto& instance_update_buffer : instance_update_buffers_)
+    {
+      instance_update_buffer->Unmap();
+      instance_update_buffer.reset();
+    }
 
     transient_command_pool_.Destroy();
 
@@ -322,22 +328,25 @@ public:
     std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
 
     // Update instance buffer
-    std::vector<glm::mat4> models;
-    for (int x = 0; x < grid_size_; x++)
+    for (int i = 0; i < meshes_.size(); i++)
     {
-      for (int y = 0; y < grid_size_; y++)
+      std::vector<glm::mat4> models;
+      for (int x = 0; x < grid_size_; x++)
       {
-        for (int z = 0; z < grid_size_; z++)
+        for (int y = 0; y < grid_size_; y++)
         {
-          glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
-          m[3][0] = x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          m[3][1] = y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          m[3][2] = z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          models.emplace_back(std::move(m));
+          for (int z = 0; z < grid_size_; z++)
+          {
+            glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
+            m[3][0] = i * 3.f * grid_size_ + x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+            m[3][1] = y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+            m[3][2] = z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
+            models.emplace_back(std::move(m));
+          }
         }
       }
+      std::memcpy(instance_update_buffer_maps_[i], glm::value_ptr(models[0]), mat4_size * models.size());
     }
-    std::memcpy(instance_update_buffer_map_, glm::value_ptr(models[0]), mat4_size * models.size());
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -740,7 +749,7 @@ private:
         .Begin();
 
       for (int j = 0; j < meshes_.size(); j++)
-        command_buffer.CopyBuffer(*instance_update_buffer_, *meshes_[j].instance_buffer);
+        command_buffer.CopyBuffer(*instance_update_buffers_[j], *meshes_[j].instance_buffer);
 
       command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
@@ -845,7 +854,7 @@ private:
   }
 
 private:
-  static constexpr int grid_size_ = 10;
+  static constexpr int grid_size_ = 5;
 
   vkw::Instance instance_;
 
@@ -861,8 +870,8 @@ private:
   // Memory
   std::shared_ptr<MemoryManager> memory_manager_;
   std::unique_ptr<vke::Buffer> staging_buffer_;
-  std::unique_ptr<vke::Buffer> instance_update_buffer_;
-  unsigned char* instance_update_buffer_map_;
+  std::vector<std::unique_ptr<vke::Buffer>> instance_update_buffers_;
+  std::vector<unsigned char*> instance_update_buffer_maps_;
 
   // Swapchain resources
   vkw::Surface surface_;
