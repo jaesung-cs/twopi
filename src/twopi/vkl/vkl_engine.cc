@@ -1,6 +1,7 @@
 #include <twopi/vkl/vkl_engine.h>
 
 #include <iostream>
+#include <optional>
 
 #include <vulkan/vulkan.hpp>
 
@@ -67,10 +68,12 @@ private:
   void Prepare()
   {
     CreateInstance();
+    CreateDevice();
   }
 
   void Cleanup()
   {
+    CleanupDevice();
     CleanupInstance();
   }
 
@@ -143,11 +146,81 @@ private:
     instance_.destroy();
   }
 
+  void CreateDevice()
+  {
+    // Choose the first GPU
+    physical_device_ = instance_.enumeratePhysicalDevices()[0];
+
+    // Find queues
+    const auto queue_family_properties = physical_device_.getQueueFamilyProperties();
+    for (int i = 0; i < queue_family_properties.size(); i++)
+    {
+      if (!graphics_queue_index_ && queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
+        graphics_queue_index_ = i;
+
+      // TODO: select unique queue family indices
+      if ((!present_queue_index_ || graphics_queue_index_ == present_queue_index_) && physical_device_.getSurfaceSupportKHR(i, surface_))
+        present_queue_index_ = i;
+    }
+
+    float queue_priority = 1.f;
+    vk::DeviceQueueCreateInfo graphics_queue_create_info;
+    graphics_queue_create_info
+      .setQueueFamilyIndex(graphics_queue_index_.value())
+      .setQueueCount(1)
+      .setQueuePriorities(queue_priority);
+
+    vk::DeviceQueueCreateInfo present_queue_create_info;
+    present_queue_create_info
+      .setQueueFamilyIndex(present_queue_index_.value())
+      .setQueueCount(1)
+      .setQueuePriorities(queue_priority);
+
+    std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {
+      graphics_queue_create_info,
+      present_queue_create_info,
+    };
+
+    // Device extensions
+    std::vector<const char*> extensions = {
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
+    // Device features
+    auto features = physical_device_.getFeatures();
+
+    // Create device
+    vk::DeviceCreateInfo device_create_info;
+    device_create_info
+      .setPEnabledExtensionNames(extensions)
+      .setQueueCreateInfos(queue_create_infos)
+      .setPEnabledFeatures(&features);
+
+    device_ = physical_device_.createDevice(device_create_info);
+
+    graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
+    present_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
+  }
+
+  void CleanupDevice()
+  {
+    device_.destroy();
+  }
+
   GLFWwindow* glfw_window_handle_;
 
+  // Instance
   vk::Instance instance_;
   vk::DebugUtilsMessengerEXT messenger_;
   vk::SurfaceKHR surface_;
+
+  // Device
+  vk::PhysicalDevice physical_device_;
+  vk::Device device_;
+  std::optional<uint32_t> graphics_queue_index_ = 0;
+  std::optional<uint32_t> present_queue_index_ = 0;
+  vk::Queue graphics_queue_;
+  vk::Queue present_queue_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
