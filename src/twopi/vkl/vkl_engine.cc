@@ -8,6 +8,10 @@
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
+
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -37,8 +41,46 @@ private:
   struct Memory
   {
     vk::DeviceMemory memory;
-    uint32_t offset;
-    uint32_t size;
+    uint64_t offset;
+    uint64_t size;
+  };
+
+  // Binding 0
+  struct CameraUbo
+  {
+    alignas(16) glm::mat4 projection;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::vec3 eye;
+  };
+
+  // Binding 1
+  struct ModelUbo
+  {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat3x4 model_inverse_transpose;
+  };
+
+  // Binding 2
+  struct LightUbo
+  {
+    struct Light
+    {
+      alignas(16) glm::vec3 position;
+      alignas(16) glm::vec3 ambient;
+      alignas(16) glm::vec3 diffuse;
+      alignas(16) glm::vec3 specular;
+    };
+
+    static constexpr int max_num_lights = 8;
+    Light directional_lights[max_num_lights];
+    Light point_lights[max_num_lights];
+  };
+
+  // Binding 3
+  struct MaterialUbo
+  {
+    alignas(16) glm::vec3 specular;
+    float shininess; // Padded
   };
 
 public:
@@ -94,10 +136,12 @@ private:
     CreateRenderPass();
     CreateSwapchainFramebuffers();
     CreateSampler();
+    CreateDescriptorSetLayout();
   }
 
   void Cleanup()
   {
+    DestroyDesciptorSetLayout();
     DestroySampler();
     DestroySwapchainFramebuffers();
     DestroyRenderPass();
@@ -245,7 +289,7 @@ private:
     uint64_t host_available_size = 0;
     int host_index = 0;
     const auto memory_properties = physical_device_.getMemoryProperties();
-    for (int i = 0; i < memory_properties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
     {
       const auto properties = memory_properties.memoryTypes[i].propertyFlags;
       const auto heap_index = memory_properties.memoryTypes[i].heapIndex;
@@ -583,7 +627,7 @@ private:
       .setMipmapMode(vk::SamplerMipmapMode::eLinear)
       .setMipLodBias(0.f)
       .setMinLod(0.f)
-      .setMaxLod(mip_levels_);
+      .setMaxLod(static_cast<float>(mip_levels_));
 
     sampler_ = device_.createSampler(sampler_create_info);
   }
@@ -591,6 +635,63 @@ private:
   void DestroySampler()
   {
     device_.destroySampler(sampler_);
+  }
+
+  void CreateDescriptorSetLayout()
+  {
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    vk::DescriptorSetLayoutBinding binding;
+
+    // Binding 0: CameraUbo
+    binding
+      .setBinding(0)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    // Binding 1: ModelUbo
+    binding
+      .setBinding(1)
+      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    // Binding 2: LightUbo
+    binding
+      .setBinding(2)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    // Binding 3: MaterialUbo
+    binding
+      .setBinding(3)
+      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
+      .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    // Binding 4: Sampler
+    binding
+      .setBinding(4)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info;
+    descriptor_set_layout_create_info
+      .setBindings(bindings);
+
+    descriptor_set_layout_ = device_.createDescriptorSetLayout(descriptor_set_layout_create_info);
+  }
+
+  void DestroyDesciptorSetLayout()
+  {
+    device_.destroyDescriptorSetLayout(descriptor_set_layout_);
   }
 
   Memory AllocateDeviceMemory(vk::Image image)
@@ -607,7 +708,7 @@ private:
   {
     Memory memory;
     memory.memory = device_memory_;
-    memory.offset = (device_memory_offset_ + requirements.alignment - 1) / requirements.alignment * requirements.alignment;
+    memory.offset = (device_memory_offset_ + requirements.alignment - 1ull) / requirements.alignment * requirements.alignment;
     memory.size = requirements.size;
     device_memory_offset_ = memory.offset + memory.size;
     return memory;
