@@ -3,7 +3,6 @@
 
 layout (location = 0) in vec3 frag_position;
 layout (location = 1) in vec3 frag_normal;
-layout (location = 2) in vec2 frag_tex_coord;
 
 layout (set = 0, binding = 0) uniform Camera
 {
@@ -11,8 +10,6 @@ layout (set = 0, binding = 0) uniform Camera
   mat4 view;
   vec3 eye;
 } camera;
-
-layout (binding = 1) uniform sampler2D tex_sampler;
 
 struct Light
 {
@@ -49,7 +46,7 @@ void main()
   vec3 N = normalize(frag_normal);
   vec3 V = normalize(camera.eye - frag_position);
 
-  vec3 diffuse_color = texture(tex_sampler, frag_tex_coord).rgb;
+  vec3 diffuse_color = (N + 1.f) / 2.f;
 
   vec3 total_color = vec3(0.f, 0.f, 0.f);
 
@@ -65,6 +62,5 @@ void main()
     total_color += light_color;
   }
 
-  // out_color = vec4(mix(texture(tex_sampler, frag_tex_coord).rgb, (frag_normal + 1.f) / 2.f, 0.5f), 1.f);
   out_color = vec4(total_color, 1.f);
 }
