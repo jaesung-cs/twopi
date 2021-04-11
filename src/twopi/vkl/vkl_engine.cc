@@ -91,10 +91,16 @@ private:
     CreateDevice();
     PreallocateMemories();
     CreateSwapchain();
+    CreateRenderPass();
+    CreateSwapchainFramebuffers();
+    CreateSampler();
   }
 
   void Cleanup()
   {
+    CleanupSampler();
+    CleanupSwapchainFramebuffers();
+    CleanupRenderPass();
     CleanupSwapchain();
     FreePreallocatedMemories();
     CleanupDevice();
@@ -482,7 +488,8 @@ private:
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
       .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
+      .setFormat(swapchain_image_format_);
 
     vk::AttachmentReference color_resolve_attachment_ref;
     color_resolve_attachment_ref
@@ -670,6 +677,9 @@ private:
   // Sampler
   uint32_t mip_levels_ = 1;
   vk::Sampler sampler_;
+
+  // Descriptor set
+  vk::DescriptorSetLayout descriptor_set_layout_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
