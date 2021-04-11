@@ -98,13 +98,13 @@ private:
 
   void Cleanup()
   {
-    CleanupSampler();
-    CleanupSwapchainFramebuffers();
-    CleanupRenderPass();
-    CleanupSwapchain();
+    DestroySampler();
+    DestroySwapchainFramebuffers();
+    DestroyRenderPass();
+    DestroySwapchain();
     FreePreallocatedMemories();
-    CleanupDevice();
-    CleanupInstance();
+    DestroyDevice();
+    DestroyInstance();
   }
 
   void CreateInstance()
@@ -164,7 +164,7 @@ private:
     surface_ = surface_handle;
   }
 
-  void CleanupInstance()
+  void DestroyInstance()
   {
     instance_.destroySurfaceKHR(surface_);
 
@@ -232,7 +232,7 @@ private:
     present_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
   }
 
-  void CleanupDevice()
+  void DestroyDevice()
   {
     device_.destroy();
   }
@@ -430,7 +430,7 @@ private:
     depth_image_view_ = device_.createImageView(image_view_create_info);
   }
 
-  void CleanupSwapchain()
+  void DestroySwapchain()
   {
     for (auto& swapchain_iamge_view : swapchain_image_views_)
       device_.destroyImageView(swapchain_iamge_view);
@@ -527,7 +527,7 @@ private:
     swapchain_render_pass_ = device_.createRenderPass(render_pass_create_info);
   }
 
-  void CleanupRenderPass()
+  void DestroyRenderPass()
   {
     device_.destroyRenderPass(swapchain_render_pass_);
   }
@@ -558,7 +558,7 @@ private:
     }
   }
 
-  void CleanupSwapchainFramebuffers()
+  void DestroySwapchainFramebuffers()
   {
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
       device_.destroyFramebuffer(swapchain_framebuffer);
@@ -588,7 +588,7 @@ private:
     sampler_ = device_.createSampler(sampler_create_info);
   }
 
-  void CleanupSampler()
+  void DestroySampler()
   {
     device_.destroySampler(sampler_);
   }
