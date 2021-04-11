@@ -69,10 +69,12 @@ private:
   {
     CreateInstance();
     CreateDevice();
+    AllocateMemories();
   }
 
   void Cleanup()
   {
+    FreeMemories();
     CleanupDevice();
     CleanupInstance();
   }
@@ -207,6 +209,59 @@ private:
     device_.destroy();
   }
 
+  void AllocateMemories()
+  {
+    // Find memroy type index
+    uint64_t device_available_size = 0;
+    int device_index = 0;
+    uint64_t host_available_size = 0;
+    int host_index = 0;
+    const auto memory_properties = physical_device_.getMemoryProperties();
+    for (int i = 0; i < memory_properties.memoryTypeCount; i++)
+    {
+      const auto properties = memory_properties.memoryTypes[i].propertyFlags;
+      const auto heap_index = memory_properties.memoryTypes[i].heapIndex;
+      const auto heap = memory_properties.memoryHeaps[heap_index];
+
+      if (properties & vk::MemoryPropertyFlagBits::eDeviceLocal)
+      {
+        if (heap.size > device_available_size)
+        {
+          device_index = i;
+          device_available_size = heap.size;
+        }
+      }
+
+      if ((properties & (vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent))
+        == (vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent))
+      {
+        if (heap.size > host_available_size)
+        {
+          host_index = i;
+          host_available_size = heap.size;
+        }
+      }
+    }
+
+    constexpr uint64_t chunk_size = 256 * 1024 * 1024; // 256MB
+
+    vk::MemoryAllocateInfo allocate_info;
+    allocate_info
+      .setAllocationSize(chunk_size)
+      .setMemoryTypeIndex(device_index);
+    device_memory_ = device_.allocateMemory(allocate_info);
+
+    allocate_info
+      .setMemoryTypeIndex(host_index);
+    host_memory_ = device_.allocateMemory(allocate_info);
+  }
+
+  void FreeMemories()
+  {
+    device_.freeMemory(device_memory_);
+    device_.freeMemory(host_memory_);
+  }
+
   GLFWwindow* glfw_window_handle_;
 
   // Instance
@@ -221,6 +276,10 @@ private:
   std::optional<uint32_t> present_queue_index_ = 0;
   vk::Queue graphics_queue_;
   vk::Queue present_queue_;
+
+  // Memory
+  vk::DeviceMemory device_memory_;
+  vk::DeviceMemory host_memory_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
