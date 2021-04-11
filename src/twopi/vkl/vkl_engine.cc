@@ -1,6 +1,7 @@
 #include <twopi/vkl/vkl_engine.h>
 
 #include <iostream>
+#include <fstream>
 #include <optional>
 
 #include <vulkan/vulkan.hpp>
@@ -137,6 +138,7 @@ private:
     CreateSwapchainFramebuffers();
     CreateSampler();
     CreateDescriptorSet();
+    CreateGraphicsPipelines();
 
     PrepareResources();
   }
@@ -145,6 +147,7 @@ private:
   {
     CleanupResources();
 
+    DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
     DestroySwapchainFramebuffers();
@@ -658,7 +661,7 @@ private:
     binding
       .setBinding(1)
       .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
       .setDescriptorCount(1);
     bindings.push_back(binding);
 
@@ -727,6 +730,226 @@ private:
     device_.destroyDescriptorSetLayout(descriptor_set_layout_);
   }
 
+  void CreateGraphicsPipelines()
+  {
+    vk::PipelineRasterizationStateCreateInfo rasterization_info;
+    rasterization_info
+      .setDepthClampEnable(false)
+      .setRasterizerDiscardEnable(false)
+      .setPolygonMode(vk::PolygonMode::eFill)
+      .setLineWidth(1.f)
+      .setCullMode(vk::CullModeFlagBits::eNone)
+      .setFrontFace(vk::FrontFace::eCounterClockwise)
+      .setDepthBiasEnable(false);
+
+    vk::PipelineMultisampleStateCreateInfo multisample_info;
+    multisample_info
+      .setSampleShadingEnable(false)
+      .setRasterizationSamples(vk::SampleCountFlagBits::e4);
+
+    vk::PipelineColorBlendAttachmentState color_blend_attachment;
+    color_blend_attachment
+      .setColorWriteMask(
+        vk::ColorComponentFlagBits::eR |
+        vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB |
+        vk::ColorComponentFlagBits::eA)
+      .setBlendEnable(true)
+      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+      .setColorBlendOp(vk::BlendOp::eAdd)
+      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+      .setAlphaBlendOp(vk::BlendOp::eAdd);
+
+    vk::PipelineColorBlendStateCreateInfo color_blend_info;
+    color_blend_info
+      .setLogicOpEnable(false)
+      .setAttachments(color_blend_attachment)
+      .setBlendConstants({ 0.f, 0.f, 0.f, 0.f });
+
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_info;
+    depth_stencil_info
+      .setDepthTestEnable(true)
+      .setDepthWriteEnable(true)
+      .setDepthCompareOp(vk::CompareOp::eLess)
+      .setDepthBoundsTestEnable(false)
+      .setMinDepthBounds(0.f)
+      .setMaxDepthBounds(1.f)
+      .setStencilTestEnable(false)
+      .setFront({})
+      .setBack({});
+
+    // Viewport
+    vk::Viewport viewport;
+    viewport
+      .setX(0.f).setY(0.f)
+      .setWidth(static_cast<float>(width_))
+      .setHeight(static_cast<float>(height_))
+      .setMinDepth(0.f)
+      .setMaxDepth(1.f);
+
+    vk::Rect2D scissor;
+    scissor
+      .setOffset({ 0, 0 })
+      .setExtent({ width_, height_ });
+
+    vk::PipelineViewportStateCreateInfo viewport_state_info;
+    viewport_state_info
+      .setViewports(viewport)
+      .setScissors(scissor);
+
+    std::vector<vk::DynamicState> dynamic_states = {
+      vk::DynamicState::eViewport,
+      vk::DynamicState::eLineWidth,
+    };
+
+    vk::PipelineDynamicStateCreateInfo dynamic_state_info;
+    dynamic_state_info
+      .setDynamicStates(dynamic_states);
+
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_info;
+    input_assembly_info
+      .setTopology(vk::PrimitiveTopology::eTriangleList)
+      .setPrimitiveRestartEnable(false);
+
+    // Pipeline layout
+    vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
+    pipeline_layout_create_info
+      .setSetLayouts(descriptor_set_layout_);
+
+    pipeline_layout_ = device_.createPipelineLayout(pipeline_layout_create_info);
+
+    // Color pipeline
+    vk::VertexInputBindingDescription binding_description;
+    vk::VertexInputAttributeDescription attribute_description;
+
+    std::vector<vk::VertexInputBindingDescription> binding_descriptions;
+    std::vector<vk::VertexInputAttributeDescription> attribute_descriptions;
+
+    binding_description
+      .setBinding(0)
+      .setStride(3 * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions.push_back(binding_description);
+
+    attribute_description
+      .setBinding(0)
+      .setLocation(0)
+      .setFormat(vk::Format::eR32G32B32Sfloat)
+      .setOffset(0);
+    attribute_descriptions.push_back(attribute_description);
+
+    binding_description
+      .setBinding(1)
+      .setStride(3 * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions.push_back(binding_description);
+
+    attribute_description
+      .setBinding(1)
+      .setLocation(1)
+      .setFormat(vk::Format::eR32G32B32Sfloat)
+      .setOffset(0);
+    attribute_descriptions.push_back(attribute_description);
+
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info;
+    vertex_input_info
+      .setVertexBindingDescriptions(binding_descriptions)
+      .setVertexAttributeDescriptions(attribute_descriptions);
+
+    const std::string base_dirpath = "C:\\workspace\\twopi\\src\\twopi\\shader";
+    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+    vk::ShaderModule vert_shader_module = CreateShaderModule(base_dirpath, "light_color.vert.spv");
+    vk::ShaderModule frag_shader_module = CreateShaderModule(base_dirpath, "light_color.frag.spv");
+
+    vk::PipelineShaderStageCreateInfo shader_stage;
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setPName("main")
+      .setModule(vert_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setPName("main")
+      .setModule(frag_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    vk::GraphicsPipelineCreateInfo graphics_pipeline_create_info;
+    graphics_pipeline_create_info
+      .setLayout(pipeline_layout_)
+      .setRenderPass(swapchain_render_pass_)
+      .setSubpass(0)
+      .setPVertexInputState(&vertex_input_info)
+      .setPInputAssemblyState(&input_assembly_info)
+      .setPViewportState(&viewport_state_info)
+      .setPRasterizationState(&rasterization_info)
+      .setPMultisampleState(&multisample_info)
+      .setPDepthStencilState(nullptr)
+      .setPColorBlendState(&color_blend_info)
+      .setPDepthStencilState(&depth_stencil_info)
+      .setPDynamicState(nullptr) // TODO
+      .setBasePipelineHandle(nullptr)
+      .setBasePipelineIndex(-1)
+      .setStages(shader_stages);
+
+    color_pipeline_ = device_.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
+    device_.destroyShaderModule(vert_shader_module);
+    device_.destroyShaderModule(frag_shader_module);
+    shader_stages.clear();
+
+    // Floor pipeline
+    binding_description
+      .setBinding(2)
+      .setStride(2 * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions.push_back(binding_description);
+
+    attribute_description
+      .setBinding(2)
+      .setLocation(2)
+      .setFormat(vk::Format::eR32G32Sfloat)
+      .setOffset(0);
+    attribute_descriptions.push_back(attribute_description);
+
+    vertex_input_info
+      .setVertexBindingDescriptions(binding_descriptions)
+      .setVertexAttributeDescriptions(attribute_descriptions);
+
+    vert_shader_module = CreateShaderModule(base_dirpath, "light_floor.vert.spv");
+    frag_shader_module = CreateShaderModule(base_dirpath, "light_floor.frag.spv");
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setPName("main")
+      .setModule(vert_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setPName("main")
+      .setModule(frag_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    graphics_pipeline_create_info
+      .setStages(shader_stages);
+
+    floor_pipeline_ = device_.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
+    device_.destroyShaderModule(vert_shader_module);
+    device_.destroyShaderModule(frag_shader_module);
+    shader_stages.clear();
+  }
+
+  void DestroyGraphicsPipelines()
+  {
+    device_.destroyPipelineLayout(pipeline_layout_);
+    device_.destroyPipeline(color_pipeline_);
+    device_.destroyPipeline(floor_pipeline_);
+  }
+
   void PrepareResources()
   {
     // TODO: Allocate descriptor sets
@@ -781,6 +1004,30 @@ private:
     return memory;
   }
 
+  vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
+  {
+    const auto filepath = dirpath + '/' + filename;
+    std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+    if (!file.is_open())
+      throw core::Error("Failed to open file: " + filepath);
+
+    size_t file_size = (size_t)file.tellg();
+    std::vector<char> buffer(file_size);
+    file.seekg(0);
+    file.read(buffer.data(), file_size);
+    file.close();
+
+    std::vector<uint32_t> code;
+    auto* int_ptr = reinterpret_cast<uint32_t*>(buffer.data());
+    for (int i = 0; i < file_size / 4; i++)
+      code.push_back(int_ptr[i]);
+
+    vk::ShaderModuleCreateInfo shader_module_create_info;
+    shader_module_create_info
+      .setCode(code);
+    return device_.createShaderModule(shader_module_create_info);
+  }
+
   GLFWwindow* glfw_window_handle_;
 
   // Instance
@@ -830,6 +1077,11 @@ private:
   vk::DescriptorSetLayout descriptor_set_layout_;
   vk::DescriptorPool descriptor_pool_;
   std::vector<vk::DescriptorSet> descriptor_sets_;
+
+  // Pipelines
+  vk::PipelineLayout pipeline_layout_;
+  vk::Pipeline color_pipeline_;
+  vk::Pipeline floor_pipeline_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

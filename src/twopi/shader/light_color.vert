@@ -12,7 +12,7 @@ layout (std140, binding = 0) uniform Camera
   vec3 eye;
 } camera;
 
-layout (std140, binding = 4) uniform Model
+layout (std140, binding = 1) uniform Model
 {
   mat4 model;
   mat3 model_inverse_transpose;
