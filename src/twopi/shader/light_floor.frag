@@ -75,31 +75,21 @@ vec3 compute_point_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
   return color;
 }
 
-const float r2a = 900.f;
+const float r2a = 400.f;
 vec3 floor_pattern_color(vec2 coord)
 {
-  const float r2 = 400.f;
   const float thickness = 0.05f;
-  float d2 = dot(coord, coord);
-  float strength = 1.f;
-  if (d2 >= r2 && d2 <= r2a)
-    strength = 1.f - smoothstep(r2, r2a, d2);
-  else if (d2 > r2a)
-    strength = 0.f;
   coord = fract(coord);
   coord = min(coord, vec2(1.f) - coord);
   float x = min(coord.x, coord.y);
   if (x < thickness)
-    return vec3(mix(1.f, 0.3f + 0.7f * smoothstep(0.f, thickness, x), strength));
+    return vec3(smoothstep(0.f, thickness, x));
   else
     return vec3(1.f);
 }
 
 void main()
 {
-  if (dot(frag_tex_coord, frag_tex_coord) >= r2a)
-    discard;
-
   // Directional light
   vec3 N = normalize(frag_normal);
   vec3 V = normalize(camera.eye - frag_position);
@@ -119,6 +109,15 @@ void main()
     total_color += light_color;
   }
 
+  
+  const float r2 = 100.f;
+  float d2 = dot(frag_tex_coord, frag_tex_coord);
+  float alpha = 1.f;
+  if (d2 >= r2 && d2 <= r2a)
+    alpha = 1.f - smoothstep(r2, r2a, d2);
+  else if (d2 > r2a)
+    alpha = 0.f;
+
   // out_color = vec4(mix(texture(tex_sampler, frag_tex_coord).rgb, (frag_normal + 1.f) / 2.f, 0.5f), 1.f);
-  out_color = vec4(total_color, 1.f);
+  out_color = vec4(total_color, alpha);
 }

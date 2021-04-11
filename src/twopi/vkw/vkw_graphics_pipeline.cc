@@ -35,7 +35,7 @@ GraphicsPipeline::Creator::Creator(Device device)
       vk::ColorComponentFlagBits::eG |
       vk::ColorComponentFlagBits::eB |
       vk::ColorComponentFlagBits::eA)
-    .setBlendEnable(false)
+    .setBlendEnable(true)
     .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
     .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
     .setColorBlendOp(vk::BlendOp::eAdd)
