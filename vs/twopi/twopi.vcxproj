@@ -276,6 +276,8 @@ python compile.py</Command>
     <None Include="..\..\README.md" />
     <None Include="..\..\src\twopi\shader\.gitignore" />
     <None Include="..\..\src\twopi\shader\compile.py" />
+    <None Include="..\..\src\twopi\shader\light_color.frag" />
+    <None Include="..\..\src\twopi\shader\light_color.vert" />
     <None Include="..\..\src\twopi\shader\light_floor.frag" />
     <None Include="..\..\src\twopi\shader\light_floor.vert" />
     <None Include="..\..\src\twopi\shader\light_instance.frag" />

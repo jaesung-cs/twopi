@@ -424,5 +424,11 @@
     <None Include="..\..\src\twopi\shader\light_floor.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\light_color.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\light_color.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

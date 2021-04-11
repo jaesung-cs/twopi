@@ -109,6 +109,12 @@ private:
     float shininess; // packed after specular.rgb
   };
 
+  struct ModelUbo
+  {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat3x4 model_inverse_transpose; // for alignment
+  };
+
 public:
   Impl() = delete;
 
@@ -194,6 +200,7 @@ public:
       .AddSampler()
       .AddUniformBuffer()
       .AddUniformBuffer()
+      .AddUniformBuffer()
       .Create();
 
     pipeline_cache_ = vkw::PipelineCache::Creator{ device_ }.Create();
@@ -212,12 +219,14 @@ public:
       memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
 
     // Load mesh and texture
-    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
-    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
+    instanced_meshes_.emplace_back(LoadInstancedMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
+    instanced_meshes_.emplace_back(LoadInstancedMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
     instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
     instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
 
-    meshes_.emplace_back(CreateFloorMesh());
+    meshes_.emplace_back(CreateSphereMesh());
+
+    floor_meshes_.emplace_back(CreateFloorMesh());
 
     // Instance update every frame
     for (int i = 0; i < instanced_meshes_.size(); i++)
@@ -285,6 +294,8 @@ public:
 
     light_instance_vert_shader_.Destroy();
     light_instance_frag_shader_.Destroy();
+    light_color_vert_shader_.Destroy();
+    light_color_frag_shader_.Destroy();
     light_floor_vert_shader_.Destroy();
     light_floor_frag_shader_.Destroy();
 
@@ -310,6 +321,13 @@ public:
       instanced_mesh.instance_buffer.reset();
     }
     instanced_meshes_.clear();
+
+    for (auto& mesh : floor_meshes_)
+    {
+      mesh.vertex_buffer.reset();
+      mesh.index_buffer.reset();
+    }
+    floor_meshes_.clear();
 
     for (auto& mesh : meshes_)
     {
@@ -355,7 +373,15 @@ public:
       if (lights[i]->IsDirectionalLight())
         directional_lights_.emplace_back(light_ubo);
       else
+      {
         point_lights_.emplace_back(light_ubo);
+
+        model_.model = glm::mat4(glm::mat3(0.2f));
+        model_.model[3][0] = light_ubo.position.x;
+        model_.model[3][1] = light_ubo.position.y;
+        model_.model[3][2] = light_ubo.position.z;
+        model_.model_inverse_transpose = glm::mat3x4(glm::inverse(glm::mat3(model_.model)));
+      }
     }
   }
 
@@ -400,7 +426,11 @@ public:
     // Update material uniform buffer
     auto* material_ptr = material_uniform_buffer_map_ + (256 * image_index);
     std::memcpy(material_ptr, &material_, sizeof(MaterialUbo));
-    
+
+    // Update model uniform buffer
+    auto* model_ptr = model_uniform_buffer_map_ + (256 * image_index);
+    std::memcpy(model_ptr, &model_, sizeof(ModelUbo));
+
     // Update instance buffer
     constexpr uint64_t mat4_size = sizeof(float) * 16;
     for (int i = 0; i < instanced_meshes_.size(); i++)
@@ -570,7 +600,186 @@ private:
     return mesh;
   }
 
-  InstancedMesh LoadMesh(const std::string& mesh_filepath)
+  Mesh CreateSphereMesh()
+  {
+    Mesh mesh;
+
+    constexpr int grid_size = 32;
+
+    std::vector<float> sphere_vertex_buffer;
+    std::vector<float> sphere_normal_buffer;
+    std::vector<uint32_t> sphere_index_buffer;
+    const uint32_t top_index = grid_size * (grid_size - 1);
+    const uint32_t bottom_index = top_index + 1;
+    for (int i = 0; i < grid_size; i++)
+    {
+      sphere_index_buffer.push_back(top_index);
+      sphere_index_buffer.push_back(i * (grid_size - 1));
+      sphere_index_buffer.push_back(((i + 1) % grid_size) * (grid_size - 1));
+
+      const float u = static_cast<float>(i) / grid_size;
+      const float theta = u * 2.f * glm::pi<float>();
+      for (int j = 1; j < grid_size; j++)
+      {
+        const float v = static_cast<float>(j) / grid_size;
+        const float phi = v * glm::pi<float>();
+        sphere_vertex_buffer.push_back(std::cos(theta) * std::sin(phi));
+        sphere_vertex_buffer.push_back(std::sin(theta) * std::sin(phi));
+        sphere_vertex_buffer.push_back(std::cos(phi));
+        sphere_normal_buffer.push_back(std::cos(theta) * std::sin(phi));
+        sphere_normal_buffer.push_back(std::sin(theta) * std::sin(phi));
+        sphere_normal_buffer.push_back(std::cos(phi));
+
+        if (j < grid_size - 1)
+        {
+          sphere_index_buffer.push_back(i * (grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(((i + 1) % grid_size) * (grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(i * (grid_size - 1) + j);
+
+          sphere_index_buffer.push_back(i * (grid_size - 1) + j);
+          sphere_index_buffer.push_back(((i + 1) % grid_size) * (grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(((i + 1) % grid_size) * (grid_size - 1) + j);
+        }
+      }
+
+      sphere_index_buffer.push_back(i * (grid_size - 1) + grid_size - 2);
+      sphere_index_buffer.push_back(bottom_index);
+      sphere_index_buffer.push_back(((i + 1) % grid_size) * (grid_size - 1) + grid_size - 2);
+    }
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(1.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(1.f);
+
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(-1.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(-1.f);
+
+    // Move to staging buffer
+    auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
+    std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
+    staging_buffer_->Unmap();
+
+    // Offsets
+    mesh.normal_offset = sphere_vertex_buffer.size() * sizeof(float);
+    mesh.tex_coord_offset = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
+    mesh.num_indices = sphere_index_buffer.size();
+
+    // Buffers
+    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize((sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float))
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    mesh.vertex_buffer = std::make_unique<vke::Buffer>(
+      std::move(vertex_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(vertex_buffer).size));
+
+    auto index_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(sphere_index_buffer.size() * sizeof(uint32_t))
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    mesh.index_buffer = std::make_unique<vke::Buffer>(
+      std::move(index_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(index_buffer).size));
+
+    // Transfer from staging buffer to device local memory
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *mesh.vertex_buffer, (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float))
+      .CopyBuffer(*staging_buffer_, (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), *mesh.index_buffer, 0, sphere_index_buffer.size() * sizeof(float))
+      .End();
+    graphics_queue_.Submit(copy_command);
+    graphics_queue_.WaitIdle();
+
+    copy_command.Free();
+
+    return mesh;
+  }
+
+  Mesh LoadMesh(const std::string& mesh_filepath)
+  {
+    Mesh vk_mesh;
+
+    // Load mesh
+    geometry::MeshLoader mesh_loader{};
+    auto mesh = mesh_loader.Load(mesh_filepath);
+
+    const auto& mesh_vertex_buffer = mesh->Vertices();
+    const auto& mesh_normal_buffer = mesh->Normals();
+    const auto& mesh_tex_coords_buffer = mesh->TexCoords();
+    const auto mesh_buffer_size = (mesh_vertex_buffer.size() + mesh_normal_buffer.size() + mesh_tex_coords_buffer.size()) * sizeof(float);
+
+    const auto& mesh_index_buffer = mesh->Indices();
+    const auto mesh_index_buffer_size = mesh_index_buffer.size() * sizeof(uint32_t);
+
+    auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
+
+    std::memcpy(ptr, mesh_vertex_buffer.data(), mesh_vertex_buffer.size() * sizeof(float));
+    ptr += mesh_vertex_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_normal_buffer.data(), mesh_normal_buffer.size() * sizeof(float));
+    ptr += mesh_normal_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_tex_coords_buffer.data(), mesh_tex_coords_buffer.size() * sizeof(float));
+    ptr += mesh_tex_coords_buffer.size() * sizeof(float);
+
+    std::memcpy(ptr, mesh_index_buffer.data(), mesh_index_buffer.size() * sizeof(uint32_t));
+    ptr += mesh_index_buffer.size() * sizeof(uint32_t);
+
+    staging_buffer_->Unmap();
+
+    vk_mesh.normal_offset = mesh_vertex_buffer.size() * sizeof(float);
+    vk_mesh.tex_coord_offset = vk_mesh.normal_offset + mesh_normal_buffer.size() * sizeof(float);
+    vk_mesh.num_indices = mesh_index_buffer.size();
+
+    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(mesh_buffer_size)
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    vk_mesh.vertex_buffer = std::make_unique<vke::Buffer>(
+      std::move(vertex_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(mesh_buffer_size));
+
+    auto index_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(mesh_index_buffer_size)
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    vk_mesh.index_buffer = std::make_unique<vke::Buffer>(
+      std::move(index_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(mesh_index_buffer_size));
+
+    // Transfer from staging buffer to device local memory
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *vk_mesh.vertex_buffer, mesh_buffer_size)
+      .CopyBuffer(*staging_buffer_, mesh_buffer_size, *vk_mesh.index_buffer, 0, mesh_index_buffer_size)
+      .End();
+    graphics_queue_.Submit(copy_command);
+    graphics_queue_.WaitIdle();
+
+    copy_command.Free();
+
+    return vk_mesh;
+  }
+
+  InstancedMesh LoadInstancedMesh(const std::string& mesh_filepath)
   {
     InstancedMesh vk_mesh;
 
@@ -719,6 +928,9 @@ private:
     vkw::ShaderModule::Creator shader_module_creator{ device_ };
     light_instance_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.vert.spv").Create();
     light_instance_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.frag.spv").Create();
+
+    light_color_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_color.vert.spv").Create();
+    light_color_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_color.frag.spv").Create();
 
     light_floor_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.vert.spv").Create();
     light_floor_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.frag.spv").Create();
@@ -872,6 +1084,18 @@ private:
       memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(material_uniform_buffer).size));
     
     material_uniform_buffer_map_ = static_cast<unsigned char*>(material_uniform_buffer_->Map());
+
+    const int model_uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto model_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(model_uniform_buffer_size)
+      .SetUniformBuffer()
+      .Create();
+
+    model_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(model_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(model_uniform_buffer).size));
+
+    model_uniform_buffer_map_ = static_cast<unsigned char*>(model_uniform_buffer_->Map());
   }
 
   void CreateDescriptorSets()
@@ -879,6 +1103,7 @@ private:
     descriptor_pool_ = vkw::DescriptorPool::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
       .AddUniformBuffer()
       .AddUniformBuffer()
       .SetSize(instanced_mesh_textures_.size() * swapchain_image_views_.size())
@@ -897,6 +1122,7 @@ private:
           vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(instanced_mesh_textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 1024ull, sizeof(LightUbo) * 16},
           vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*material_uniform_buffer_)), j * 256ull, sizeof(MaterialUbo)},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*model_uniform_buffer_)), j * 256ull, sizeof(ModelUbo)},
           });
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
@@ -921,6 +1147,16 @@ private:
       .Create();
 
     mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+      .SetPipelineCache(pipeline_cache_)
+      .SetMultisample4()
+      .SetShader(light_color_vert_shader_, light_color_frag_shader_)
+      .SetVertexInput({ {0, 3}, {1, 3} })
+      .SetViewport(width_, height_)
+      .SetPipelineLayout(pipeline_layout_)
+      .SetRenderPass(render_pass_)
+      .Create();
+
+    floor_mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
       .SetPipelineCache(pipeline_cache_)
       .SetMultisample4()
       .SetShader(light_floor_vert_shader_, light_floor_frag_shader_)
@@ -965,12 +1201,24 @@ private:
       {
         command_buffer
           .BindVertexBuffers(
-            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
-            { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
+            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
+            { 0, meshes_[j].normal_offset })
           .BindIndexBuffer(*meshes_[j].index_buffer)
           .BindPipeline(mesh_pipeline_)
           .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
           .DrawIndexed(meshes_[j].num_indices);
+      }
+
+      for (int j = 0; j < floor_meshes_.size(); j++)
+      {
+        command_buffer
+          .BindVertexBuffers(
+            { *floor_meshes_[j].vertex_buffer, *floor_meshes_[j].vertex_buffer, *floor_meshes_[j].vertex_buffer },
+            { 0, floor_meshes_[j].normal_offset, floor_meshes_[j].tex_coord_offset })
+          .BindIndexBuffer(*floor_meshes_[j].index_buffer)
+          .BindPipeline(floor_mesh_pipeline_)
+          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
+          .DrawIndexed(floor_meshes_[j].num_indices);
       }
 
       command_buffer
@@ -1008,6 +1256,8 @@ private:
     light_uniform_buffer_.reset();
     material_uniform_buffer_->Unmap();
     material_uniform_buffer_.reset();
+    model_uniform_buffer_->Unmap();
+    model_uniform_buffer_.reset();
   }
 
   void CleanupDescriptors()
@@ -1027,6 +1277,7 @@ private:
   {
     instanced_mesh_pipeline_.Destroy();
     mesh_pipeline_.Destroy();
+    floor_mesh_pipeline_.Destroy();
     pipeline_layout_.Destroy();
   }
 
@@ -1118,6 +1369,10 @@ private:
   std::unique_ptr<vke::Buffer> material_uniform_buffer_;
   unsigned char* material_uniform_buffer_map_;
 
+  // Model uniform buffer
+  std::unique_ptr<vke::Buffer> model_uniform_buffer_;
+  unsigned char* model_uniform_buffer_map_;
+
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
   std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
@@ -1127,12 +1382,15 @@ private:
   vkw::ShaderModule light_instance_frag_shader_;
   vkw::ShaderModule light_floor_vert_shader_;
   vkw::ShaderModule light_floor_frag_shader_;
+  vkw::ShaderModule light_color_vert_shader_;
+  vkw::ShaderModule light_color_frag_shader_;
   vkw::DescriptorSetLayout descriptor_set_layout_;
   vkw::DescriptorSetLayout sampler_layout_;
   vkw::PipelineCache pipeline_cache_;
   vkw::PipelineLayout pipeline_layout_;
   vkw::GraphicsPipeline instanced_mesh_pipeline_;
   vkw::GraphicsPipeline mesh_pipeline_;
+  vkw::GraphicsPipeline floor_mesh_pipeline_;
 
   // Commands
   vkw::CommandPool transient_command_pool_;
@@ -1140,6 +1398,7 @@ private:
 
   // Vertex attributes
   std::vector<InstancedMesh> instanced_meshes_;
+  std::vector<Mesh> floor_meshes_;
   std::vector<Mesh> meshes_;
 
   // Texture
@@ -1155,6 +1414,9 @@ private:
 
   // Material
   MaterialUbo material_;
+
+  // Model
+  ModelUbo model_;
 
   // Window
   int width_ = 0;
