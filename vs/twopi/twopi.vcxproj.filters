@@ -412,5 +412,17 @@
     <None Include="..\..\src\twopi\shader\mesh_instance.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\light_instance.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\light_instance.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\light_floor.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\light_floor.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

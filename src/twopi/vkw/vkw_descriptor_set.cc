@@ -66,50 +66,78 @@ DescriptorSet::operator vk::DescriptorSet() const
   return descriptor_set_;
 }
 
-void DescriptorSet::Update(Buffer buffer, ImageView image_view, Sampler sampler)
+void DescriptorSet::Update(std::initializer_list<Uniform> uniforms)
 {
-  Update(buffer, 0, image_view, sampler);
-}
-
-void DescriptorSet::Update(Buffer buffer, uint64_t offset, ImageView image_view, Sampler sampler)
-{
-  Update(buffer, offset, VK_WHOLE_SIZE, image_view, sampler);
-}
-
-void DescriptorSet::Update(Buffer buffer, uint64_t offset, uint64_t size, ImageView image_view, Sampler sampler)
-{
-  vk::DescriptorBufferInfo buffer_info;
-  vk::DescriptorImageInfo image_info;
+  std::vector<std::pair<int, vk::DescriptorBufferInfo>> buffer_infos;
+  std::vector<std::pair<int, vk::DescriptorImageInfo>> image_infos;
   std::vector<vk::WriteDescriptorSet> writes;
 
-  buffer_info
-    .setBuffer(buffer)
-    .setOffset(offset)
-    .setRange(size);
+  int binding = 0;
+  for (const auto& uniform : uniforms)
+  {
+    switch (uniform.type)
+    {
+    case Uniform::Type::BUFFER:
+    {
+      auto buffer = uniform.buffer;
+      auto offset = uniform.offset;
+      auto size = uniform.size;
 
-  image_info
-    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-    .setImageView(image_view)
-    .setSampler(sampler);
+      vk::DescriptorBufferInfo buffer_info;
+      buffer_info
+        .setBuffer(buffer)
+        .setOffset(offset)
+        .setRange(size);
 
-  vk::WriteDescriptorSet write;
-  write
-    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-    .setDescriptorCount(1)
-    .setDstSet(descriptor_set_)
-    .setDstBinding(0)
-    .setDstArrayElement(0)
-    .setBufferInfo(buffer_info);
-  writes.emplace_back(std::move(write));
+      buffer_infos.emplace_back(binding, std::move(buffer_info));
+    }
+      break;
+    case Uniform::Type::SAMPLER:
+    {
+      auto image_view = uniform.image_view;
+      auto sampler = uniform.sampler;
 
-  write
-    .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-    .setDescriptorCount(1)
-    .setDstSet(descriptor_set_)
-    .setDstBinding(1)
-    .setDstArrayElement(0)
-    .setImageInfo(image_info);
-  writes.emplace_back(std::move(write));
+      vk::DescriptorImageInfo image_info;
+      image_info
+        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+        .setImageView(image_view)
+        .setSampler(sampler);
+
+      image_infos.emplace_back(binding, std::move(image_info));
+    }
+      break;
+    }
+
+    binding++;
+  }
+
+  for (int i = 0; i < buffer_infos.size(); i++)
+  {
+    vk::WriteDescriptorSet write;
+    write
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(1)
+      .setDstSet(descriptor_set_)
+      .setDstBinding(buffer_infos[i].first)
+      .setDstArrayElement(0)
+      .setBufferInfo(buffer_infos[i].second);
+
+    writes.emplace_back(std::move(write));
+  }
+
+  for (int i = 0; i < image_infos.size(); i++)
+  {
+    vk::WriteDescriptorSet write;
+    write
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(1)
+      .setDstSet(descriptor_set_)
+      .setDstBinding(image_infos[i].first)
+      .setDstArrayElement(0)
+      .setImageInfo(image_infos[i].second);
+
+    writes.emplace_back(std::move(write));
+  }
 
   device_.updateDescriptorSets(writes, nullptr);
 }

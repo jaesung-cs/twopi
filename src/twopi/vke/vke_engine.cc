@@ -10,6 +10,7 @@
 #include <twopi/geometry/image.h>
 #include <twopi/geometry/mesh_loader.h>
 #include <twopi/geometry/mesh.h>
+#include <twopi/scene/light.h>
 #include <twopi/scene/camera.h>
 #include <twopi/vkw/vkw_instance.h>
 #include <twopi/vkw/vkw_physical_device.h>
@@ -60,7 +61,7 @@ private:
     vkw::ImageView image_view;
   };
 
-  struct Mesh
+  struct InstancedMesh
   {
     std::unique_ptr<vke::Buffer> vertex_buffer;
     std::unique_ptr<vke::Buffer> index_buffer;
@@ -72,10 +73,40 @@ private:
     uint64_t num_instances = 0;
   };
 
+  struct Mesh
+  {
+    std::unique_ptr<vke::Buffer> vertex_buffer;
+    std::unique_ptr<vke::Buffer> index_buffer;
+    uint64_t normal_offset = 0;
+    uint64_t tex_coord_offset = 0;
+    uint64_t num_indices = 0;
+  };
+
   struct Motion
   {
     glm::vec3 axis;
     float angular_velocity;
+  };
+
+  struct LightUbo
+  {
+    alignas(16) glm::vec3 position;
+    alignas(16) glm::vec3 ambient;
+    alignas(16) glm::vec3 diffuse;
+    alignas(16) glm::vec3 specular;
+  };
+
+  struct CameraUbo
+  {
+    alignas(16) glm::mat4 projection_matrix;
+    alignas(16) glm::mat4 view_matrix;
+    alignas(16) glm::vec3 eye;
+  };
+
+  struct MaterialUbo
+  {
+    alignas(16) glm::vec3 specular;
+    float shininess; // packed after specular.rgb
   };
 
 public:
@@ -83,6 +114,10 @@ public:
 
   Impl(std::shared_ptr<window::Window> window)
   {
+    // Initialize material
+    material_.specular = glm::vec3(0.1f, 0.1f, 0.1f);
+    material_.shininess = 64.f;
+
     // Initialize motion
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -95,10 +130,10 @@ public:
         {
           const auto theta = std::acos(distribution(gen));
           const auto phi = std::acos(distribution(gen) * 2. - 1.);
-          motion_[i][j][k].axis.x = std::cos(theta) * std::sin(phi);
-          motion_[i][j][k].axis.y = std::sin(theta) * std::sin(phi);
-          motion_[i][j][k].axis.z = std::cos(phi);
-          motion_[i][j][k].angular_velocity = (distribution(gen) + 1.) * 5.;
+          motion_[i][j][k].axis.x = static_cast<float>(std::cos(theta) * std::sin(phi));
+          motion_[i][j][k].axis.y = static_cast<float>(std::sin(theta) * std::sin(phi));
+          motion_[i][j][k].axis.z = static_cast<float>(std::cos(phi));
+          motion_[i][j][k].angular_velocity = glm::pi<float>() * 2.f;
         }
       }
     }
@@ -157,6 +192,8 @@ public:
     descriptor_set_layout_ = vkw::DescriptorSetLayout::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
+      .AddUniformBuffer()
+      .AddUniformBuffer()
       .Create();
 
     pipeline_cache_ = vkw::PipelineCache::Creator{ device_ }.Create();
@@ -166,7 +203,7 @@ public:
     // Allocate staging buffer
     constexpr uint64_t staging_buffer_size = 256 * 1024 * 1024; // 256MB
     auto staging_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(256 * 1024 * 1024)
+      .SetSize(staging_buffer_size)
       .SetTransferSrcBuffer()
       .Create();
 
@@ -175,22 +212,27 @@ public:
       memory_manager_->AllocateHostVisibleMemory(staging_buffer_size));
 
     // Load mesh and texture
-    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
-    meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
-    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
-    textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
+    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj"));
+    instanced_meshes_.emplace_back(LoadMesh("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.obj"));
+    instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\among_us_obj\\Plastic_4K_Diffuse.jpg"));
+    instanced_mesh_textures_.emplace_back(LoadTexture("C:\\workspace\\twopi\\resources\\viking_room\\viking_room.png"));
+
+    meshes_.emplace_back(CreateFloorMesh());
 
     // Instance update every frame
-    auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
-      .SetTransferSrcBuffer()
-      .SetSize(sizeof(float) * 16 * grid_size_ * grid_size_ * grid_size_)
-      .Create();
+    for (int i = 0; i < instanced_meshes_.size(); i++)
+    {
+      auto instance_update_buffer = vkw::Buffer::Creator{ device_ }
+        .SetTransferSrcBuffer()
+        .SetSize(sizeof(float) * 16 * grid_size_ * grid_size_ * grid_size_)
+        .Create();
 
-    instance_update_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(instance_update_buffer),
-      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(instance_update_buffer).size));
+      instance_update_buffers_.emplace_back(std::make_unique<vke::Buffer>(
+        std::move(instance_update_buffer),
+        memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(instance_update_buffer).size)));
 
-    instance_update_buffer_map_ = static_cast<unsigned char*>(instance_update_buffer_->Map());
+      instance_update_buffer_maps_.push_back(static_cast<unsigned char*>(instance_update_buffers_[i]->Map()));
+    }
 
     // Create image sampler
     sampler_ = vkw::Sampler::Creator{ device_ }
@@ -233,34 +275,46 @@ public:
     CleanupPipeline();
     CleanupCommandBuffers();
 
-    instance_update_buffer_->Unmap();
-    instance_update_buffer_.reset();
+    for (auto& instance_update_buffer : instance_update_buffers_)
+    {
+      instance_update_buffer->Unmap();
+      instance_update_buffer.reset();
+    }
 
     transient_command_pool_.Destroy();
 
-    vert_shader_.Destroy();
-    frag_shader_.Destroy();
+    light_instance_vert_shader_.Destroy();
+    light_instance_frag_shader_.Destroy();
+    light_floor_vert_shader_.Destroy();
+    light_floor_frag_shader_.Destroy();
 
     memory_manager_.reset();
 
     pipeline_cache_.Destroy();
 
-    for (auto& texture : textures_)
+    for (auto& texture : instanced_mesh_textures_)
     {
       texture.image.reset();
       texture.image_view.Destroy();
     }
-    textures_.clear();
+    instanced_mesh_textures_.clear();
 
     sampler_.Destroy();
 
     descriptor_set_layout_.Destroy();
 
+    for (auto& instanced_mesh : instanced_meshes_)
+    {
+      instanced_mesh.vertex_buffer.reset();
+      instanced_mesh.index_buffer.reset();
+      instanced_mesh.instance_buffer.reset();
+    }
+    instanced_meshes_.clear();
+
     for (auto& mesh : meshes_)
     {
       mesh.vertex_buffer.reset();
       mesh.index_buffer.reset();
-      mesh.instance_buffer.reset();
     }
     meshes_.clear();
 
@@ -285,12 +339,34 @@ public:
     instance_.Destroy();
   }
 
+  void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+  {
+    directional_lights_.clear();
+    point_lights_.clear();
+
+    for (int i = 0; i < lights.size(); i++)
+    {
+      LightUbo light_ubo;
+      light_ubo.position = lights[i]->Position();
+      light_ubo.ambient = lights[i]->Ambient();
+      light_ubo.diffuse = lights[i]->Diffuse();
+      light_ubo.specular = lights[i]->Specular();
+
+      if (lights[i]->IsDirectionalLight())
+        directional_lights_.emplace_back(light_ubo);
+      else
+        point_lights_.emplace_back(light_ubo);
+    }
+  }
+
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
   {
-    projection_matrix_ = camera->ProjectionMatrix();
-    projection_matrix_[1][1] *= -1.f;
+    camera_.projection_matrix = camera->ProjectionMatrix();
+    camera_.projection_matrix[1][1] *= -1.f;
 
-    view_matrix_ = camera->ViewMatrix();
+    camera_.view_matrix = camera->ViewMatrix();
+
+    camera_.eye = camera->Eye();
   }
 
   void Draw(core::Duration duration)
@@ -312,32 +388,40 @@ public:
 
     in_flight_fences_[current_frame_].Reset();
 
-    // Update uniform buffer
-    constexpr uint64_t mat4_size = sizeof(float) * 16;
-    glm::mat4 model_matrix{ 1.f };
+    // Update camera uniform buffer
+    auto* ptr = camera_uniform_buffer_map_ + (256 * image_index);
+    std::memcpy(ptr, &camera_, sizeof(CameraUbo));
 
-    auto* ptr = uniform_buffer_map_ + (256 * image_index);
-    std::memcpy(ptr, glm::value_ptr(projection_matrix_), mat4_size);
-    std::memcpy(ptr + mat4_size, glm::value_ptr(view_matrix_), mat4_size);
-    std::memcpy(ptr + mat4_size * 2, glm::value_ptr(model_matrix), mat4_size);
+    // Update light uniform buffer
+    auto* light_ptr = light_uniform_buffer_map_ + (1024 * image_index);
+    std::memcpy(light_ptr, &directional_lights_[0], sizeof(LightUbo) * 8);
+    std::memcpy(light_ptr + sizeof(LightUbo) * 8, &point_lights_[0], sizeof(LightUbo) * 8);
 
+    // Update material uniform buffer
+    auto* material_ptr = material_uniform_buffer_map_ + (256 * image_index);
+    std::memcpy(material_ptr, &material_, sizeof(MaterialUbo));
+    
     // Update instance buffer
-    std::vector<glm::mat4> models;
-    for (int x = 0; x < grid_size_; x++)
+    constexpr uint64_t mat4_size = sizeof(float) * 16;
+    for (int i = 0; i < instanced_meshes_.size(); i++)
     {
-      for (int y = 0; y < grid_size_; y++)
+      std::vector<glm::mat4> models;
+      for (int x = 0; x < grid_size_; x++)
       {
-        for (int z = 0; z < grid_size_; z++)
+        for (int y = 0; y < grid_size_; y++)
         {
-          glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
-          m[3][0] = x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          m[3][1] = y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          m[3][2] = z * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity);
-          models.emplace_back(std::move(m));
+          for (int z = 0; z < grid_size_; z++)
+          {
+            glm::mat4 m = glm::rotate(static_cast<float>(motion_[x][y][z].angular_velocity * duration.count()), motion_[x][y][z].axis);
+            m[3][0] = static_cast<float>(i * 3.f * grid_size_ + x * 3.f + motion_[x][y][z].axis.x * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            m[3][1] = static_cast<float>(y * 3.f + motion_[x][y][z].axis.y * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            m[3][2] = static_cast<float>((z + 1) * 3.f + motion_[x][y][z].axis.z * std::sin(duration.count() * motion_[x][y][z].angular_velocity));
+            models.emplace_back(std::move(m));
+          }
         }
       }
+      std::memcpy(instance_update_buffer_maps_[i], &models[0], sizeof(models[0]) * models.size());
     }
-    std::memcpy(instance_update_buffer_map_, glm::value_ptr(models[0]), mat4_size * models.size());
 
     graphics_queue_.Submit(command_buffers_[image_index], { image_available_semaphores_[current_frame_] }, { render_finished_semaphores_[current_frame_] }, in_flight_fences_[current_frame_]);
 
@@ -411,9 +495,84 @@ private:
     }
   }
 
-  Mesh LoadMesh(const std::string& mesh_filepath)
+  Mesh CreateFloorMesh()
   {
-    Mesh vk_mesh;
+    Mesh mesh;
+
+    constexpr float grid_size = 1000.f;
+
+    float floor_vertex_buffer[] = {
+      // position
+      -grid_size, -grid_size, 0.f,
+      grid_size, -grid_size, 0.f,
+      -grid_size, grid_size, 0.f,
+      grid_size, grid_size, 0.f,
+      // normal
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      // tex_coord
+      -grid_size, -grid_size,
+      grid_size, -grid_size,
+      -grid_size, grid_size,
+      grid_size, grid_size,
+    };
+
+    uint32_t floor_index_buffer[] = {
+      0, 1, 2, 2, 1, 3
+    };
+
+    // Move to staging buffer
+    auto ptr = static_cast<unsigned char*>(staging_buffer_->Map());
+    std::memcpy(ptr, floor_vertex_buffer, sizeof(floor_vertex_buffer));
+    std::memcpy(ptr + sizeof(floor_vertex_buffer), floor_index_buffer, sizeof(floor_index_buffer));
+    staging_buffer_->Unmap();
+
+    // Offsets
+    mesh.normal_offset = 12 * sizeof(float);
+    mesh.tex_coord_offset = 24 * sizeof(float);
+    mesh.num_indices = 6;
+
+    // Buffers
+    auto vertex_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(sizeof(floor_vertex_buffer))
+      .SetTransferDstBuffer()
+      .SetVertexBuffer()
+      .Create();
+
+    mesh.vertex_buffer = std::make_unique<vke::Buffer>(
+      std::move(vertex_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(vertex_buffer).size));
+
+    auto index_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(sizeof(floor_index_buffer))
+      .SetTransferDstBuffer()
+      .SetIndexBuffer()
+      .Create();
+
+    mesh.index_buffer = std::make_unique<vke::Buffer>(
+      std::move(index_buffer),
+      memory_manager_->AllocateDeviceLocalMemory(device_.MemoryRequirements(index_buffer).size));
+
+    // Transfer from staging buffer to device local memory
+    auto copy_command = vkw::CommandBuffer::Allocator{ device_, transient_command_pool_ }.Allocate(1)[0];
+    copy_command
+      .BeginOneTime()
+      .CopyBuffer(*staging_buffer_, *mesh.vertex_buffer, sizeof(floor_vertex_buffer))
+      .CopyBuffer(*staging_buffer_, sizeof(floor_vertex_buffer), *mesh.index_buffer, 0, sizeof(floor_index_buffer))
+      .End();
+    graphics_queue_.Submit(copy_command);
+    graphics_queue_.WaitIdle();
+
+    copy_command.Free();
+
+    return mesh;
+  }
+
+  InstancedMesh LoadMesh(const std::string& mesh_filepath)
+  {
+    InstancedMesh vk_mesh;
 
     // Load mesh
     geometry::MeshLoader mesh_loader{};
@@ -558,8 +717,11 @@ private:
 #endif
 
     vkw::ShaderModule::Creator shader_module_creator{ device_ };
-    vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.vert.spv").Create();
-    frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/mesh_instance.frag.spv").Create();
+    light_instance_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.vert.spv").Create();
+    light_instance_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_instance.frag.spv").Create();
+
+    light_floor_vert_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.vert.spv").Create();
+    light_floor_frag_shader_ = shader_module_creator.Load(dirpath + "/twopi/shader/light_floor.frag.spv").Create();
   }
 
   void RecreateSwapchain()
@@ -675,17 +837,41 @@ private:
   void CreateUniformBuffers()
   {
     // Uniform buffers
-    const int uniform_buffer_size = 256 * swapchain_image_views_.size();
-    auto uniform_buffer = vkw::Buffer::Creator{ device_ }
-      .SetSize(uniform_buffer_size)
+    const int camera_uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto camera_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(camera_uniform_buffer_size)
       .SetUniformBuffer()
       .Create();
 
-    uniform_buffer_ = std::make_unique<vke::Buffer>(
-      std::move(uniform_buffer),
-      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(uniform_buffer).size));
+    camera_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(camera_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(camera_uniform_buffer).size));
 
-    uniform_buffer_map_ = static_cast<unsigned char*>(uniform_buffer_->Map());
+    camera_uniform_buffer_map_ = static_cast<unsigned char*>(camera_uniform_buffer_->Map());
+
+    const int light_uniform_buffer_size = 1024 * swapchain_image_views_.size();
+    auto light_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(light_uniform_buffer_size)
+      .SetUniformBuffer()
+      .Create();
+
+    light_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(light_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(light_uniform_buffer).size));
+
+    light_uniform_buffer_map_ = static_cast<unsigned char*>(light_uniform_buffer_->Map());
+
+    const int material_uniform_buffer_size = 256 * swapchain_image_views_.size();
+    auto material_uniform_buffer = vkw::Buffer::Creator{ device_ }
+      .SetSize(material_uniform_buffer_size)
+      .SetUniformBuffer()
+      .Create();
+
+    material_uniform_buffer_ = std::make_unique<vke::Buffer>(
+      std::move(material_uniform_buffer),
+      memory_manager_->AllocatePersistenlyMappedMemory(device_.MemoryRequirements(material_uniform_buffer).size));
+    
+    material_uniform_buffer_map_ = static_cast<unsigned char*>(material_uniform_buffer_->Map());
   }
 
   void CreateDescriptorSets()
@@ -693,10 +879,12 @@ private:
     descriptor_pool_ = vkw::DescriptorPool::Creator{ device_ }
       .AddUniformBuffer()
       .AddSampler()
-      .SetSize(textures_.size() * swapchain_image_views_.size())
+      .AddUniformBuffer()
+      .AddUniformBuffer()
+      .SetSize(instanced_mesh_textures_.size() * swapchain_image_views_.size())
       .Create();
 
-    for (int i = 0; i < textures_.size(); i++)
+    for (int i = 0; i < instanced_mesh_textures_.size(); i++)
     {
       auto descriptor_framebuffer_sets = vkw::DescriptorSet::Allocator{ device_, descriptor_pool_ }
         .SetLayout(descriptor_set_layout_)
@@ -704,7 +892,12 @@ private:
         .Allocate();
 
       for (int j = 0; j < descriptor_framebuffer_sets.size(); j++)
-        descriptor_framebuffer_sets[j].Update(*uniform_buffer_, j * 256, sizeof(float) * 16 * 3, textures_[i].image_view, sampler_);
+        descriptor_framebuffer_sets[j].Update({
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*camera_uniform_buffer_)), j * 256ull, sizeof(CameraUbo) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::ImageView>(instanced_mesh_textures_[i].image_view), static_cast<vk::Sampler>(sampler_) },
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*light_uniform_buffer_)), j * 1024ull, sizeof(LightUbo) * 16},
+          vkw::DescriptorSet::Uniform{ static_cast<vk::Buffer>(static_cast<vkw::Buffer>(*material_uniform_buffer_)), j * 256ull, sizeof(MaterialUbo)},
+          });
 
       descriptor_sets_.emplace_back(std::move(descriptor_framebuffer_sets));
     }
@@ -716,12 +909,22 @@ private:
       .SetLayouts({ descriptor_set_layout_ })
       .Create();
 
-    pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+    instanced_mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
       .SetPipelineCache(pipeline_cache_)
       .SetMultisample4()
-      .SetShader(vert_shader_, frag_shader_)
+      .SetShader(light_instance_vert_shader_, light_instance_frag_shader_)
       .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetInstanceInput({ {3, 4, 4} })
+      .SetViewport(width_, height_)
+      .SetPipelineLayout(pipeline_layout_)
+      .SetRenderPass(render_pass_)
+      .Create();
+
+    mesh_pipeline_ = vkw::GraphicsPipeline::Creator{ device_ }
+      .SetPipelineCache(pipeline_cache_)
+      .SetMultisample4()
+      .SetShader(light_floor_vert_shader_, light_floor_frag_shader_)
+      .SetVertexInput({ {0, 3}, {1, 3}, {2, 2} })
       .SetViewport(width_, height_)
       .SetPipelineLayout(pipeline_layout_)
       .SetRenderPass(render_pass_)
@@ -739,8 +942,8 @@ private:
       command_buffer
         .Begin();
 
-      for (int j = 0; j < meshes_.size(); j++)
-        command_buffer.CopyBuffer(*instance_update_buffer_, *meshes_[j].instance_buffer);
+      for (int j = 0; j < instanced_meshes_.size(); j++)
+        command_buffer.CopyBuffer(*instance_update_buffers_[j], *instanced_meshes_[j].instance_buffer);
 
       command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
@@ -748,12 +951,26 @@ private:
       for (int j = 0; j < meshes_.size(); j++)
       {
         command_buffer
-          .BindVertexBuffers({ *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer }, { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
-          .BindVertexBuffers({ *meshes_[j].instance_buffer }, { 0 }, 3)
+          .BindVertexBuffers(
+            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
+            { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
           .BindIndexBuffer(*meshes_[j].index_buffer)
-          .BindPipeline(pipeline_)
+          .BindPipeline(mesh_pipeline_)
           .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
-          .DrawIndexed(meshes_[j].num_indices, meshes_[j].num_instances);
+          .DrawIndexed(meshes_[j].num_indices);
+      }
+      
+      for (int j = 0; j < instanced_meshes_.size(); j++)
+      {
+        command_buffer
+          .BindVertexBuffers(
+            { *instanced_meshes_[j].vertex_buffer, *instanced_meshes_[j].vertex_buffer, *instanced_meshes_[j].vertex_buffer },
+            { 0, instanced_meshes_[j].normal_offset, instanced_meshes_[j].tex_coord_offset })
+          .BindVertexBuffers({ *instanced_meshes_[j].instance_buffer }, { 0 }, 3)
+          .BindIndexBuffer(*instanced_meshes_[j].index_buffer)
+          .BindPipeline(instanced_mesh_pipeline_)
+          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
+          .DrawIndexed(instanced_meshes_[j].num_indices, instanced_meshes_[j].num_instances);
       }
 
       command_buffer
@@ -785,8 +1002,12 @@ private:
 
   void CleanupUniformBuffers()
   {
-    uniform_buffer_->Unmap();
-    uniform_buffer_.reset();
+    camera_uniform_buffer_->Unmap();
+    camera_uniform_buffer_.reset();
+    light_uniform_buffer_->Unmap();
+    light_uniform_buffer_.reset();
+    material_uniform_buffer_->Unmap();
+    material_uniform_buffer_.reset();
   }
 
   void CleanupDescriptors()
@@ -804,7 +1025,8 @@ private:
 
   void CleanupPipeline()
   {
-    pipeline_.Destroy();
+    instanced_mesh_pipeline_.Destroy();
+    mesh_pipeline_.Destroy();
     pipeline_layout_.Destroy();
   }
 
@@ -845,7 +1067,7 @@ private:
   }
 
 private:
-  static constexpr int grid_size_ = 10;
+  static constexpr int grid_size_ = 3;
 
   vkw::Instance instance_;
 
@@ -861,8 +1083,8 @@ private:
   // Memory
   std::shared_ptr<MemoryManager> memory_manager_;
   std::unique_ptr<vke::Buffer> staging_buffer_;
-  std::unique_ptr<vke::Buffer> instance_update_buffer_;
-  unsigned char* instance_update_buffer_map_;
+  std::vector<std::unique_ptr<vke::Buffer>> instance_update_buffers_;
+  std::vector<unsigned char*> instance_update_buffer_maps_;
 
   // Swapchain resources
   vkw::Surface surface_;
@@ -884,36 +1106,55 @@ private:
   std::vector<vkw::Fence> in_flight_fences_;
   std::vector<vkw::Fence> images_in_flight_;
 
-  // Uniform buffer
-  std::unique_ptr<vke::Buffer> uniform_buffer_;
-  unsigned char* uniform_buffer_map_;
+  // Camera uniform buffer
+  std::unique_ptr<vke::Buffer> camera_uniform_buffer_;
+  unsigned char* camera_uniform_buffer_map_;
 
-  glm::mat4 projection_matrix_;
-  glm::mat4 view_matrix_;
+  // Light uniform buffer
+  std::unique_ptr<vke::Buffer> light_uniform_buffer_;
+  unsigned char* light_uniform_buffer_map_;
+
+  // Material uniform buffer
+  std::unique_ptr<vke::Buffer> material_uniform_buffer_;
+  unsigned char* material_uniform_buffer_map_;
 
   // Descriptors
   vkw::DescriptorPool descriptor_pool_;
   std::vector<std::vector<vkw::DescriptorSet>> descriptor_sets_; // [texture_id][swapchain_image_index]
 
   // Graphics pipeline
-  vkw::ShaderModule vert_shader_;
-  vkw::ShaderModule frag_shader_;
+  vkw::ShaderModule light_instance_vert_shader_;
+  vkw::ShaderModule light_instance_frag_shader_;
+  vkw::ShaderModule light_floor_vert_shader_;
+  vkw::ShaderModule light_floor_frag_shader_;
   vkw::DescriptorSetLayout descriptor_set_layout_;
   vkw::DescriptorSetLayout sampler_layout_;
   vkw::PipelineCache pipeline_cache_;
   vkw::PipelineLayout pipeline_layout_;
-  vkw::GraphicsPipeline pipeline_;
+  vkw::GraphicsPipeline instanced_mesh_pipeline_;
+  vkw::GraphicsPipeline mesh_pipeline_;
 
   // Commands
   vkw::CommandPool transient_command_pool_;
   vkw::CommandPool command_pool_;
 
   // Vertex attributes
+  std::vector<InstancedMesh> instanced_meshes_;
   std::vector<Mesh> meshes_;
 
   // Texture
-  std::vector<Texture> textures_;
+  std::vector<Texture> instanced_mesh_textures_;
   vkw::Sampler sampler_;
+
+  // Camera
+  CameraUbo camera_;
+
+  // Lights
+  std::vector<LightUbo> directional_lights_;
+  std::vector<LightUbo> point_lights_;
+
+  // Material
+  MaterialUbo material_;
 
   // Window
   int width_ = 0;
@@ -935,6 +1176,11 @@ void Engine::Draw(core::Duration duration)
 void Engine::Resize(int width, int height)
 {
   impl_->Resize(width, height);
+}
+
+void Engine::UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
+{
+  impl_->UpdateLights(lights);
 }
 
 void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)

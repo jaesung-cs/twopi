@@ -8,6 +8,13 @@ namespace scene
 {
 class Light::Impl
 {
+private:
+  enum class Type
+  {
+    DIRECTIONAL,
+    POINT,
+  };
+
 public:
   Impl()
   {
@@ -15,17 +22,22 @@ public:
 
   ~Impl() = default;
 
+  void SetDirectionalLight() { type_ = Type::DIRECTIONAL; }
+  void SetPointLight() { type_ = Type::POINT; }
   void SetPosition(const glm::vec3& position) { position_ = position; }
   void SetAmbient(const glm::vec3& ambient) { ambient_ = ambient; }
   void SetDiffuse(const glm::vec3& diffuse) { diffuse_ = diffuse; }
   void SetSpecular(const glm::vec3& specular) { specular_ = specular; }
 
+  bool IsDirectionalLight() const { return type_ == Type::DIRECTIONAL; }
+  bool IsPointLight() const { return type_ == Type::POINT; }
   const glm::vec3& Position() const { return position_; }
   const glm::vec3& Ambient() const { return ambient_; }
   const glm::vec3& Diffuse() const { return diffuse_; }
   const glm::vec3& Specular() const { return specular_; }
 
 private:
+  Type type_;
   glm::vec3 position_{ 0.f, 0.f, 1.f };
   glm::vec3 ambient_{ 0.f, 0.f, 0.f };
   glm::vec3 diffuse_{ 0.f, 0.f, 0.f };
@@ -38,6 +50,16 @@ Light::Light()
 }
 
 Light::~Light() = default;
+
+void Light::SetDirectionalLight()
+{
+  impl_->SetDirectionalLight();
+}
+
+void Light::SetPointLight()
+{
+  impl_->SetPointLight();
+}
 
 void Light::SetPosition(const glm::vec3& position)
 {
@@ -57,6 +79,16 @@ void Light::SetDiffuse(const glm::vec3& diffuse)
 void Light::SetSpecular(const glm::vec3& specular)
 {
   impl_->SetSpecular(specular);
+}
+
+bool Light::IsDirectionalLight() const
+{
+  return impl_->IsDirectionalLight();
+}
+
+bool Light::IsPointLight() const
+{
+  return impl_->IsPointLight();
 }
 
 const glm::vec3& Light::Position() const

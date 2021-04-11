@@ -54,7 +54,7 @@ public:
   CommandBuffer& BindIndexBuffer(Buffer buffer);
   CommandBuffer& BindDescriptorSets(PipelineLayout layout, std::vector<DescriptorSet> descriptor_sets);
   CommandBuffer& Draw(int vertex_count, int instace_count, int first_vertex, int first_instance);
-  CommandBuffer& DrawIndexed(int index_count, int instance_count);
+  CommandBuffer& DrawIndexed(int index_count, int instance_count = 1);
   CommandBuffer& EndRenderPass();
 
   CommandBuffer& BeginOneTime();

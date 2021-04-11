@@ -17,6 +17,32 @@ class Sampler;
 class DescriptorSet
 {
 public:
+  struct Uniform
+  {
+    enum class Type
+    {
+      BUFFER,
+      SAMPLER,
+    };
+
+    Uniform() = delete;
+    Uniform(vk::Buffer buffer, uint64_t offset = 0, uint64_t size = VK_WHOLE_SIZE)
+      : type(Type::BUFFER), buffer(buffer), offset(offset), size(size) { }
+
+    Uniform(vk::ImageView image_view, vk::Sampler sampler)
+      : type(Type::SAMPLER), image_view(image_view), sampler(sampler) { }
+
+    Type type;
+
+    vk::Buffer buffer;
+    uint64_t offset;
+    uint64_t size;
+
+    vk::ImageView image_view;
+    vk::Sampler sampler;
+  };
+
+public:
   class Allocator
   {
   public:
@@ -46,9 +72,7 @@ public:
 
   operator vk::DescriptorSet() const;
 
-  void Update(Buffer buffer, ImageView image_view, Sampler sampler);
-  void Update(Buffer buffer, uint64_t offset, ImageView image_view, Sampler sampler);
-  void Update(Buffer buffer, uint64_t offset, uint64_t size, ImageView image_view, Sampler sampler);
+  void Update(std::initializer_list<Uniform> uniforms);
 
 private:
   vk::Device device_;
