@@ -51,6 +51,8 @@ public:
     width_ = window->Width();
     height_ = window->Height();
 
+    mip_levels_ = 3;
+
     Prepare();
   }
 
@@ -556,6 +558,34 @@ private:
     swapchain_framebuffers_.clear();
   }
 
+  void CreateSampler()
+  {
+    vk::SamplerCreateInfo sampler_create_info;
+    sampler_create_info
+      .setAnisotropyEnable(true)
+      .setMaxAnisotropy(physical_device_.getProperties().limits.maxSamplerAnisotropy)
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setMipLodBias(0.f)
+      .setMinLod(0.f)
+      .setMaxLod(mip_levels_);
+
+    sampler_ = device_.createSampler(sampler_create_info);
+  }
+
+  void CleanupSampler()
+  {
+    device_.destroySampler(sampler_);
+  }
+
   Memory AllocateDeviceMemory(vk::Image image)
   {
     return AllocateDeviceMemory(device_.getImageMemoryRequirements(image));
@@ -636,6 +666,10 @@ private:
 
   // Swapchain framebuffers
   std::vector<vk::Framebuffer> swapchain_framebuffers_;
+
+  // Sampler
+  uint32_t mip_levels_ = 1;
+  vk::Sampler sampler_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
