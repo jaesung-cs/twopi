@@ -499,7 +499,7 @@ private:
   {
     Mesh mesh;
 
-    constexpr float grid_size = 1000.f;
+    constexpr float grid_size = 20.f;
 
     float floor_vertex_buffer[] = {
       // position
@@ -948,18 +948,6 @@ private:
       command_buffer
         .BeginRenderPass(render_pass_, swapchain_framebuffers_[i]);
 
-      for (int j = 0; j < meshes_.size(); j++)
-      {
-        command_buffer
-          .BindVertexBuffers(
-            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
-            { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
-          .BindIndexBuffer(*meshes_[j].index_buffer)
-          .BindPipeline(mesh_pipeline_)
-          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
-          .DrawIndexed(meshes_[j].num_indices);
-      }
-      
       for (int j = 0; j < instanced_meshes_.size(); j++)
       {
         command_buffer
@@ -971,6 +959,18 @@ private:
           .BindPipeline(instanced_mesh_pipeline_)
           .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
           .DrawIndexed(instanced_meshes_[j].num_indices, instanced_meshes_[j].num_instances);
+      }
+
+      for (int j = 0; j < meshes_.size(); j++)
+      {
+        command_buffer
+          .BindVertexBuffers(
+            { *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer, *meshes_[j].vertex_buffer },
+            { 0, meshes_[j].normal_offset, meshes_[j].tex_coord_offset })
+          .BindIndexBuffer(*meshes_[j].index_buffer)
+          .BindPipeline(mesh_pipeline_)
+          .BindDescriptorSets(pipeline_layout_, { descriptor_sets_[j][i] })
+          .DrawIndexed(meshes_[j].num_indices);
       }
 
       command_buffer

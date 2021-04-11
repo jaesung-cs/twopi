@@ -7,4 +7,5 @@ if __name__ == "__main__":
     print(f'compiling {filename}:')
     if os.system(f'glslc.exe {filename} -o {filename}.spv') != 0:
       # delete previously compiled spv file
-      os.remove(f'{filename}.spv')
+      if os.path.exists(f'{filename}.spv'):
+        os.remove(f'{filename}.spv')

@@ -75,17 +75,14 @@ vec3 compute_point_light_color(Light light, vec3 diffuse_color, vec3 N, vec3 V)
   return color;
 }
 
+const float thickness = 0.05f;
 const float r2a = 400.f;
-vec3 floor_pattern_color(vec2 coord)
+float floor_pattern_strength(vec2 coord)
 {
-  const float thickness = 0.05f;
   coord = fract(coord);
   coord = min(coord, vec2(1.f) - coord);
   float x = min(coord.x, coord.y);
-  if (x < thickness)
-    return vec3(smoothstep(0.f, thickness, x));
-  else
-    return vec3(1.f);
+  return 1.f - smoothstep(0.f, thickness, x);
 }
 
 void main()
@@ -93,8 +90,16 @@ void main()
   // Directional light
   vec3 N = normalize(frag_normal);
   vec3 V = normalize(camera.eye - frag_position);
-
-  vec3 diffuse_color = floor_pattern_color(frag_tex_coord);
+  
+  float diffuse_strength = floor_pattern_strength(frag_tex_coord);
+  
+  // Axis color
+  vec3 diffuse_color = vec3(0.f, 0.f, 0.f);
+  if (abs(frag_tex_coord.x) <= thickness)
+    diffuse_color.r = 1.f;
+  if (abs(frag_tex_coord.y) <= thickness)
+    diffuse_color.g = 1.f;
+  diffuse_color = mix(vec3(1.f), diffuse_color, diffuse_strength);
 
   vec3 total_color = vec3(0.f, 0.f, 0.f);
   for (int i = 0; i < num_directional_lights; i++)
@@ -109,14 +114,16 @@ void main()
     total_color += light_color;
   }
 
-  
   const float r2 = 100.f;
   float d2 = dot(frag_tex_coord, frag_tex_coord);
   float alpha = 1.f;
   if (d2 >= r2 && d2 <= r2a)
-    alpha = 1.f - smoothstep(r2, r2a, d2);
+    alpha *= 1.f - smoothstep(r2, r2a, d2);
   else if (d2 > r2a)
     alpha = 0.f;
+
+  const float z_alpha_offset = 1.f;
+  alpha *= smoothstep(0.f, z_alpha_offset, camera.eye.z) * 0.5f + 0.5f;
 
   // out_color = vec4(mix(texture(tex_sampler, frag_tex_coord).rgb, (frag_normal + 1.f) / 2.f, 0.5f), 1.f);
   out_color = vec4(total_color, alpha);

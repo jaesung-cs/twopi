@@ -50,7 +50,7 @@ public:
 
   void RotateByPixels(int dx, int dy)
   {
-    constexpr float epsilon = 1e-6f;
+    constexpr float epsilon = 1e-3f;
     constexpr auto phi_limit = glm::pi<float>() / 2.f - epsilon;
 
     theta_ -= rotation_sensitivity_ * dx;
