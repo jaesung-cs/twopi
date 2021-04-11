@@ -14,7 +14,7 @@
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/scene/light.h>
-#include <twopi/vke/vke_engine.h>
+#include <twopi/vkl/vkl_engine.h>
 
 #include <glm/glm.hpp>
 
@@ -31,7 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    vk_engine_ = std::make_shared<vke::Engine>(window_);
+    vk_engine_ = std::make_shared<vkl::Engine>(window_);
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
@@ -246,7 +246,7 @@ private:
   std::shared_ptr<window::Window> window_;
 
   // Vulkan engine
-  std::shared_ptr<vke::Engine> vk_engine_;
+  std::shared_ptr<vkl::Engine> vk_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;
