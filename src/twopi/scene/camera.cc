@@ -94,7 +94,7 @@ private:
   int height_ = 1;
 
   float near_ = 0.01f;
-  float far_ = 1000.f;
+  float far_ = 100.f;
 
   float fovy_ = 60.f / 180.f * glm::pi<float>();
 
