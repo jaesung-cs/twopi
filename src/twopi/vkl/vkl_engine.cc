@@ -136,12 +136,16 @@ private:
     CreateRenderPass();
     CreateSwapchainFramebuffers();
     CreateSampler();
-    CreateDescriptorSetLayout();
+    CreateDescriptorSet();
+
+    PrepareResources();
   }
 
   void Cleanup()
   {
-    DestroyDesciptorSetLayout();
+    CleanupResources();
+
+    DestroyDesciptorSet();
     DestroySampler();
     DestroySwapchainFramebuffers();
     DestroyRenderPass();
@@ -637,7 +641,7 @@ private:
     device_.destroySampler(sampler_);
   }
 
-  void CreateDescriptorSetLayout()
+  void CreateDescriptorSet()
   {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     vk::DescriptorSetLayoutBinding binding;
@@ -665,7 +669,7 @@ private:
       .setStageFlags(vk::ShaderStageFlagBits::eFragment)
       .setDescriptorCount(1);
     bindings.push_back(binding);
-
+    
     // Binding 3: MaterialUbo
     binding
       .setBinding(3)
@@ -687,11 +691,54 @@ private:
       .setBindings(bindings);
 
     descriptor_set_layout_ = device_.createDescriptorSetLayout(descriptor_set_layout_create_info);
+
+    // Descriptor pool
+    std::vector<vk::DescriptorPoolSize> pool_sizes;
+    vk::DescriptorPoolSize pool_size;
+
+    // TODO: set appropriate descriptor count
+    constexpr int descriptor_count = 100;
+
+    pool_size
+      .setType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(descriptor_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    pool_size
+      .setType(vk::DescriptorType::eUniformBufferDynamic)
+      .setDescriptorCount(descriptor_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    pool_size
+      .setType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(descriptor_count);
+    pool_sizes.push_back(pool_size);
+
+    vk::DescriptorPoolCreateInfo descriptor_pool_create_info;
+    descriptor_pool_create_info
+      .setMaxSets(descriptor_count)
+      .setPoolSizes(pool_sizes);
+    descriptor_pool_ = device_.createDescriptorPool(descriptor_pool_create_info);
   }
 
-  void DestroyDesciptorSetLayout()
+  void DestroyDesciptorSet()
   {
+    device_.destroyDescriptorPool(descriptor_pool_);
     device_.destroyDescriptorSetLayout(descriptor_set_layout_);
+  }
+
+  void PrepareResources()
+  {
+    // TODO: Allocate descriptor sets
+  }
+
+  void CleanupResources()
+  {
+    if (!descriptor_sets_.empty())
+    {
+      device_.freeDescriptorSets(descriptor_pool_, descriptor_sets_);
+      descriptor_sets_.clear();
+    }
   }
 
   Memory AllocateDeviceMemory(vk::Image image)
@@ -781,6 +828,8 @@ private:
 
   // Descriptor set
   vk::DescriptorSetLayout descriptor_set_layout_;
+  vk::DescriptorPool descriptor_pool_;
+  std::vector<vk::DescriptorSet> descriptor_sets_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
