@@ -231,6 +231,7 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
+    <ClInclude Include="..\..\src\twopi\shader\core\light.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_engine.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_image.h" />
