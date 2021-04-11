@@ -139,14 +139,18 @@ private:
     CreateSampler();
     CreateDescriptorSet();
     CreateGraphicsPipelines();
+    CreateCommandPool();
 
     PrepareResources();
   }
 
   void Cleanup()
   {
+    device_.waitIdle();
+
     CleanupResources();
 
+    DestroyCommandPool();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
@@ -950,6 +954,26 @@ private:
     device_.destroyPipeline(floor_pipeline_);
   }
 
+  void CreateCommandPool()
+  {
+    vk::CommandPoolCreateInfo command_pool_create_info;
+    command_pool_create_info
+      .setQueueFamilyIndex(graphics_queue_index_.value());
+
+    command_pool_ = device_.createCommandPool(command_pool_create_info);
+
+    command_pool_create_info
+      .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+
+    transient_command_pool_ = device_.createCommandPool(command_pool_create_info);
+  }
+
+  void DestroyCommandPool()
+  {
+    device_.destroyCommandPool(command_pool_);
+    device_.destroyCommandPool(transient_command_pool_);
+  }
+
   void PrepareResources()
   {
     // TODO: Allocate descriptor sets
@@ -1082,6 +1106,10 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
+
+  // Commands
+  vk::CommandPool command_pool_;
+  vk::CommandPool transient_command_pool_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
