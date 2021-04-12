@@ -49,12 +49,12 @@ public:
     light->SetPosition(glm::vec3{ 0.f, 0.f, 1.f });
     light->SetAmbient(glm::vec3{ 0.1f, 0.1f, 0.1f });
     light->SetDiffuse(glm::vec3{ 0.2f, 0.2f, 0.2f });
-    light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });
+    light->SetSpecular(glm::vec3{ 0.1f, 0.1f, 0.1f });
     lights_.emplace_back(std::move(light));
 
     light = std::make_shared<scene::Light>();
     light->SetPointLight();
-    light->SetPosition(glm::vec3{ 0.f, 0.f, 5.f });
+    light->SetPosition(glm::vec3{ 0.f, 0.f, 2.f });
     light->SetAmbient(glm::vec3{ 0.1f, 0.1f, 0.1f });
     light->SetDiffuse(glm::vec3{ 0.8f, 0.8f, 0.8f });
     light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });

@@ -12,6 +12,12 @@ layout (set = 0, binding = 0) uniform Camera
   vec3 eye;
 } camera;
 
+layout (std140, binding = 1) uniform ModelUbo
+{
+  mat4 model;
+  mat3 model_inverse_transpose;
+} model;
+
 struct Light
 {
   vec3 position;
@@ -61,10 +67,12 @@ void main()
   
   // Axis color
   vec3 diffuse_color = vec3(0.f, 0.f, 0.f);
-  if (abs(frag_tex_coord.x) <= thickness)
-    diffuse_color.r = 1.f;
   if (abs(frag_tex_coord.y) <= thickness)
+    diffuse_color.r = 1.f;
+  if (abs(frag_tex_coord.x) <= thickness)
     diffuse_color.g = 1.f;
+  if (frag_tex_coord.x < -thickness || frag_tex_coord.y < -thickness)
+    diffuse_color /= 5.f;
   diffuse_color = mix(vec3(1.f), diffuse_color, diffuse_strength);
 
   vec3 total_color = vec3(0.f, 0.f, 0.f);
@@ -89,7 +97,7 @@ void main()
     alpha = 0.f;
 
   const float z_alpha_offset = 1.f;
-  alpha *= smoothstep(0.f, z_alpha_offset, camera.eye.z) * 0.5f + 0.5f;
+  alpha *= smoothstep(0.f, z_alpha_offset, (inverse(model.model) * vec4(camera.eye, 1.f)).z) * 0.5f + 0.5f;
 
   // out_color = vec4(mix(texture(tex_sampler, frag_tex_coord).rgb, (frag_normal + 1.f) / 2.f, 0.5f), 1.f);
   out_color = vec4(total_color, alpha);

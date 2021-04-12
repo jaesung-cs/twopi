@@ -16,6 +16,8 @@
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
+#include <twopi/scene/camera.h>
+#include <twopi/scene/light.h>
 
 namespace twopi
 {
@@ -42,8 +44,23 @@ private:
   struct Memory
   {
     vk::DeviceMemory memory;
-    uint64_t offset;
-    uint64_t size;
+    uint64_t offset = 0;
+    uint64_t size = 0;
+  };
+
+  struct Buffer
+  {
+    vk::Buffer buffer;
+    Memory memory;
+  };
+
+  struct Mesh
+  {
+    Buffer buffer;
+    uint64_t position_offset;
+    uint64_t normal_offset;
+    uint64_t tex_coord_offset;
+    uint64_t index_offset;
   };
 
   // Binding 0
@@ -84,6 +101,18 @@ private:
     float shininess; // Padded
   };
 
+  struct DynamicUniformBuffer
+  {
+    Buffer buffer;
+    uint32_t stride = 0;
+  };
+
+  struct UniformBuffer
+  {
+    Buffer buffer;
+    uint32_t stride = 0;
+  };
+
 public:
   Impl() = delete;
 
@@ -96,6 +125,14 @@ public:
 
     mip_levels_ = 3;
 
+    num_objects_ = 3; // One floor, one object, one light
+
+    material_.specular = glm::vec3(1.f, 1.f, 1.f);
+    material_.shininess = 64.f;
+
+    floor_model_.model = glm::mat4(1.f);
+    floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
+
     Prepare();
   }
 
@@ -106,7 +143,52 @@ public:
 
   void Draw(core::Duration duration)
   {
-    std::cout << "Draw " << duration.count() << std::endl;
+    device_.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
+
+    const auto result = device_.acquireNextImageKHR(swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
+    if (result.result != vk::Result::eSuccess && result.result != vk::Result::eSuboptimalKHR)
+      throw core::Error("Failed to acquire next swapchain image.");
+
+    const auto& image_index = result.value;
+
+    if (images_in_flight_[image_index])
+      device_.waitForFences(images_in_flight_[image_index], true, UINT64_MAX);
+    images_in_flight_[image_index] = in_flight_fences_[current_frame_];
+
+    device_.resetFences(in_flight_fences_[current_frame_]);
+
+    // Update uniforms
+    std::memcpy(uniform_buffer_map_ + camera_ubos_[image_index].buffer.memory.offset, &camera_, sizeof(CameraUbo));
+    std::memcpy(uniform_buffer_map_ + light_ubos_[image_index].buffer.memory.offset, &lights_, sizeof(LightUbo));
+    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset, &floor_model_, sizeof(ModelUbo));
+    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride, &light_model_, sizeof(ModelUbo));
+    std::memcpy(dynamic_uniform_buffer_map_ + material_ubos_[image_index].buffer.memory.offset, &material_, sizeof(MaterialUbo));
+
+    std::vector<vk::PipelineStageFlags> stage_mask = {
+      vk::PipelineStageFlagBits::eColorAttachmentOutput,
+    };
+    vk::SubmitInfo submit_info;
+    submit_info
+      .setWaitSemaphores(image_available_semaphores_[current_frame_])
+      .setCommandBuffers(draw_command_buffers_[image_index])
+      .setSignalSemaphores(render_finished_semaphores_[current_frame_])
+      .setWaitDstStageMask(stage_mask);
+    graphics_queue_.submit(submit_info, in_flight_fences_[current_frame_]);
+
+    std::vector<uint32_t> image_indices{ image_index };
+    vk::PresentInfoKHR present_info;
+    present_info
+      .setSwapchains(swapchain_)
+      .setWaitSemaphores(render_finished_semaphores_[current_frame_])
+      .setImageIndices(image_indices);
+    const auto present_result = present_queue_.presentKHR(present_info);
+
+    if (present_result == vk::Result::eErrorOutOfDateKHR || present_result == vk::Result::eSuboptimalKHR)
+      throw core::Error("Need to recreate swapchain.");
+    else if (present_result != vk::Result::eSuccess)
+      throw core::Error("Failed to present swapchain image.");
+
+    current_frame_ = (current_frame_ + 1) % max_frames_in_flight_;
   }
 
   void Resize(int width, int height)
@@ -121,10 +203,41 @@ public:
 
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
   {
+    int num_directional_lights = 0;
+    int num_point_lights = 0;
+
+    for (auto light : lights)
+    {
+      LightUbo::Light light_data;
+      light_data.position = light->Position();
+      light_data.ambient = light->Ambient();
+      light_data.diffuse = light->Diffuse();
+      light_data.specular = light->Specular();
+
+      if (light->IsDirectionalLight())
+      {
+        light_data.position = glm::normalize(light_data.position);
+        lights_.directional_lights[num_directional_lights++] = light_data;
+      }
+      else if (light->IsPointLight())
+      {
+        lights_.point_lights[num_point_lights++] = light_data;
+
+        light_model_.model = glm::mat4(0.2f);
+        light_model_.model[3] = glm::vec4(light->Position(), 1.f);
+        light_model_.model_inverse_transpose = glm::inverse(glm::transpose(light_model_.model));
+      }
+    }
   }
 
   void UpdateCamera(std::shared_ptr<scene::Camera> camera)
   {
+    camera_.projection = camera->ProjectionMatrix();
+    camera_.projection[1][1] *= -1.f;
+
+    camera_.view = camera->ViewMatrix();
+
+    camera_.eye = camera->Eye();
   }
 
 private:
@@ -140,16 +253,18 @@ private:
     CreateDescriptorSet();
     CreateGraphicsPipelines();
     CreateCommandPool();
-
+    CreateSynchronizationObjects();
     PrepareResources();
+    CreateCommandBuffers();
   }
 
   void Cleanup()
   {
     device_.waitIdle();
 
+    DestroyCommandBuffers();
     CleanupResources();
-
+    DestroySynchronizationObjects();
     DestroyCommandPool();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
@@ -296,9 +411,7 @@ private:
   {
     // Find memroy type index
     uint64_t device_available_size = 0;
-    int device_index = 0;
     uint64_t host_available_size = 0;
-    int host_index = 0;
     const auto memory_properties = physical_device_.getMemoryProperties();
     for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
     {
@@ -310,7 +423,7 @@ private:
       {
         if (heap.size > device_available_size)
         {
-          device_index = i;
+          device_index_ = i;
           device_available_size = heap.size;
         }
       }
@@ -320,7 +433,7 @@ private:
       {
         if (heap.size > host_available_size)
         {
-          host_index = i;
+          host_index_ = i;
           host_available_size = heap.size;
         }
       }
@@ -331,11 +444,11 @@ private:
     vk::MemoryAllocateInfo allocate_info;
     allocate_info
       .setAllocationSize(chunk_size)
-      .setMemoryTypeIndex(device_index);
+      .setMemoryTypeIndex(device_index_);
     device_memory_ = device_.allocateMemory(allocate_info);
 
     allocate_info
-      .setMemoryTypeIndex(host_index);
+      .setMemoryTypeIndex(host_index_);
     host_memory_ = device_.allocateMemory(allocate_info);
   }
 
@@ -974,18 +1087,453 @@ private:
     device_.destroyCommandPool(transient_command_pool_);
   }
 
+  void CreateSynchronizationObjects()
+  {
+    vk::SemaphoreCreateInfo semaphore_create_info;
+    vk::FenceCreateInfo fence_create_info;
+
+    transfer_fence_ = device_.createFence(fence_create_info);
+
+    fence_create_info
+      .setFlags(vk::FenceCreateFlagBits::eSignaled);
+
+    for (int i = 0; i < swapchain_images_.size(); i++)
+    {
+      image_available_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
+      render_finished_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
+      in_flight_fences_.emplace_back(device_.createFence(fence_create_info));
+    }
+
+    images_in_flight_.resize(swapchain_images_.size());
+  }
+
+  void DestroySynchronizationObjects()
+  {
+    for (auto& semaphore : image_available_semaphores_)
+      device_.destroySemaphore(semaphore);
+    image_available_semaphores_.clear();
+
+    for (auto& semaphore : render_finished_semaphores_)
+      device_.destroySemaphore(semaphore);
+    render_finished_semaphores_.clear();
+
+    for (auto& fence : in_flight_fences_)
+      device_.destroyFence(fence);
+    in_flight_fences_.clear();
+
+    device_.destroyFence(transfer_fence_);
+  }
+
   void PrepareResources()
   {
-    // TODO: Allocate descriptor sets
+    // Dynamic ubo alignment
+    const auto dynamic_ubo_alignment = physical_device_.getProperties().limits.minUniformBufferOffsetAlignment;
+
+    const auto camera_stride = (sizeof(CameraUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
+    const auto light_stride = (sizeof(LightUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
+
+    // Uniform buffers
+    vk::BufferCreateInfo buffer_create_info;
+    buffer_create_info
+      .setSharingMode(vk::SharingMode::eExclusive)
+      .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
+      .setSize((camera_stride + light_stride) * swapchain_images_.size());
+    uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    uniform_buffer_.memory = AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
+    device_.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
+    uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(uniform_buffer_.memory.memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
+
+    camera_ubos_.resize(swapchain_images_.size());
+    for (int i = 0; i < camera_ubos_.size(); i++)
+    {
+      Buffer buffer;
+      buffer.buffer = uniform_buffer_.buffer;
+      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * i;
+      buffer.memory.size = sizeof(CameraUbo);
+
+      camera_ubos_[i].buffer = buffer;
+    }
+
+    light_ubos_.resize(swapchain_images_.size());
+    for (int i = 0; i < light_ubos_.size(); i++)
+    {
+      Buffer buffer;
+      buffer.buffer = uniform_buffer_.buffer;
+      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * camera_ubos_.size() + light_stride * i;
+      buffer.memory.size = sizeof(LightUbo);
+
+      light_ubos_[i].buffer = buffer;
+    }
+
+    // Dynamic uniform buffers
+    const auto model_stride = (sizeof(ModelUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
+    const auto material_stride = (sizeof(MaterialUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
+
+    buffer_create_info
+      .setSize((model_stride + material_stride) * num_objects_ * swapchain_images_.size());
+    dynamic_uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    dynamic_uniform_buffer_.memory = AllocatePersistentlyMappedMemory(dynamic_uniform_buffer_.buffer);
+    device_.bindBufferMemory(dynamic_uniform_buffer_.buffer, dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset);
+    dynamic_uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset, dynamic_uniform_buffer_.memory.size));
+
+    model_ubos_.resize(swapchain_images_.size());
+    for (int i = 0; i < model_ubos_.size(); i++)
+    {
+      Buffer buffer;
+      buffer.buffer = dynamic_uniform_buffer_.buffer;
+      buffer.memory.memory = dynamic_uniform_buffer_.memory.memory;
+      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * i;
+      buffer.memory.size = sizeof(ModelUbo);
+
+      model_ubos_[i].buffer = buffer;
+      model_ubos_[i].stride = model_stride;
+    }
+
+    material_ubos_.resize(swapchain_images_.size());
+    for (int i = 0; i < material_ubos_.size(); i++)
+    {
+      Buffer buffer;
+      buffer.buffer = dynamic_uniform_buffer_.buffer;
+      buffer.memory.memory = dynamic_uniform_buffer_.memory.memory;
+      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * num_objects_ * swapchain_images_.size() + material_stride * i;
+      buffer.memory.size = sizeof(MaterialUbo);
+
+      material_ubos_[i].buffer = buffer;
+      material_ubos_[i].stride = material_stride;
+    }
+
+    // Allocate descriptor sets
+    std::vector<vk::DescriptorSetLayout> layouts(swapchain_images_.size(), descriptor_set_layout_);
+    vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+    descriptor_set_allocate_info
+      .setSetLayouts(layouts)
+      .setDescriptorPool(descriptor_pool_);
+
+    descriptor_sets_ = device_.allocateDescriptorSets(descriptor_set_allocate_info);
+
+    std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
+    std::vector<vk::DescriptorImageInfo> image_infos(1);
+    image_infos[0]
+      .setSampler(sampler_)
+      .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    std::vector<vk::WriteDescriptorSet> writes;
+    vk::WriteDescriptorSet write;
+    write
+      .setDstBinding(0)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(1)
+      .setDstArrayElement(0);
+    writes.push_back(write);
+
+    write
+      .setDstBinding(1)
+      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+    writes.push_back(write);
+
+    write
+      .setDstBinding(2)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+    writes.push_back(write);
+
+    write
+      .setDstBinding(3)
+      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+    writes.push_back(write);
+
+    // TODO
+    /*
+    write
+      .setDstBinding(4)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    writes.push_back(write);
+    */
+
+    for (int i = 0; i < swapchain_images_.size(); i++)
+    {
+      buffer_infos[0]
+        .setBuffer(camera_ubos_[i].buffer.buffer)
+        .setOffset(camera_ubos_[i].buffer.memory.offset)
+        .setRange(camera_stride);
+
+      buffer_infos[1]
+        .setBuffer(model_ubos_[i].buffer.buffer)
+        .setOffset(model_ubos_[i].buffer.memory.offset)
+        .setRange(model_ubos_[i].stride);
+
+      buffer_infos[2]
+        .setBuffer(light_ubos_[i].buffer.buffer)
+        .setOffset(light_ubos_[i].buffer.memory.offset)
+        .setRange(light_stride);
+
+      buffer_infos[3]
+        .setBuffer(material_ubos_[i].buffer.buffer)
+        .setOffset(material_ubos_[i].buffer.memory.offset)
+        .setRange(material_ubos_[i].stride);
+
+      writes[0].setBufferInfo(buffer_infos[0]);
+      writes[1].setBufferInfo(buffer_infos[1]);
+      writes[2].setBufferInfo(buffer_infos[2]);
+      writes[3].setBufferInfo(buffer_infos[3]);
+
+      // TODO: image
+      /*
+      image_infos[0];
+      writes[4].setImageInfo(image_infos[0]);
+      */
+
+      for (auto& write : writes)
+        write.setDstSet(descriptor_sets_[i]);
+
+      device_.updateDescriptorSets(writes, nullptr);
+    }
+
+    // Stage buffer
+    buffer_create_info
+      .setSharingMode(vk::SharingMode::eExclusive)
+      .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
+      .setSize(32 * 1024 * 1024); // 32MB
+    stage_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    stage_buffer_.memory = AllocateHostMemory(stage_buffer_.buffer);
+    device_.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.memory, stage_buffer_.memory.offset);
+
+    // Floor
+    constexpr float floor_range = 30.f;
+
+    std::vector<float> floor_buffer = {
+      // position
+      -floor_range, -floor_range, 0.f,
+      floor_range, -floor_range, 0.f,
+      -floor_range, floor_range, 0.f,
+      floor_range, floor_range, 0.f,
+      // normal
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      0.f, 0.f, 1.f,
+      // tex_coord
+      -floor_range, -floor_range,
+      floor_range, -floor_range,
+      -floor_range, floor_range,
+      floor_range, floor_range,
+    };
+
+    std::vector<uint32_t> floor_indices = {
+      0, 1, 2, 2, 1, 3
+    };
+
+    floor_position_offset_ = 0;
+    floor_normal_offset_ = sizeof(float) * 12;
+    floor_tex_coord_offset_ = sizeof(float) * 24;
+    floor_index_offset_ = sizeof(float) * 32;
+    floor_num_indices_ = static_cast<uint32_t>(floor_indices.size());
+
+    const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
+
+    auto* ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset, floor_buffer_size));
+    std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
+    device_.unmapMemory(stage_buffer_.memory.memory);
+
+    buffer_create_info
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
+      .setSize(floor_buffer_size);
+    floor_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    floor_buffer_.memory = AllocateDeviceMemory(floor_buffer_.buffer);
+    device_.bindBufferMemory(floor_buffer_.buffer, floor_buffer_.memory.memory, floor_buffer_.memory.offset);
+
+    vk::CommandBufferAllocateInfo allocate_info;
+    allocate_info
+      .setLevel(vk::CommandBufferLevel::ePrimary)
+      .setCommandPool(transient_command_pool_)
+      .setCommandBufferCount(2);
+    auto transfer_commands = device_.allocateCommandBuffers(allocate_info);
+
+    vk::CommandBufferBeginInfo begin_info;
+    begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    transfer_commands[0].begin(begin_info);
+
+    vk::BufferCopy region;
+    region
+      .setSrcOffset(0)
+      .setDstOffset(0)
+      .setSize(floor_buffer_size);
+    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_buffer_.buffer, region);
+    transfer_commands[0].end();
+
+    // Sphere
+    constexpr int sphere_grid_size = 32;
+
+    std::vector<float> sphere_vertex_buffer;
+    std::vector<float> sphere_normal_buffer;
+    std::vector<uint32_t> sphere_index_buffer;
+    const uint32_t top_index = sphere_grid_size * (sphere_grid_size - 1);
+    const uint32_t bottom_index = top_index + 1;
+    for (int i = 0; i < sphere_grid_size; i++)
+    {
+      sphere_index_buffer.push_back(top_index);
+      sphere_index_buffer.push_back(i * (sphere_grid_size - 1));
+      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1));
+
+      const float u = static_cast<float>(i) / sphere_grid_size;
+      const float theta = u * 2.f * glm::pi<float>();
+      for (int j = 1; j < sphere_grid_size; j++)
+      {
+        const float v = static_cast<float>(j) / sphere_grid_size;
+        const float phi = v * glm::pi<float>();
+        sphere_vertex_buffer.push_back(std::cos(theta) * std::sin(phi));
+        sphere_vertex_buffer.push_back(std::sin(theta) * std::sin(phi));
+        sphere_vertex_buffer.push_back(std::cos(phi));
+        sphere_normal_buffer.push_back(std::cos(theta) * std::sin(phi));
+        sphere_normal_buffer.push_back(std::sin(theta) * std::sin(phi));
+        sphere_normal_buffer.push_back(std::cos(phi));
+
+        if (j < sphere_grid_size - 1)
+        {
+          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
+
+          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
+          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
+          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j);
+        }
+      }
+
+      sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + sphere_grid_size - 2);
+      sphere_index_buffer.push_back(bottom_index);
+      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + sphere_grid_size - 2);
+    }
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(1.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(1.f);
+
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(0.f);
+    sphere_vertex_buffer.push_back(-1.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(0.f);
+    sphere_normal_buffer.push_back(-1.f);
+
+    sphere_position_offset_ = 0;
+    sphere_normal_offset_ = static_cast<uint32_t>(sphere_vertex_buffer.size()) * sizeof(float);
+    sphere_index_offset_ = static_cast<uint32_t>(sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
+    sphere_num_indices_ = static_cast<uint32_t>(sphere_index_buffer.size());
+
+    const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
+    ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
+    std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
+    device_.unmapMemory(stage_buffer_.memory.memory);
+
+    buffer_create_info
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
+      .setSize(sphere_buffer_size);
+    sphere_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    sphere_buffer_.memory = AllocateDeviceMemory(sphere_buffer_.buffer);
+    device_.bindBufferMemory(sphere_buffer_.buffer, sphere_buffer_.memory.memory, sphere_buffer_.memory.offset);
+
+    transfer_commands[1].begin(begin_info);
+    region
+      .setSrcOffset(floor_buffer_size)
+      .setDstOffset(0)
+      .setSize(sphere_buffer_size);
+    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_buffer_.buffer, region);
+    transfer_commands[1].end();
+
+    vk::SubmitInfo submit_info;
+    submit_info.setCommandBuffers(transfer_commands);
+    graphics_queue_.submit(submit_info, transfer_fence_);
+
+    const auto result = device_.waitForFences(transfer_fence_, true, UINT64_MAX);
   }
 
   void CleanupResources()
   {
-    if (!descriptor_sets_.empty())
+    device_.unmapMemory(uniform_buffer_.memory.memory);
+    device_.freeMemory(uniform_buffer_.memory.memory);
+    device_.unmapMemory(dynamic_uniform_buffer_.memory.memory);
+    device_.freeMemory(dynamic_uniform_buffer_.memory.memory);
+
+    device_.destroyBuffer(floor_buffer_.buffer);
+    device_.destroyBuffer(sphere_buffer_.buffer);
+    device_.destroyBuffer(stage_buffer_.buffer);
+    device_.destroyBuffer(uniform_buffer_.buffer);
+    device_.destroyBuffer(dynamic_uniform_buffer_.buffer);
+  }
+
+  void CreateCommandBuffers()
+  {
+    vk::CommandBufferAllocateInfo allocate_info;
+    allocate_info
+      .setCommandPool(command_pool_)
+      .setLevel(vk::CommandBufferLevel::ePrimary)
+      .setCommandBufferCount(static_cast<uint32_t>(swapchain_images_.size()));
+    draw_command_buffers_ = device_.allocateCommandBuffers(allocate_info);
+
+    for (int i = 0; i < swapchain_images_.size(); i++)
     {
-      device_.freeDescriptorSets(descriptor_pool_, descriptor_sets_);
-      descriptor_sets_.clear();
+      auto& command_buffer = draw_command_buffers_[i];
+
+      vk::CommandBufferBeginInfo begin_info;
+      command_buffer.begin(begin_info);
+
+      std::array<vk::ClearValue, 2> clear_values = {
+        vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
+        vk::ClearDepthStencilValue{ 1.f, 0u }
+      };
+
+      vk::RenderPassBeginInfo render_pass_begin_info;
+      render_pass_begin_info
+        .setClearValues(clear_values)
+        .setRenderPass(swapchain_render_pass_)
+        .setFramebuffer(swapchain_framebuffers_[i])
+        .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
+      command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+      // Sphere
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, color_pipeline_);
+
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+        { descriptor_sets_[i] }, { model_ubos_[i].stride, 0 });
+
+      command_buffer.bindVertexBuffers(0,
+        { sphere_buffer_.buffer, sphere_buffer_.buffer },
+        { sphere_position_offset_, sphere_normal_offset_ });
+
+      command_buffer.bindIndexBuffer(sphere_buffer_.buffer, sphere_index_offset_, vk::IndexType::eUint32);
+
+      command_buffer.drawIndexed(sphere_num_indices_, 1, 0, 0, 0);
+
+      // Floor
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
+
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+        { descriptor_sets_[i] }, { 0ull, 0ull });
+
+      command_buffer.bindVertexBuffers(0,
+        { floor_buffer_.buffer, floor_buffer_.buffer, floor_buffer_.buffer },
+        { floor_position_offset_, floor_normal_offset_, floor_tex_coord_offset_ });
+
+      command_buffer.bindIndexBuffer(floor_buffer_.buffer, floor_index_offset_, vk::IndexType::eUint32);
+
+      command_buffer.drawIndexed(floor_num_indices_, 1, 0, 0, 0);
+
+      command_buffer.endRenderPass();
+      command_buffer.end();
     }
+  }
+
+  void DestroyCommandBuffers()
+  {
+    device_.freeCommandBuffers(command_pool_, draw_command_buffers_);
+    draw_command_buffers_.clear();
   }
 
   Memory AllocateDeviceMemory(vk::Image image)
@@ -1025,6 +1573,30 @@ private:
     memory.offset = (host_memory_offset_ + requirements.alignment - 1) / requirements.alignment * requirements.alignment;
     memory.size = requirements.size;
     host_memory_offset_ = memory.offset + memory.size;
+    return memory;
+  }
+
+  Memory AllocatePersistentlyMappedMemory(vk::Image image)
+  {
+    return AllocatePersistentlyMappedMemory(device_.getImageMemoryRequirements(image));
+  }
+
+  Memory AllocatePersistentlyMappedMemory(vk::Buffer buffer)
+  {
+    return AllocatePersistentlyMappedMemory(device_.getBufferMemoryRequirements(buffer));
+  }
+
+  Memory AllocatePersistentlyMappedMemory(const vk::MemoryRequirements& requirements)
+  {
+    vk::MemoryAllocateInfo allocate_info;
+    allocate_info
+      .setMemoryTypeIndex(host_index_)
+      .setAllocationSize(requirements.size);
+
+    Memory memory;
+    memory.memory = device_.allocateMemory(allocate_info);
+    memory.offset = 0;
+    memory.size = requirements.size;
     return memory;
   }
 
@@ -1068,6 +1640,8 @@ private:
   vk::Queue present_queue_;
 
   // Memory
+  uint32_t device_index_ = 0;
+  uint32_t host_index_ = 0;
   vk::DeviceMemory device_memory_;
   vk::DeviceMemory host_memory_;
   uint64_t device_memory_offset_ = 0;
@@ -1110,6 +1684,52 @@ private:
   // Commands
   vk::CommandPool command_pool_;
   vk::CommandPool transient_command_pool_;
+  std::vector<vk::CommandBuffer> draw_command_buffers_;
+
+  // Uniform buffers per swapchain framebuffer
+  Buffer uniform_buffer_;
+  unsigned char* uniform_buffer_map_;
+  Buffer dynamic_uniform_buffer_;
+  unsigned char* dynamic_uniform_buffer_map_;
+  std::vector<UniformBuffer> camera_ubos_;
+  std::vector<DynamicUniformBuffer> model_ubos_;
+  std::vector<UniformBuffer> light_ubos_;
+  std::vector<DynamicUniformBuffer> material_ubos_;
+  uint32_t num_objects_ = 0;
+
+  CameraUbo camera_;
+  LightUbo lights_;
+  MaterialUbo material_;
+  ModelUbo floor_model_;
+  ModelUbo light_model_;
+
+  // Stage buffer
+  Buffer stage_buffer_;
+
+  // Floor buffer
+  Buffer floor_buffer_;
+  uint32_t floor_position_offset_ = 0;
+  uint32_t floor_normal_offset_ = 0;
+  uint32_t floor_tex_coord_offset_ = 0;
+  uint32_t floor_index_offset_ = 0;
+  uint32_t floor_num_indices_ = 0;
+
+  // Sphere buffer
+  Buffer sphere_buffer_;
+  uint32_t sphere_position_offset_ = 0;
+  uint32_t sphere_normal_offset_ = 0;
+  uint32_t sphere_index_offset_ = 0;
+  uint32_t sphere_num_indices_ = 0;
+
+  // Synchronization
+  vk::Fence transfer_fence_;
+
+  static constexpr uint32_t max_frames_in_flight_ = 2;
+  uint32_t current_frame_ = 0;
+  std::vector<vk::Semaphore> image_available_semaphores_;
+  std::vector<vk::Semaphore> render_finished_semaphores_;
+  std::vector<vk::Fence> in_flight_fences_;
+  std::vector<vk::Fence> images_in_flight_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
