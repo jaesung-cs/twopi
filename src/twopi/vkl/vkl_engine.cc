@@ -18,6 +18,8 @@
 #include <twopi/window/glfw_window.h>
 #include <twopi/scene/camera.h>
 #include <twopi/scene/light.h>
+#include <twopi/geometry/mesh.h>
+#include <twopi/geometry/mesh_loader.h>
 
 namespace twopi
 {
@@ -133,6 +135,10 @@ public:
     floor_model_.model = glm::mat4(1.f);
     floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
 
+    mesh_model_.model = glm::rotate(glm::pi<float>() / 2.f, glm::vec3(1.f, 0.f, 0.f));
+    mesh_model_.model[3][2] = 1.f;
+    mesh_model_.model_inverse_transpose = glm::inverse(glm::transpose(mesh_model_.model));
+
     Prepare();
   }
 
@@ -162,6 +168,7 @@ public:
     std::memcpy(uniform_buffer_map_ + light_ubos_[image_index].buffer.memory.offset, &lights_, sizeof(LightUbo));
     std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset, &floor_model_, sizeof(ModelUbo));
     std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride, &light_model_, sizeof(ModelUbo));
+    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride * 2, &mesh_model_, sizeof(ModelUbo));
     std::memcpy(dynamic_uniform_buffer_map_ + material_ubos_[image_index].buffer.memory.offset, &material_, sizeof(MaterialUbo));
 
     std::vector<vk::PipelineStageFlags> stage_mask = {
@@ -855,7 +862,7 @@ private:
       .setRasterizerDiscardEnable(false)
       .setPolygonMode(vk::PolygonMode::eFill)
       .setLineWidth(1.f)
-      .setCullMode(vk::CullModeFlagBits::eNone)
+      .setCullMode(vk::CullModeFlagBits::eBack)
       .setFrontFace(vk::FrontFace::eCounterClockwise)
       .setDepthBiasEnable(false);
 
@@ -1348,7 +1355,7 @@ private:
     allocate_info
       .setLevel(vk::CommandBufferLevel::ePrimary)
       .setCommandPool(transient_command_pool_)
-      .setCommandBufferCount(2);
+      .setCommandBufferCount(3);
     auto transfer_commands = device_.allocateCommandBuffers(allocate_info);
 
     vk::CommandBufferBeginInfo begin_info;
@@ -1393,12 +1400,12 @@ private:
         if (j < sphere_grid_size - 1)
         {
           sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j - 1);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
           sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
+          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
 
           sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
           sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j);
+          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
         }
       }
 
@@ -1433,7 +1440,6 @@ private:
     device_.unmapMemory(stage_buffer_.memory.memory);
 
     buffer_create_info
-      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSize(sphere_buffer_size);
     sphere_buffer_.buffer = device_.createBuffer(buffer_create_info);
     sphere_buffer_.memory = AllocateDeviceMemory(sphere_buffer_.buffer);
@@ -1447,6 +1453,44 @@ private:
     transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_buffer_.buffer, region);
     transfer_commands[1].end();
 
+    // Mesh loading
+    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj";
+    const auto mesh = geometry::MeshLoader{}.Load(mesh_filepath);
+
+    const auto& mesh_vertices = mesh->Vertices();
+    const auto& mesh_normals = mesh->Normals();
+    const auto& mesh_tex_coords = mesh->TexCoords();
+    const auto& mesh_indices = mesh->Indices();
+
+    mesh_position_offset_ = 0;
+    mesh_normal_offset_ = static_cast<uint32_t>(mesh_vertices.size()) * sizeof(float);
+    mesh_tex_coord_offset_ = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size()) * sizeof(float);
+    mesh_index_offset_ = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size() + mesh_tex_coords.size()) * sizeof(float);
+    mesh_num_indices_ = static_cast<uint32_t>(mesh_indices.size());
+
+    const auto mesh_buffer_size = mesh_index_offset_ + mesh_indices.size() * sizeof(uint32_t);
+    ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
+    std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
+    std::memcpy(ptr + mesh_normal_offset_, mesh_normals.data(), mesh_normals.size() * sizeof(float));
+    std::memcpy(ptr + mesh_tex_coord_offset_, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
+    std::memcpy(ptr + mesh_index_offset_, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
+    device_.unmapMemory(stage_buffer_.memory.memory);
+
+    buffer_create_info
+      .setSize(mesh_buffer_size);
+    mesh_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    mesh_buffer_.memory = AllocateDeviceMemory(mesh_buffer_.buffer);
+    device_.bindBufferMemory(mesh_buffer_.buffer, mesh_buffer_.memory.memory, mesh_buffer_.memory.offset);
+
+    transfer_commands[2].begin(begin_info);
+    region
+      .setSrcOffset(floor_buffer_size + sphere_buffer_size)
+      .setDstOffset(0)
+      .setSize(mesh_buffer_size);
+    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_buffer_.buffer, region);
+    transfer_commands[2].end();
+
+    // Submit transfer commands
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_commands);
     graphics_queue_.submit(submit_info, transfer_fence_);
@@ -1463,6 +1507,7 @@ private:
 
     device_.destroyBuffer(floor_buffer_.buffer);
     device_.destroyBuffer(sphere_buffer_.buffer);
+    device_.destroyBuffer(mesh_buffer_.buffer);
     device_.destroyBuffer(stage_buffer_.buffer);
     device_.destroyBuffer(uniform_buffer_.buffer);
     device_.destroyBuffer(dynamic_uniform_buffer_.buffer);
@@ -1511,6 +1556,18 @@ private:
 
       command_buffer.drawIndexed(sphere_num_indices_, 1, 0, 0, 0);
 
+      // Mesh
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+        { descriptor_sets_[i] }, { model_ubos_[i].stride * 2, 0 });
+
+      command_buffer.bindVertexBuffers(0,
+        { mesh_buffer_.buffer, mesh_buffer_.buffer },
+        { mesh_position_offset_, mesh_normal_offset_ });
+
+      command_buffer.bindIndexBuffer(mesh_buffer_.buffer, mesh_index_offset_, vk::IndexType::eUint32);
+
+      command_buffer.drawIndexed(mesh_num_indices_, 1, 0, 0, 0);
+      
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
 
@@ -1701,6 +1758,7 @@ private:
   LightUbo lights_;
   MaterialUbo material_;
   ModelUbo floor_model_;
+  ModelUbo mesh_model_;
   ModelUbo light_model_;
 
   // Stage buffer
@@ -1720,6 +1778,14 @@ private:
   uint32_t sphere_normal_offset_ = 0;
   uint32_t sphere_index_offset_ = 0;
   uint32_t sphere_num_indices_ = 0;
+
+  // Mesh
+  Buffer mesh_buffer_;
+  uint32_t mesh_position_offset_ = 0;
+  uint32_t mesh_normal_offset_ = 0;
+  uint32_t mesh_tex_coord_offset_ = 0;
+  uint32_t mesh_index_offset_ = 0;
+  uint32_t mesh_num_indices_ = 0;
 
   // Synchronization
   vk::Fence transfer_fence_;
