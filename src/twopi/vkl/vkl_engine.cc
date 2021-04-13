@@ -56,6 +56,12 @@ private:
     Memory memory;
   };
 
+  struct Image
+  {
+    vk::Image image;
+    Memory memory;
+  };
+
   struct Mesh
   {
     Buffer buffer;
@@ -263,11 +269,15 @@ private:
     CreateSynchronizationObjects();
     PrepareResources();
     CreateCommandBuffers();
+
+    PrepareShadowMap();
   }
 
   void Cleanup()
   {
     device_.waitIdle();
+
+    CleanupShadowMap();
 
     DestroyCommandBuffers();
     CleanupResources();
@@ -1593,6 +1603,97 @@ private:
     draw_command_buffers_.clear();
   }
 
+  void PrepareShadowMap()
+  {
+    // Image
+    vk::ImageCreateInfo image_create_info;
+    image_create_info
+      .setImageType(vk::ImageType::e2D)
+      .setFormat(vk::Format::eR32Sfloat)
+      .setExtent(vk::Extent3D{ shadowmap_width_, shadowmap_height_, 1 })
+      .setMipLevels(1)
+      .setArrayLayers(6)
+      .setSamples(vk::SampleCountFlagBits::e1)
+      .setTiling(vk::ImageTiling::eOptimal)
+      .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+      .setSharingMode(vk::SharingMode::eExclusive)
+      .setInitialLayout(vk::ImageLayout::eUndefined)
+      .setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
+    shadow_map_image_.image = device_.createImage(image_create_info);
+    shadow_map_image_.memory = AllocateDeviceMemory(shadow_map_image_.image);
+    device_.bindImageMemory(shadow_map_image_.image, shadow_map_image_.memory.memory, shadow_map_image_.memory.offset);
+
+    // Image layout transition
+    vk::ImageSubresourceRange subresource_range;
+    subresource_range
+      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setLevelCount(1)
+      .setBaseMipLevel(0)
+      .setLayerCount(6)
+      .setBaseArrayLayer(0);
+
+    vk::CommandBufferAllocateInfo command_buffer_allocate_info;
+    command_buffer_allocate_info
+      .setLevel(vk::CommandBufferLevel::ePrimary)
+      .setCommandPool(transient_command_pool_)
+      .setCommandBufferCount(1);
+    const auto command_buffers = device_.allocateCommandBuffers(command_buffer_allocate_info);
+
+    auto command_buffer = command_buffers[0];
+    vk::CommandBufferBeginInfo begin_info;
+    begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    command_buffer.begin(begin_info);
+
+    ChangeImageLayout(command_buffer, shadow_map_image_.image,
+      vk::ImageLayout::eUndefined,
+      vk::ImageLayout::eShaderReadOnlyOptimal,
+      subresource_range);
+
+    command_buffer.end();
+
+    device_.resetFences(transfer_fence_);
+    vk::SubmitInfo submit_info;
+    submit_info.setCommandBuffers(command_buffer);
+    graphics_queue_.submit(submit_info, transfer_fence_);
+    device_.waitForFences(transfer_fence_, true, UINT64_MAX);
+
+    device_.freeCommandBuffers(transient_command_pool_, command_buffers);
+
+    // Sampler
+    vk::SamplerCreateInfo sampler_create_info;
+    sampler_create_info
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eClampToBorder)
+      .setAddressModeV(vk::SamplerAddressMode::eClampToBorder)
+      .setAddressModeW(vk::SamplerAddressMode::eClampToBorder)
+      .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+      .setCompareOp(vk::CompareOp::eNever)
+      .setMinLod(0.f)
+      .setMaxLod(1.f)
+      .setMipLodBias(0.f)
+      .setMaxAnisotropy(1.f);
+    shadow_map_sampler_ = device_.createSampler(sampler_create_info);
+
+    // Shadow map image view
+    vk::ImageViewCreateInfo image_view_create_info;
+    image_view_create_info
+      .setImage(shadow_map_image_.image)
+      .setViewType(vk::ImageViewType::eCube)
+      .setFormat(vk::Format::eR32Sfloat)
+      .setComponents(vk::ComponentSwizzle::eR)
+      .setSubresourceRange(vk::ImageSubresourceRange{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 6 });
+    shadow_map_image_view_ = device_.createImageView(image_view_create_info);
+  }
+
+  void CleanupShadowMap()
+  {
+    device_.destroyImageView(shadow_map_image_view_);
+    device_.destroySampler(shadow_map_sampler_);
+    device_.destroyImage(shadow_map_image_.image);
+  }
+
   Memory AllocateDeviceMemory(vk::Image image)
   {
     return AllocateDeviceMemory(device_.getImageMemoryRequirements(image));
@@ -1679,6 +1780,44 @@ private:
     shader_module_create_info
       .setCode(code);
     return device_.createShaderModule(shader_module_create_info);
+  }
+
+  void ChangeImageLayout(vk::CommandBuffer& command_buffer, vk::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, vk::ImageSubresourceRange subresource_range)
+  {
+    vk::ImageMemoryBarrier image_memory_barrier;
+    image_memory_barrier
+      .setOldLayout(old_layout)
+      .setNewLayout(new_layout)
+      .setImage(image)
+      .setSubresourceRange(subresource_range);
+
+    switch (old_layout)
+    {
+    case vk::ImageLayout::eUndefined:
+      // Image layout is undefined (or does not matter)
+      // Only valid as initial layout
+      // No flags required, listed only for completeness
+      image_memory_barrier.setSrcAccessMask(vk::AccessFlags{});
+      break;
+    }
+
+    switch (new_layout)
+    {
+      // Image will be read in a shader (sampler, input attachment)
+      // Make sure any writes to the image have been finished
+      if (image_memory_barrier.srcAccessMask == vk::AccessFlags{})
+        image_memory_barrier.setSrcAccessMask(vk::AccessFlagBits::eHostWrite | vk::AccessFlagBits::eTransferWrite);
+      image_memory_barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+      break;
+    }
+
+    command_buffer.pipelineBarrier(
+      vk::PipelineStageFlagBits::eAllCommands,
+      vk::PipelineStageFlagBits::eAllCommands,
+      vk::DependencyFlags{},
+      nullptr,
+      nullptr,
+      image_memory_barrier);
   }
 
   GLFWwindow* glfw_window_handle_;
@@ -1796,6 +1935,13 @@ private:
   std::vector<vk::Semaphore> render_finished_semaphores_;
   std::vector<vk::Fence> in_flight_fences_;
   std::vector<vk::Fence> images_in_flight_;
+
+  // Shadow map
+  Image shadow_map_image_;
+  vk::Sampler shadow_map_sampler_;
+  vk::ImageView shadow_map_image_view_;
+  uint32_t shadowmap_width_ = 1024;
+  uint32_t shadowmap_height_ = 1024;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
