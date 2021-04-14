@@ -222,17 +222,19 @@ private:
 
   void UpdateKeyboard(double dt)
   {
+    const auto dtf = static_cast<float>(dt);
+
     // Move camera
     if (key_pressed_['W'])
-      camera_control_->MoveForward(dt);
+      camera_control_->MoveForward(dtf);
     if (key_pressed_['S'])
-      camera_control_->MoveForward(-dt);
+      camera_control_->MoveForward(-dtf);
     if (key_pressed_['A'])
-      camera_control_->MoveRight(-dt);
+      camera_control_->MoveRight(-dtf);
     if (key_pressed_['D'])
-      camera_control_->MoveRight(dt);
+      camera_control_->MoveRight(dtf);
     if (key_pressed_[' '])
-      camera_control_->MoveUp(dt);
+      camera_control_->MoveUp(dtf);
   }
 
   void SwapBuffers()

@@ -21,7 +21,7 @@ GraphicsPipeline::Creator::Creator(Device device)
     .setRasterizerDiscardEnable(false)
     .setPolygonMode(vk::PolygonMode::eFill)
     .setLineWidth(1.f)
-    .setCullMode(vk::CullModeFlagBits::eNone)
+    .setCullMode(vk::CullModeFlagBits::eBack)
     .setFrontFace(vk::FrontFace::eCounterClockwise)
     .setDepthBiasEnable(false);
 

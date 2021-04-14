@@ -131,6 +131,8 @@ public:
 
     width_ = window->Width();
     height_ = window->Height();
+    max_width_ = window->MaxWidth();
+    max_height_ = window->MaxHeight();
     image_count_ = 3;
 
     mip_levels_ = 3;
@@ -267,6 +269,7 @@ private:
     CreateDevice();
     PreallocateMemories();
     CreateSwapchain();
+    PreallocateRenderPassAttachments();
     CreateRenderPass();
     CreateSwapchainFramebuffers();
     CreateSampler();
@@ -605,6 +608,36 @@ private:
     device_.destroySwapchainKHR(swapchain_);
   }
 
+  void PreallocateRenderPassAttachments()
+  {
+    // Allocate render pass attachment image memories
+    vk::ImageCreateInfo image_create_info;
+    image_create_info
+      .setImageType(vk::ImageType::e2D)
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setTiling(vk::ImageTiling::eOptimal)
+      .setInitialLayout(vk::ImageLayout::eUndefined)
+      .setSharingMode(vk::SharingMode::eExclusive)
+      .setSamples(vk::SampleCountFlagBits::e4)
+      .setExtent(vk::Extent3D{ max_width_, max_height_, 1 })
+      .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
+      .setFormat(swapchain_image_format_);
+    auto limit_rendertarget_image = device_.createImage(image_create_info);
+
+    rendertarget_image_memory_ = AllocateDeviceMemory(limit_rendertarget_image);
+
+    image_create_info
+      .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
+      .setFormat(vk::Format::eD24UnormS8Uint);
+    auto limit_depth_image = device_.createImage(image_create_info);
+
+    depth_image_memory_ = AllocateDeviceMemory(limit_depth_image);
+
+    device_.destroyImage(limit_rendertarget_image);
+    device_.destroyImage(limit_depth_image);
+  }
+
   void CreateRenderPass()
   {
     // Create multisample rendertarget image
@@ -622,7 +655,6 @@ private:
       .setFormat(swapchain_image_format_);
     rendertarget_image_ = device_.createImage(image_create_info);
 
-    rendertarget_image_memory_ = AllocateDeviceMemory(rendertarget_image_);
     device_.bindImageMemory(rendertarget_image_, rendertarget_image_memory_.memory, rendertarget_image_memory_.offset);
 
     vk::ImageSubresourceRange image_subresource_range;
@@ -650,7 +682,6 @@ private:
       .setFormat(vk::Format::eD24UnormS8Uint);
     depth_image_ = device_.createImage(image_create_info);
 
-    depth_image_memory_ = AllocateDeviceMemory(depth_image_);
     device_.bindImageMemory(depth_image_, depth_image_memory_.memory, depth_image_memory_.offset);
 
     image_subresource_range
@@ -1892,6 +1923,8 @@ private:
   vk::Format swapchain_image_format_;
   uint32_t width_ = 0;
   uint32_t height_ = 0;
+  uint32_t max_width_ = 0;
+  uint32_t max_height_ = 0;
   std::vector<vk::Image> swapchain_images_;
   std::vector<vk::ImageView> swapchain_image_views_;
   vk::Image rendertarget_image_;

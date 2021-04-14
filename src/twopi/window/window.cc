@@ -20,6 +20,9 @@ public:
     height_ = height;
   }
 
+  auto MaxWidth() const { return 1920; }
+  auto MaxHeight() const { return 1080; }
+
 private:
   int width_ = 1600;
   int height_ = 900;
@@ -46,5 +49,16 @@ void Window::Resized(int width, int height)
 {
   impl_->Resized(width, height);
 }
+
+int Window::MaxWidth() const
+{
+  return impl_->MaxWidth();
+}
+
+int Window::MaxHeight() const
+{
+  return impl_->MaxHeight();
+}
+
 }
 }

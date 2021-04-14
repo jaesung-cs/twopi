@@ -53,6 +53,9 @@ private:
   }
 
 public:
+  auto MaxWidth() const { return 1920; }
+  auto MaxHeight() const { return 1080; }
+
   Impl() = delete;
 
   Impl(GlfwWindow* base)
@@ -73,6 +76,8 @@ public:
     glfwSetKeyCallback(window_, key_callback);
     glfwSetScrollCallback(window_, scroll_callback);
     glfwSetWindowSizeCallback(window_, resize_callback);
+
+    glfwSetWindowSizeLimits(window_, 100, 100, MaxWidth(), MaxHeight());
 
     glfwSetWindowPos(window_, 100, 100);
   }
@@ -255,6 +260,16 @@ std::vector<std::shared_ptr<Event>> GlfwWindow::PollEvents(core::Timestamp times
 void GlfwWindow::SwapBuffers()
 {
   impl_->SwapBuffers();
+}
+
+int GlfwWindow::MaxWidth() const
+{
+  return impl_->MaxWidth();
+}
+
+int GlfwWindow::MaxHeight() const
+{
+  return impl_->MaxHeight();
 }
 }
 }
