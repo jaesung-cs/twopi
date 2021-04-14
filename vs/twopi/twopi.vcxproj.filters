@@ -403,36 +403,6 @@
     <None Include="..\..\src\twopi\shader\compile.py">
       <Filter>src\twopi\shader</Filter>
     </None>
-    <None Include="..\..\src\twopi\shader\mesh.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle_3d.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle_3d.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh_instance.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh_instance.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\light_instance.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\light_instance.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
     <None Include="..\..\src\twopi\shader\light_floor.frag">
       <Filter>src\twopi\shader</Filter>
     </None>

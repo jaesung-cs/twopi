@@ -83,6 +83,10 @@ public:
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
 
+      // Point light motion
+      const auto t = core::Duration(current_timestamp - start_timestamp).count();
+      lights_[1]->SetPosition(glm::vec3(3.f * std::cos(t * 3.f), 3.f * std::sin(t * 3.f), 3.f));
+
       // Draw on Vulkan surface
       vk_engine_->UpdateLights(lights_);
       vk_engine_->UpdateCamera(current_camera_);

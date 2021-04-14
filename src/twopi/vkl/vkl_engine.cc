@@ -69,6 +69,7 @@ private:
     uint64_t normal_offset;
     uint64_t tex_coord_offset;
     uint64_t index_offset;
+    uint32_t num_indices;
   };
 
   // Binding 0
@@ -130,6 +131,7 @@ public:
 
     width_ = window->Width();
     height_ = window->Height();
+    image_count_ = 3;
 
     mip_levels_ = 3;
 
@@ -158,7 +160,12 @@ public:
     device_.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
 
     const auto result = device_.acquireNextImageKHR(swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
-    if (result.result != vk::Result::eSuccess && result.result != vk::Result::eSuboptimalKHR)
+    if (result.result == vk::Result::eErrorOutOfDateKHR)
+    {
+      RecreateSwapchain();
+      return;
+    }
+    else if (result.result != vk::Result::eSuccess && result.result != vk::Result::eSuboptimalKHR)
       throw core::Error("Failed to acquire next swapchain image.");
 
     const auto& image_index = result.value;
@@ -197,7 +204,7 @@ public:
     const auto present_result = present_queue_.presentKHR(present_info);
 
     if (present_result == vk::Result::eErrorOutOfDateKHR || present_result == vk::Result::eSuboptimalKHR)
-      throw core::Error("Need to recreate swapchain.");
+      RecreateSwapchain();
     else if (present_result != vk::Result::eSuccess)
       throw core::Error("Failed to present swapchain image.");
 
@@ -211,7 +218,7 @@ public:
     width_ = width;
     height_ = height;
 
-    // TODO: Recreate swapchain
+    RecreateSwapchain();
   }
 
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
@@ -292,6 +299,21 @@ private:
     FreePreallocatedMemories();
     DestroyDevice();
     DestroyInstance();
+  }
+
+  void RecreateSwapchain()
+  {
+    device_.waitIdle();
+
+    DestroyCommandBuffers();
+    DestroySwapchainFramebuffers();
+    DestroyRenderPass();
+    DestroySwapchain();
+
+    CreateSwapchain();
+    CreateRenderPass();
+    CreateSwapchainFramebuffers();
+    CreateCommandBuffers();
   }
 
   void CreateInstance()
@@ -572,7 +594,19 @@ private:
 
       swapchain_image_views_[i] = device_.createImageView(image_view_create_info);
     }
+  }
 
+  void DestroySwapchain()
+  {
+    for (auto& swapchain_iamge_view : swapchain_image_views_)
+      device_.destroyImageView(swapchain_iamge_view);
+    swapchain_image_views_.clear();
+
+    device_.destroySwapchainKHR(swapchain_);
+  }
+
+  void CreateRenderPass()
+  {
     // Create multisample rendertarget image
     vk::ImageCreateInfo image_create_info;
     image_create_info
@@ -583,7 +617,7 @@ private:
       .setInitialLayout(vk::ImageLayout::eUndefined)
       .setSharingMode(vk::SharingMode::eExclusive)
       .setSamples(vk::SampleCountFlagBits::e4)
-      .setExtent(vk::Extent3D{ extent.width, extent.height, 1 })
+      .setExtent(vk::Extent3D{ width_, height_, 1 })
       .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
       .setFormat(swapchain_image_format_);
     rendertarget_image_ = device_.createImage(image_create_info);
@@ -591,8 +625,22 @@ private:
     rendertarget_image_memory_ = AllocateDeviceMemory(rendertarget_image_);
     device_.bindImageMemory(rendertarget_image_, rendertarget_image_memory_.memory, rendertarget_image_memory_.offset);
 
+    vk::ImageSubresourceRange image_subresource_range;
+    image_subresource_range
+      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+      .setLevelCount(1)
+      .setBaseMipLevel(0)
+      .setLayerCount(1)
+      .setBaseArrayLayer(0);
+
+    vk::ImageViewCreateInfo image_view_create_info;
     image_view_create_info
+      .setViewType(vk::ImageViewType::e2D)
+      .setComponents(vk::ComponentMapping{})
       .setFormat(swapchain_image_format_)
+      .setSubresourceRange(image_subresource_range);
+
+    image_view_create_info
       .setImage(rendertarget_image_);
     rendertarget_image_view_ = device_.createImageView(image_view_create_info);
 
@@ -613,25 +661,7 @@ private:
       .setFormat(vk::Format::eD24UnormS8Uint)
       .setImage(depth_image_);
     depth_image_view_ = device_.createImageView(image_view_create_info);
-  }
 
-  void DestroySwapchain()
-  {
-    for (auto& swapchain_iamge_view : swapchain_image_views_)
-      device_.destroyImageView(swapchain_iamge_view);
-    swapchain_image_views_.clear();
-
-    device_.destroyImage(depth_image_);
-    device_.destroyImageView(depth_image_view_);
-
-    device_.destroyImage(rendertarget_image_);
-    device_.destroyImageView(rendertarget_image_view_);
-
-    device_.destroySwapchainKHR(swapchain_);
-  }
-
-  void CreateRenderPass()
-  {
     // Create render pass
     vk::AttachmentDescription color_attachment;
     color_attachment
@@ -715,6 +745,12 @@ private:
   void DestroyRenderPass()
   {
     device_.destroyRenderPass(swapchain_render_pass_);
+
+    device_.destroyImage(depth_image_);
+    device_.destroyImageView(depth_image_view_);
+
+    device_.destroyImage(rendertarget_image_);
+    device_.destroyImageView(rendertarget_image_view_);
   }
 
   void CreateSwapchainFramebuffers()
@@ -935,6 +971,7 @@ private:
 
     std::vector<vk::DynamicState> dynamic_states = {
       vk::DynamicState::eViewport,
+      vk::DynamicState::eScissor,
       vk::DynamicState::eLineWidth,
     };
 
@@ -1023,7 +1060,7 @@ private:
       .setPDepthStencilState(nullptr)
       .setPColorBlendState(&color_blend_info)
       .setPDepthStencilState(&depth_stencil_info)
-      .setPDynamicState(nullptr) // TODO
+      .setPDynamicState(&dynamic_state_info)
       .setBasePipelineHandle(nullptr)
       .setBasePipelineIndex(-1)
       .setStages(shader_stages);
@@ -1114,14 +1151,14 @@ private:
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-    for (int i = 0; i < swapchain_images_.size(); i++)
+    for (int i = 0; i < image_count_; i++)
     {
       image_available_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
       render_finished_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
       in_flight_fences_.emplace_back(device_.createFence(fence_create_info));
     }
 
-    images_in_flight_.resize(swapchain_images_.size());
+    images_in_flight_.resize(image_count_);
   }
 
   void DestroySynchronizationObjects()
@@ -1154,13 +1191,13 @@ private:
     buffer_create_info
       .setSharingMode(vk::SharingMode::eExclusive)
       .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
-      .setSize((camera_stride + light_stride) * swapchain_images_.size());
+      .setSize((camera_stride + light_stride) * image_count_);
     uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
     uniform_buffer_.memory = AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
     device_.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
     uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(uniform_buffer_.memory.memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
 
-    camera_ubos_.resize(swapchain_images_.size());
+    camera_ubos_.resize(image_count_);
     for (int i = 0; i < camera_ubos_.size(); i++)
     {
       Buffer buffer;
@@ -1172,7 +1209,7 @@ private:
       camera_ubos_[i].buffer = buffer;
     }
 
-    light_ubos_.resize(swapchain_images_.size());
+    light_ubos_.resize(image_count_);
     for (int i = 0; i < light_ubos_.size(); i++)
     {
       Buffer buffer;
@@ -1189,13 +1226,13 @@ private:
     const auto material_stride = (sizeof(MaterialUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
 
     buffer_create_info
-      .setSize((model_stride + material_stride) * num_objects_ * swapchain_images_.size());
+      .setSize((model_stride + material_stride) * num_objects_ * image_count_);
     dynamic_uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
     dynamic_uniform_buffer_.memory = AllocatePersistentlyMappedMemory(dynamic_uniform_buffer_.buffer);
     device_.bindBufferMemory(dynamic_uniform_buffer_.buffer, dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset);
     dynamic_uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset, dynamic_uniform_buffer_.memory.size));
 
-    model_ubos_.resize(swapchain_images_.size());
+    model_ubos_.resize(image_count_);
     for (int i = 0; i < model_ubos_.size(); i++)
     {
       Buffer buffer;
@@ -1208,13 +1245,13 @@ private:
       model_ubos_[i].stride = model_stride;
     }
 
-    material_ubos_.resize(swapchain_images_.size());
+    material_ubos_.resize(image_count_);
     for (int i = 0; i < material_ubos_.size(); i++)
     {
       Buffer buffer;
       buffer.buffer = dynamic_uniform_buffer_.buffer;
       buffer.memory.memory = dynamic_uniform_buffer_.memory.memory;
-      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * num_objects_ * swapchain_images_.size() + material_stride * i;
+      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * num_objects_ * image_count_ + material_stride * i;
       buffer.memory.size = sizeof(MaterialUbo);
 
       material_ubos_[i].buffer = buffer;
@@ -1222,7 +1259,7 @@ private:
     }
 
     // Allocate descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(swapchain_images_.size(), descriptor_set_layout_);
+    std::vector<vk::DescriptorSetLayout> layouts(image_count_, descriptor_set_layout_);
     vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
     descriptor_set_allocate_info
       .setSetLayouts(layouts)
@@ -1268,7 +1305,7 @@ private:
     writes.push_back(write);
     */
 
-    for (int i = 0; i < swapchain_images_.size(); i++)
+    for (int i = 0; i < image_count_; i++)
     {
       buffer_infos[0]
         .setBuffer(camera_ubos_[i].buffer.buffer)
@@ -1341,11 +1378,11 @@ private:
       0, 1, 2, 2, 1, 3
     };
 
-    floor_position_offset_ = 0;
-    floor_normal_offset_ = sizeof(float) * 12;
-    floor_tex_coord_offset_ = sizeof(float) * 24;
-    floor_index_offset_ = sizeof(float) * 32;
-    floor_num_indices_ = static_cast<uint32_t>(floor_indices.size());
+    floor_.position_offset = 0;
+    floor_.normal_offset = sizeof(float) * 12;
+    floor_.tex_coord_offset = sizeof(float) * 24;
+    floor_.index_offset = sizeof(float) * 32;
+    floor_.num_indices = static_cast<uint32_t>(floor_indices.size());
 
     const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
 
@@ -1357,9 +1394,9 @@ private:
     buffer_create_info
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSize(floor_buffer_size);
-    floor_buffer_.buffer = device_.createBuffer(buffer_create_info);
-    floor_buffer_.memory = AllocateDeviceMemory(floor_buffer_.buffer);
-    device_.bindBufferMemory(floor_buffer_.buffer, floor_buffer_.memory.memory, floor_buffer_.memory.offset);
+    floor_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    floor_.buffer.memory = AllocateDeviceMemory(floor_.buffer.buffer);
+    device_.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.memory, floor_.buffer.memory.offset);
 
     vk::CommandBufferAllocateInfo allocate_info;
     allocate_info
@@ -1377,7 +1414,7 @@ private:
       .setSrcOffset(0)
       .setDstOffset(0)
       .setSize(floor_buffer_size);
-    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_buffer_.buffer, region);
+    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_.buffer.buffer, region);
     transfer_commands[0].end();
 
     // Sphere
@@ -1437,10 +1474,10 @@ private:
     sphere_normal_buffer.push_back(0.f);
     sphere_normal_buffer.push_back(-1.f);
 
-    sphere_position_offset_ = 0;
-    sphere_normal_offset_ = static_cast<uint32_t>(sphere_vertex_buffer.size()) * sizeof(float);
-    sphere_index_offset_ = static_cast<uint32_t>(sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
-    sphere_num_indices_ = static_cast<uint32_t>(sphere_index_buffer.size());
+    sphere_.position_offset = 0;
+    sphere_.normal_offset = static_cast<uint32_t>(sphere_vertex_buffer.size()) * sizeof(float);
+    sphere_.index_offset = static_cast<uint32_t>(sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
+    sphere_.num_indices = static_cast<uint32_t>(sphere_index_buffer.size());
 
     const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
     ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
@@ -1451,16 +1488,16 @@ private:
 
     buffer_create_info
       .setSize(sphere_buffer_size);
-    sphere_buffer_.buffer = device_.createBuffer(buffer_create_info);
-    sphere_buffer_.memory = AllocateDeviceMemory(sphere_buffer_.buffer);
-    device_.bindBufferMemory(sphere_buffer_.buffer, sphere_buffer_.memory.memory, sphere_buffer_.memory.offset);
+    sphere_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    sphere_.buffer.memory = AllocateDeviceMemory(sphere_.buffer.buffer);
+    device_.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.memory, sphere_.buffer.memory.offset);
 
     transfer_commands[1].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size)
       .setDstOffset(0)
       .setSize(sphere_buffer_size);
-    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_buffer_.buffer, region);
+    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_.buffer.buffer, region);
     transfer_commands[1].end();
 
     // Mesh loading
@@ -1472,32 +1509,32 @@ private:
     const auto& mesh_tex_coords = mesh->TexCoords();
     const auto& mesh_indices = mesh->Indices();
 
-    mesh_position_offset_ = 0;
-    mesh_normal_offset_ = static_cast<uint32_t>(mesh_vertices.size()) * sizeof(float);
-    mesh_tex_coord_offset_ = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size()) * sizeof(float);
-    mesh_index_offset_ = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size() + mesh_tex_coords.size()) * sizeof(float);
-    mesh_num_indices_ = static_cast<uint32_t>(mesh_indices.size());
+    mesh_.position_offset = 0;
+    mesh_.normal_offset = static_cast<uint32_t>(mesh_vertices.size()) * sizeof(float);
+    mesh_.tex_coord_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size()) * sizeof(float);
+    mesh_.index_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size() + mesh_tex_coords.size()) * sizeof(float);
+    mesh_.num_indices = static_cast<uint32_t>(mesh_indices.size());
 
-    const auto mesh_buffer_size = mesh_index_offset_ + mesh_indices.size() * sizeof(uint32_t);
+    const auto mesh_buffer_size = mesh_.index_offset + mesh_indices.size() * sizeof(uint32_t);
     ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
     std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
-    std::memcpy(ptr + mesh_normal_offset_, mesh_normals.data(), mesh_normals.size() * sizeof(float));
-    std::memcpy(ptr + mesh_tex_coord_offset_, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
-    std::memcpy(ptr + mesh_index_offset_, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
+    std::memcpy(ptr + mesh_.normal_offset, mesh_normals.data(), mesh_normals.size() * sizeof(float));
+    std::memcpy(ptr + mesh_.tex_coord_offset, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
+    std::memcpy(ptr + mesh_.index_offset, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
     device_.unmapMemory(stage_buffer_.memory.memory);
 
     buffer_create_info
       .setSize(mesh_buffer_size);
-    mesh_buffer_.buffer = device_.createBuffer(buffer_create_info);
-    mesh_buffer_.memory = AllocateDeviceMemory(mesh_buffer_.buffer);
-    device_.bindBufferMemory(mesh_buffer_.buffer, mesh_buffer_.memory.memory, mesh_buffer_.memory.offset);
+    mesh_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    mesh_.buffer.memory = AllocateDeviceMemory(mesh_.buffer.buffer);
+    device_.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.memory, mesh_.buffer.memory.offset);
 
     transfer_commands[2].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
       .setDstOffset(0)
       .setSize(mesh_buffer_size);
-    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_buffer_.buffer, region);
+    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_.buffer.buffer, region);
     transfer_commands[2].end();
 
     // Submit transfer commands
@@ -1515,9 +1552,9 @@ private:
     device_.unmapMemory(dynamic_uniform_buffer_.memory.memory);
     device_.freeMemory(dynamic_uniform_buffer_.memory.memory);
 
-    device_.destroyBuffer(floor_buffer_.buffer);
-    device_.destroyBuffer(sphere_buffer_.buffer);
-    device_.destroyBuffer(mesh_buffer_.buffer);
+    device_.destroyBuffer(floor_.buffer.buffer);
+    device_.destroyBuffer(sphere_.buffer.buffer);
+    device_.destroyBuffer(mesh_.buffer.buffer);
     device_.destroyBuffer(stage_buffer_.buffer);
     device_.destroyBuffer(uniform_buffer_.buffer);
     device_.destroyBuffer(dynamic_uniform_buffer_.buffer);
@@ -1529,10 +1566,10 @@ private:
     allocate_info
       .setCommandPool(command_pool_)
       .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(static_cast<uint32_t>(swapchain_images_.size()));
+      .setCommandBufferCount(image_count_);
     draw_command_buffers_ = device_.allocateCommandBuffers(allocate_info);
 
-    for (int i = 0; i < swapchain_images_.size(); i++)
+    for (int i = 0; i < image_count_; i++)
     {
       auto& command_buffer = draw_command_buffers_[i];
 
@@ -1543,6 +1580,12 @@ private:
         vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
         vk::ClearDepthStencilValue{ 1.f, 0u }
       };
+
+      vk::Viewport viewport{ 0.f, 0.f, static_cast<float>(width_), static_cast<float>(height_), 0.f, 1.f };
+      command_buffer.setViewport(0, viewport);
+
+      vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
+      command_buffer.setScissor(0, scissor);
 
       vk::RenderPassBeginInfo render_pass_begin_info;
       render_pass_begin_info
@@ -1559,24 +1602,24 @@ private:
         { descriptor_sets_[i] }, { model_ubos_[i].stride, 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { sphere_buffer_.buffer, sphere_buffer_.buffer },
-        { sphere_position_offset_, sphere_normal_offset_ });
+        { sphere_.buffer.buffer, sphere_.buffer.buffer },
+        { sphere_.position_offset, sphere_.normal_offset });
 
-      command_buffer.bindIndexBuffer(sphere_buffer_.buffer, sphere_index_offset_, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(sphere_.buffer.buffer, sphere_.index_offset, vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(sphere_num_indices_, 1, 0, 0, 0);
+      command_buffer.drawIndexed(sphere_.num_indices, 1, 0, 0, 0);
 
       // Mesh
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { model_ubos_[i].stride * 2, 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { mesh_buffer_.buffer, mesh_buffer_.buffer },
-        { mesh_position_offset_, mesh_normal_offset_ });
+        { mesh_.buffer.buffer, mesh_.buffer.buffer },
+        { mesh_.position_offset, mesh_.normal_offset });
 
-      command_buffer.bindIndexBuffer(mesh_buffer_.buffer, mesh_index_offset_, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(mesh_.buffer.buffer, mesh_.index_offset, vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(mesh_num_indices_, 1, 0, 0, 0);
+      command_buffer.drawIndexed(mesh_.num_indices, 1, 0, 0, 0);
       
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
@@ -1585,12 +1628,12 @@ private:
         { descriptor_sets_[i] }, { 0ull, 0ull });
 
       command_buffer.bindVertexBuffers(0,
-        { floor_buffer_.buffer, floor_buffer_.buffer, floor_buffer_.buffer },
-        { floor_position_offset_, floor_normal_offset_, floor_tex_coord_offset_ });
+        { floor_.buffer.buffer, floor_.buffer.buffer, floor_.buffer.buffer },
+        { floor_.position_offset, floor_.normal_offset, floor_.tex_coord_offset });
 
-      command_buffer.bindIndexBuffer(floor_buffer_.buffer, floor_index_offset_, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(floor_.buffer.buffer, floor_.index_offset, vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(floor_num_indices_, 1, 0, 0, 0);
+      command_buffer.drawIndexed(floor_.num_indices, 1, 0, 0, 0);
 
       command_buffer.endRenderPass();
       command_buffer.end();
@@ -1803,6 +1846,7 @@ private:
 
     switch (new_layout)
     {
+    case vk::ImageLayout::eShaderReadOnlyOptimal:
       // Image will be read in a shader (sampler, input attachment)
       // Make sure any writes to the image have been finished
       if (image_memory_barrier.srcAccessMask == vk::AccessFlags{})
@@ -1830,8 +1874,8 @@ private:
   // Device
   vk::PhysicalDevice physical_device_;
   vk::Device device_;
-  std::optional<uint32_t> graphics_queue_index_ = 0;
-  std::optional<uint32_t> present_queue_index_ = 0;
+  std::optional<uint32_t> graphics_queue_index_;
+  std::optional<uint32_t> present_queue_index_;
   vk::Queue graphics_queue_;
   vk::Queue present_queue_;
 
@@ -1856,6 +1900,7 @@ private:
   vk::Image depth_image_;
   Memory depth_image_memory_;
   vk::ImageView depth_image_view_;
+  uint32_t image_count_ = 3;
 
   // Swapchain render pass
   vk::RenderPass swapchain_render_pass_;
@@ -1904,27 +1949,13 @@ private:
   Buffer stage_buffer_;
 
   // Floor buffer
-  Buffer floor_buffer_;
-  uint32_t floor_position_offset_ = 0;
-  uint32_t floor_normal_offset_ = 0;
-  uint32_t floor_tex_coord_offset_ = 0;
-  uint32_t floor_index_offset_ = 0;
-  uint32_t floor_num_indices_ = 0;
+  Mesh floor_;
 
   // Sphere buffer
-  Buffer sphere_buffer_;
-  uint32_t sphere_position_offset_ = 0;
-  uint32_t sphere_normal_offset_ = 0;
-  uint32_t sphere_index_offset_ = 0;
-  uint32_t sphere_num_indices_ = 0;
+  Mesh sphere_;
 
   // Mesh
-  Buffer mesh_buffer_;
-  uint32_t mesh_position_offset_ = 0;
-  uint32_t mesh_normal_offset_ = 0;
-  uint32_t mesh_tex_coord_offset_ = 0;
-  uint32_t mesh_index_offset_ = 0;
-  uint32_t mesh_num_indices_ = 0;
+  Mesh mesh_;
 
   // Synchronization
   vk::Fence transfer_fence_;
