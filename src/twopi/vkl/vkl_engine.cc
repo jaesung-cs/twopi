@@ -181,10 +181,10 @@ public:
     // Update uniforms
     std::memcpy(uniform_buffer_map_ + camera_ubos_[image_index].buffer.memory.offset, &camera_, sizeof(CameraUbo));
     std::memcpy(uniform_buffer_map_ + light_ubos_[image_index].buffer.memory.offset, &lights_, sizeof(LightUbo));
-    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset, &floor_model_, sizeof(ModelUbo));
-    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride, &light_model_, sizeof(ModelUbo));
-    std::memcpy(dynamic_uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride * 2, &mesh_model_, sizeof(ModelUbo));
-    std::memcpy(dynamic_uniform_buffer_map_ + material_ubos_[image_index].buffer.memory.offset, &material_, sizeof(MaterialUbo));
+    std::memcpy(uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset, &floor_model_, sizeof(ModelUbo));
+    std::memcpy(uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride, &light_model_, sizeof(ModelUbo));
+    std::memcpy(uniform_buffer_map_ + model_ubos_[image_index].buffer.memory.offset + model_ubos_[image_index].stride * 2, &mesh_model_, sizeof(ModelUbo));
+    std::memcpy(uniform_buffer_map_ + material_ubos_[image_index].buffer.memory.offset, &material_, sizeof(MaterialUbo));
 
     std::vector<vk::PipelineStageFlags> stage_mask = {
       vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -1211,18 +1211,18 @@ private:
 
   void PrepareResources()
   {
-    // Dynamic ubo alignment
-    const auto dynamic_ubo_alignment = physical_device_.getProperties().limits.minUniformBufferOffsetAlignment;
+    // UBO alignment
+    const auto ubo_alignment = physical_device_.getProperties().limits.minUniformBufferOffsetAlignment;
 
-    const auto camera_stride = (sizeof(CameraUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
-    const auto light_stride = (sizeof(LightUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
+    const auto camera_stride = (sizeof(CameraUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
+    const auto light_stride = (sizeof(LightUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
 
     // Uniform buffers
     vk::BufferCreateInfo buffer_create_info;
     buffer_create_info
       .setSharingMode(vk::SharingMode::eExclusive)
       .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
-      .setSize((camera_stride + light_stride) * image_count_);
+      .setSize(256 * 1024 * 1024); // 256MB
     uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
     uniform_buffer_.memory = AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
     device_.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
@@ -1246,30 +1246,23 @@ private:
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
       buffer.memory.memory = uniform_buffer_.memory.memory;
-      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * camera_ubos_.size() + light_stride * i;
+      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * image_count_ + light_stride * i;
       buffer.memory.size = sizeof(LightUbo);
 
       light_ubos_[i].buffer = buffer;
     }
 
     // Dynamic uniform buffers
-    const auto model_stride = (sizeof(ModelUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
-    const auto material_stride = (sizeof(MaterialUbo) + dynamic_ubo_alignment - 1) & ~(dynamic_ubo_alignment - 1);
-
-    buffer_create_info
-      .setSize((model_stride + material_stride) * num_objects_ * image_count_);
-    dynamic_uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
-    dynamic_uniform_buffer_.memory = AllocatePersistentlyMappedMemory(dynamic_uniform_buffer_.buffer);
-    device_.bindBufferMemory(dynamic_uniform_buffer_.buffer, dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset);
-    dynamic_uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(dynamic_uniform_buffer_.memory.memory, dynamic_uniform_buffer_.memory.offset, dynamic_uniform_buffer_.memory.size));
+    const auto model_stride = (sizeof(ModelUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
+    const auto material_stride = (sizeof(MaterialUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
 
     model_ubos_.resize(image_count_);
     for (int i = 0; i < model_ubos_.size(); i++)
     {
       Buffer buffer;
-      buffer.buffer = dynamic_uniform_buffer_.buffer;
-      buffer.memory.memory = dynamic_uniform_buffer_.memory.memory;
-      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * i;
+      buffer.buffer = uniform_buffer_.buffer;
+      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride) * image_count_ + (model_stride * num_objects_) * i;
       buffer.memory.size = sizeof(ModelUbo);
 
       model_ubos_[i].buffer = buffer;
@@ -1280,9 +1273,9 @@ private:
     for (int i = 0; i < material_ubos_.size(); i++)
     {
       Buffer buffer;
-      buffer.buffer = dynamic_uniform_buffer_.buffer;
-      buffer.memory.memory = dynamic_uniform_buffer_.memory.memory;
-      buffer.memory.offset = dynamic_uniform_buffer_.memory.offset + model_stride * num_objects_ * image_count_ + material_stride * i;
+      buffer.buffer = uniform_buffer_.buffer;
+      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride + model_stride * num_objects_) * image_count_ + (material_stride * num_objects_) * i;
       buffer.memory.size = sizeof(MaterialUbo);
 
       material_ubos_[i].buffer = buffer;
@@ -1580,15 +1573,12 @@ private:
   {
     device_.unmapMemory(uniform_buffer_.memory.memory);
     device_.freeMemory(uniform_buffer_.memory.memory);
-    device_.unmapMemory(dynamic_uniform_buffer_.memory.memory);
-    device_.freeMemory(dynamic_uniform_buffer_.memory.memory);
 
     device_.destroyBuffer(floor_.buffer.buffer);
     device_.destroyBuffer(sphere_.buffer.buffer);
     device_.destroyBuffer(mesh_.buffer.buffer);
     device_.destroyBuffer(stage_buffer_.buffer);
     device_.destroyBuffer(uniform_buffer_.buffer);
-    device_.destroyBuffer(dynamic_uniform_buffer_.buffer);
   }
 
   void CreateCommandBuffers()
@@ -1963,8 +1953,6 @@ private:
   // Uniform buffers per swapchain framebuffer
   Buffer uniform_buffer_;
   unsigned char* uniform_buffer_map_;
-  Buffer dynamic_uniform_buffer_;
-  unsigned char* dynamic_uniform_buffer_map_;
   std::vector<UniformBuffer> camera_ubos_;
   std::vector<DynamicUniformBuffer> model_ubos_;
   std::vector<UniformBuffer> light_ubos_;
