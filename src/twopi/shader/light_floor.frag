@@ -67,11 +67,11 @@ void main()
   
   // Axis color
   vec3 diffuse_color = vec3(0.f, 0.f, 0.f);
-  if (abs(frag_tex_coord.y) <= thickness)
+  if (abs(frag_tex_coord.y) <= thickness && min(fract(frag_tex_coord.x), 1.f - fract(frag_tex_coord.x)) >= abs(frag_tex_coord.y))
     diffuse_color.r = 1.f;
-  if (abs(frag_tex_coord.x) <= thickness)
+  if (abs(frag_tex_coord.x) <= thickness && min(fract(frag_tex_coord.y), 1.f - fract(frag_tex_coord.y)) >= abs(frag_tex_coord.x))
     diffuse_color.g = 1.f;
-  if (frag_tex_coord.x < -thickness || frag_tex_coord.y < -thickness)
+  if (frag_tex_coord.x + frag_tex_coord.y < 0.f)
     diffuse_color /= 5.f;
   diffuse_color = mix(vec3(1.f), diffuse_color, diffuse_strength);
 
