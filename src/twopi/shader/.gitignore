@@ -1,2 +1,3 @@
 *.vert.spv
 *.frag.spv
+*.comp.spv
