@@ -228,6 +228,9 @@
     <ClCompile Include="..\..\src\twopi\vkl\vkl_object.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_swapchain.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -420,6 +423,9 @@
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_memory.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_swapchain.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
   </ItemGroup>

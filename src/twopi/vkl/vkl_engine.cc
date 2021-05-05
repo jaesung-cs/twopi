@@ -15,6 +15,7 @@
 
 #include <twopi/vkl/vkl_context.h>
 #include <twopi/vkl/vkl_rendertarget.h>
+#include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -107,7 +108,6 @@ public:
     height_ = window->Height();
     max_width_ = window->MaxWidth();
     max_height_ = window->MaxHeight();
-    image_count_ = 3;
 
     mip_levels_ = 3;
 
@@ -139,7 +139,7 @@ public:
 
     device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
 
-    const auto result = device.acquireNextImageKHR(swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
+    const auto result = device.acquireNextImageKHR(*swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
     if (result.result == vk::Result::eErrorOutOfDateKHR)
     {
       RecreateSwapchain();
@@ -177,8 +177,9 @@ public:
 
     std::vector<uint32_t> image_indices{ image_index };
     vk::PresentInfoKHR present_info;
+    std::vector<vk::SwapchainKHR> swapchains = { *swapchain_ };
     present_info
-      .setSwapchains(swapchain_)
+      .setSwapchains(swapchains)
       .setWaitSemaphores(render_finished_semaphores_[current_frame_])
       .setImageIndices(image_indices);
     const auto present_result = present_queue.presentKHR(present_info);
@@ -295,120 +296,19 @@ private:
 
   void CreateSwapchain()
   {
-    const auto physical_device = context_->PhysicalDevice();
-    const auto device = context_->Device();
-    const auto surface = context_->Surface();
-
-    const auto capabilities = physical_device.getSurfaceCapabilitiesKHR(surface);
-
-    // Triple buffering
-    auto image_count = capabilities.minImageCount + 1;
-    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
-      image_count = capabilities.maxImageCount;
-
-    if (image_count != 3)
-      throw core::Error("Triple buffering is not supported.");
-
-    vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo;
-    const auto present_modes = physical_device.getSurfacePresentModesKHR(surface);
-    for (auto available_mode : present_modes)
-    {
-      if (available_mode == vk::PresentModeKHR::eMailbox)
-        present_mode = vk::PresentModeKHR::eMailbox;
-    }
-
-    // Format
-    const auto available_formats = physical_device.getSurfaceFormatsKHR(surface);
-    auto format = available_formats[0];
-    for (const auto& available_format : available_formats)
-    {
-      if (available_format.format == vk::Format::eB8G8R8A8Srgb &&
-        available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
-        format = available_format;
-    }
-
-    // Extent
-    vk::Extent2D extent;
-    if (capabilities.currentExtent.width != UINT32_MAX)
-      extent = capabilities.currentExtent;
-    else
-    {
-      VkExtent2D actual_extent = { width_, height_ };
-
-      actual_extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual_extent.width));
-      actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
-
-      extent = actual_extent;
-    }
-
-    // Image sharing mode
-    const auto queue_family_indices = context_->QueueFamilyIndices();
-
-    // Create swapchain
-    vk::SwapchainCreateInfoKHR swapchain_create_info;
-    swapchain_create_info
-      .setSurface(surface)
-      .setImageArrayLayers(1)
-      .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
-      .setPreTransform(capabilities.currentTransform)
-      .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-      .setClipped(VK_TRUE)
-      .setOldSwapchain(nullptr)
-      .setMinImageCount(image_count)
-      .setPresentMode(present_mode)
-      .setImageFormat(format.format)
-      .setImageColorSpace(format.colorSpace)
-      .setImageExtent(extent)
-      .setImageSharingMode(vk::SharingMode::eConcurrent)
-      .setQueueFamilyIndices(queue_family_indices);
-
-    swapchain_ = device.createSwapchainKHR(swapchain_create_info);
-    swapchain_image_format_ = format.format;
-
-    swapchain_images_ = device.getSwapchainImagesKHR(swapchain_);
-
-    // Create image view for swapchain
-    vk::ImageSubresourceRange image_subresource_range;
-    image_subresource_range
-      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-      .setLevelCount(1)
-      .setBaseMipLevel(0)
-      .setLayerCount(1)
-      .setBaseArrayLayer(0);
-
-    vk::ImageViewCreateInfo image_view_create_info;
-    image_view_create_info
-      .setViewType(vk::ImageViewType::e2D)
-      .setComponents(vk::ComponentMapping{})
-      .setFormat(swapchain_image_format_)
-      .setSubresourceRange(image_subresource_range);
-
-    swapchain_image_views_.resize(swapchain_images_.size());
-    for (int i = 0; i < swapchain_images_.size(); i++)
-    {
-      image_view_create_info
-        .setImage(swapchain_images_[i]);
-
-      swapchain_image_views_[i] = device.createImageView(image_view_create_info);
-    }
+    swapchain_ = std::make_unique<Swapchain>(context_, width_, height_);
   }
 
   void DestroySwapchain()
   {
-    const auto device = context_->Device();
-
-    for (auto& swapchain_iamge_view : swapchain_image_views_)
-      device.destroyImageView(swapchain_iamge_view);
-    swapchain_image_views_.clear();
-
-    device.destroySwapchainKHR(swapchain_);
+    swapchain_.reset();
   }
 
   void CreateRenderPass()
   {
     const auto device = context_->Device();
 
-    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_image_format_, vk::SampleCountFlagBits::e4);
+    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_->ImageFormat(), vk::SampleCountFlagBits::e4);
 
     // Create render pass
     vk::AttachmentDescription color_attachment;
@@ -420,7 +320,7 @@ private:
       .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setInitialLayout(vk::ImageLayout::eUndefined)
       .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
-      .setFormat(swapchain_image_format_);
+      .setFormat(swapchain_->ImageFormat());
 
     vk::AttachmentReference color_attachment_ref;
     color_attachment_ref
@@ -452,7 +352,7 @@ private:
       .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setInitialLayout(vk::ImageLayout::eUndefined)
       .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
-      .setFormat(swapchain_image_format_);
+      .setFormat(swapchain_->ImageFormat());
 
     vk::AttachmentReference color_resolve_attachment_ref;
     color_resolve_attachment_ref
@@ -487,14 +387,14 @@ private:
       .setSubpasses(subpass)
       .setDependencies(dependency);
 
-    swapchain_render_pass_ = device.createRenderPass(render_pass_create_info);
+    render_pass_ = device.createRenderPass(render_pass_create_info);
   }
 
   void DestroyRenderPass()
   {
     const auto device = context_->Device();
 
-    device.destroyRenderPass(swapchain_render_pass_);
+    device.destroyRenderPass(render_pass_);
 
     rendertarget_.reset();
   }
@@ -509,21 +409,21 @@ private:
       .setWidth(width_)
       .setHeight(height_)
       .setLayers(1)
-      .setRenderPass(swapchain_render_pass_);
+      .setRenderPass(render_pass_);
 
-    swapchain_framebuffers_.resize(swapchain_images_.size());
-    for (int i = 0; i < swapchain_images_.size(); i++)
+    framebuffers_.resize(swapchain_->Images().size());
+    for (int i = 0; i < swapchain_->ImageCount(); i++)
     {
       const std::vector<vk::ImageView> attachments = {
         rendertarget_->ColorImageView(),
         rendertarget_->DepthImageView(),
-        swapchain_image_views_[i],
+        swapchain_->ImageViews()[i],
       };
 
       framebuffer_create_info
         .setAttachments(attachments);
 
-      swapchain_framebuffers_[i] = device.createFramebuffer(framebuffer_create_info);
+      framebuffers_[i] = device.createFramebuffer(framebuffer_create_info);
     }
   }
 
@@ -531,9 +431,9 @@ private:
   {
     const auto device = context_->Device();
 
-    for (auto& swapchain_framebuffer : swapchain_framebuffers_)
-      device.destroyFramebuffer(swapchain_framebuffer);
-    swapchain_framebuffers_.clear();
+    for (auto& framebuffer : framebuffers_)
+      device.destroyFramebuffer(framebuffer);
+    framebuffers_.clear();
   }
 
   void CreateSampler()
@@ -811,7 +711,7 @@ private:
     vk::GraphicsPipelineCreateInfo graphics_pipeline_create_info;
     graphics_pipeline_create_info
       .setLayout(pipeline_layout_)
-      .setRenderPass(swapchain_render_pass_)
+      .setRenderPass(render_pass_)
       .setSubpass(0)
       .setPVertexInputState(&vertex_input_info)
       .setPInputAssemblyState(&input_assembly_info)
@@ -921,14 +821,14 @@ private:
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-    for (int i = 0; i < image_count_; i++)
+    for (int i = 0; i < swapchain_->ImageCount(); i++)
     {
       image_available_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
       render_finished_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
       in_flight_fences_.emplace_back(device.createFence(fence_create_info));
     }
 
-    images_in_flight_.resize(image_count_);
+    images_in_flight_.resize(swapchain_->ImageCount());
   }
 
   void DestroySynchronizationObjects()
@@ -955,6 +855,7 @@ private:
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
     const auto graphics_queue = context_->GraphicsQueue();
+    const auto image_count = swapchain_->ImageCount();
 
     // UBO alignment
     const auto ubo_alignment = physical_device.getProperties().limits.minUniformBufferOffsetAlignment;
@@ -973,7 +874,7 @@ private:
     device.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.device_memory, uniform_buffer_.memory.offset);
     uniform_buffer_map_ = static_cast<unsigned char*>(device.mapMemory(uniform_buffer_.memory.device_memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
 
-    camera_ubos_.resize(image_count_);
+    camera_ubos_.resize(swapchain_->ImageCount());
     for (int i = 0; i < camera_ubos_.size(); i++)
     {
       Buffer buffer;
@@ -985,13 +886,13 @@ private:
       camera_ubos_[i].buffer = buffer;
     }
 
-    light_ubos_.resize(image_count_);
+    light_ubos_.resize(image_count);
     for (int i = 0; i < light_ubos_.size(); i++)
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
       buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
-      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * image_count_ + light_stride * i;
+      buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * image_count + light_stride * i;
       buffer.memory.size = sizeof(LightUbo);
 
       light_ubos_[i].buffer = buffer;
@@ -1001,26 +902,26 @@ private:
     const auto model_stride = (sizeof(ModelUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
     const auto material_stride = (sizeof(MaterialUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
 
-    model_ubos_.resize(image_count_);
+    model_ubos_.resize(image_count);
     for (int i = 0; i < model_ubos_.size(); i++)
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
       buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
-      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride) * image_count_ + (model_stride * num_objects_) * i;
+      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride) * image_count + (model_stride * num_objects_) * i;
       buffer.memory.size = sizeof(ModelUbo);
 
       model_ubos_[i].buffer = buffer;
       model_ubos_[i].stride = model_stride;
     }
 
-    material_ubos_.resize(image_count_);
+    material_ubos_.resize(image_count);
     for (int i = 0; i < material_ubos_.size(); i++)
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
       buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
-      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride + model_stride * num_objects_) * image_count_ + (material_stride * num_objects_) * i;
+      buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride + model_stride * num_objects_) * image_count + (material_stride * num_objects_) * i;
       buffer.memory.size = sizeof(MaterialUbo);
 
       material_ubos_[i].buffer = buffer;
@@ -1028,7 +929,7 @@ private:
     }
 
     // Allocate descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(image_count_, descriptor_set_layout_);
+    std::vector<vk::DescriptorSetLayout> layouts(image_count, descriptor_set_layout_);
     vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
     descriptor_set_allocate_info
       .setSetLayouts(layouts)
@@ -1074,7 +975,7 @@ private:
     writes.push_back(write);
     */
 
-    for (int i = 0; i < image_count_; i++)
+    for (int i = 0; i < image_count; i++)
     {
       buffer_infos[0]
         .setBuffer(camera_ubos_[i].buffer.buffer)
@@ -1337,10 +1238,10 @@ private:
     allocate_info
       .setCommandPool(command_pool_)
       .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(image_count_);
+      .setCommandBufferCount(swapchain_->ImageCount());
     draw_command_buffers_ = device.allocateCommandBuffers(allocate_info);
 
-    for (int i = 0; i < image_count_; i++)
+    for (int i = 0; i < swapchain_->ImageCount(); i++)
     {
       auto& command_buffer = draw_command_buffers_[i];
 
@@ -1361,8 +1262,8 @@ private:
       vk::RenderPassBeginInfo render_pass_begin_info;
       render_pass_begin_info
         .setClearValues(clear_values)
-        .setRenderPass(swapchain_render_pass_)
-        .setFramebuffer(swapchain_framebuffers_[i])
+        .setRenderPass(render_pass_)
+        .setFramebuffer(framebuffers_[i])
         .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
       command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
@@ -1485,28 +1386,25 @@ private:
       image_memory_barrier);
   }
 
-  GLFWwindow* glfw_window_handle_;
-
   // Context
   std::shared_ptr<vkl::Context> context_;
 
-  // Swapchain
-  vk::SwapchainKHR swapchain_;
-  vk::Format swapchain_image_format_;
+  // Window
+  GLFWwindow* glfw_window_handle_;
   uint32_t width_ = 0;
   uint32_t height_ = 0;
   uint32_t max_width_ = 0;
   uint32_t max_height_ = 0;
-  std::vector<vk::Image> swapchain_images_;
-  std::vector<vk::ImageView> swapchain_image_views_;
+
+  // Swapchain
+  std::unique_ptr<Swapchain> swapchain_;
   std::unique_ptr<vkl::Rendertarget> rendertarget_;
-  uint32_t image_count_ = 3;
 
   // Swapchain render pass
-  vk::RenderPass swapchain_render_pass_;
+  vk::RenderPass render_pass_;
 
   // Swapchain framebuffers
-  std::vector<vk::Framebuffer> swapchain_framebuffers_;
+  std::vector<vk::Framebuffer> framebuffers_;
 
   // Sampler
   uint32_t mip_levels_ = 1;
