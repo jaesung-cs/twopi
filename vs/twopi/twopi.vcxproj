@@ -186,6 +186,7 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_object.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_rendertarget.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_swapchain.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_uniform_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc" />
@@ -252,6 +253,7 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_object.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_rendertarget.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_swapchain.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_uniform_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h" />
