@@ -5,6 +5,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <twopi/vkl/vkl_memory.h>
+#include <twopi/vkl/vkl_memory_manager.h>
+
 namespace twopi
 {
 namespace vkl
@@ -28,10 +31,14 @@ Context::Context(GLFWwindow* glfw_window)
 {
   CreateInstance(glfw_window);
   CreateDevice();
+
+  memory_manager_ = std::make_unique<MemoryManager>(this);
 }
 
 Context::~Context()
 {
+  memory_manager_.reset();
+
   DestroyDevice();
   DestroyInstance();
 }
@@ -172,6 +179,11 @@ std::vector<uint32_t> Context::QueueFamilyIndices() const
     graphics_queue_index_.value(),
     present_queue_index_.value(),
   };
+}
+
+Memory Context::AllocateDeviceMemory(vk::Image image)
+{
+  return memory_manager_->AllocateDeviceMemory(image);
 }
 }
 }

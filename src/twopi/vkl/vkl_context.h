@@ -2,6 +2,7 @@
 #define TWOPI_VKL_VKL_CONTEXT_H_
 
 #include <optional>
+#include <vector>
 
 #include <vulkan/vulkan.hpp>
 
@@ -11,6 +12,9 @@ namespace twopi
 {
 namespace vkl
 {
+struct Memory;
+class MemoryManager;
+
 class Context
 {
 public:
@@ -26,6 +30,8 @@ public:
 
   std::vector<uint32_t> QueueFamilyIndices() const;
   const auto GraphicsQueueIndex() const { return graphics_queue_index_.value(); }
+
+  Memory AllocateDeviceMemory(vk::Image image);
 
 private:
   void CreateInstance(GLFWwindow* glfw_window);
@@ -45,6 +51,8 @@ private:
 
   std::optional<uint32_t> graphics_queue_index_;
   std::optional<uint32_t> present_queue_index_;
+
+  std::unique_ptr<MemoryManager> memory_manager_;
 };
 }
 }

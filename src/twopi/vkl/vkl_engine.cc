@@ -14,6 +14,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include <twopi/vkl/vkl_context.h>
+#include <twopi/vkl/vkl_rendertarget.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -259,7 +260,6 @@ private:
 
     PreallocateMemories();
     CreateSwapchain();
-    PreallocateRenderPassAttachments();
     CreateRenderPass();
     CreateSwapchainFramebuffers();
     CreateSampler();
@@ -475,94 +475,11 @@ private:
     device.destroySwapchainKHR(swapchain_);
   }
 
-  void PreallocateRenderPassAttachments()
-  {
-    const auto device = context_->Device();
-
-    // Allocate render pass attachment image memories
-    vk::ImageCreateInfo image_create_info;
-    image_create_info
-      .setImageType(vk::ImageType::e2D)
-      .setMipLevels(1)
-      .setArrayLayers(1)
-      .setTiling(vk::ImageTiling::eOptimal)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setSamples(vk::SampleCountFlagBits::e4)
-      .setExtent(vk::Extent3D{ max_width_, max_height_, 1 })
-      .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
-      .setFormat(swapchain_image_format_);
-    auto limit_rendertarget_image = device.createImage(image_create_info);
-
-    rendertarget_image_memory_ = AllocateDeviceMemory(limit_rendertarget_image);
-
-    image_create_info
-      .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
-      .setFormat(vk::Format::eD24UnormS8Uint);
-    auto limit_depth_image = device.createImage(image_create_info);
-
-    depth_image_memory_ = AllocateDeviceMemory(limit_depth_image);
-
-    device.destroyImage(limit_rendertarget_image);
-    device.destroyImage(limit_depth_image);
-  }
-
   void CreateRenderPass()
   {
     const auto device = context_->Device();
 
-    // Create multisample rendertarget image
-    vk::ImageCreateInfo image_create_info;
-    image_create_info
-      .setImageType(vk::ImageType::e2D)
-      .setMipLevels(1)
-      .setArrayLayers(1)
-      .setTiling(vk::ImageTiling::eOptimal)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setSamples(vk::SampleCountFlagBits::e4)
-      .setExtent(vk::Extent3D{ width_, height_, 1 })
-      .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
-      .setFormat(swapchain_image_format_);
-    rendertarget_image_ = device.createImage(image_create_info);
-
-    device.bindImageMemory(rendertarget_image_, rendertarget_image_memory_.memory, rendertarget_image_memory_.offset);
-
-    vk::ImageSubresourceRange image_subresource_range;
-    image_subresource_range
-      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-      .setLevelCount(1)
-      .setBaseMipLevel(0)
-      .setLayerCount(1)
-      .setBaseArrayLayer(0);
-
-    vk::ImageViewCreateInfo image_view_create_info;
-    image_view_create_info
-      .setViewType(vk::ImageViewType::e2D)
-      .setComponents(vk::ComponentMapping{})
-      .setFormat(swapchain_image_format_)
-      .setSubresourceRange(image_subresource_range);
-
-    image_view_create_info
-      .setImage(rendertarget_image_);
-    rendertarget_image_view_ = device.createImageView(image_view_create_info);
-
-    // Create multisample depth image
-    image_create_info
-      .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
-      .setFormat(vk::Format::eD24UnormS8Uint);
-    depth_image_ = device.createImage(image_create_info);
-
-    device.bindImageMemory(depth_image_, depth_image_memory_.memory, depth_image_memory_.offset);
-
-    image_subresource_range
-      .setAspectMask(vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
-
-    image_view_create_info
-      .setSubresourceRange(image_subresource_range)
-      .setFormat(vk::Format::eD24UnormS8Uint)
-      .setImage(depth_image_);
-    depth_image_view_ = device.createImageView(image_view_create_info);
+    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_image_format_, vk::SampleCountFlagBits::e4);
 
     // Create render pass
     vk::AttachmentDescription color_attachment;
@@ -650,11 +567,7 @@ private:
 
     device.destroyRenderPass(swapchain_render_pass_);
 
-    device.destroyImage(depth_image_);
-    device.destroyImageView(depth_image_view_);
-
-    device.destroyImage(rendertarget_image_);
-    device.destroyImageView(rendertarget_image_view_);
+    rendertarget_.reset();
   }
 
   void CreateSwapchainFramebuffers()
@@ -673,8 +586,8 @@ private:
     for (int i = 0; i < swapchain_images_.size(); i++)
     {
       const std::vector<vk::ImageView> attachments = {
-        rendertarget_image_view_,
-        depth_image_view_,
+        rendertarget_->ColorImageView(),
+        rendertarget_->DepthImageView(),
         swapchain_image_views_[i],
       };
 
@@ -1743,12 +1656,7 @@ private:
   uint32_t max_height_ = 0;
   std::vector<vk::Image> swapchain_images_;
   std::vector<vk::ImageView> swapchain_image_views_;
-  vk::Image rendertarget_image_;
-  Memory rendertarget_image_memory_;
-  vk::ImageView rendertarget_image_view_;
-  vk::Image depth_image_;
-  Memory depth_image_memory_;
-  vk::ImageView depth_image_view_;
+  std::unique_ptr<vkl::Rendertarget> rendertarget_;
   uint32_t image_count_ = 3;
 
   // Swapchain render pass
