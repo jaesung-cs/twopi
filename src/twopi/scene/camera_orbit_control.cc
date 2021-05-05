@@ -107,7 +107,7 @@ private:
   glm::vec3 center_{ 0.f, 0.f, 0.f };
   const glm::vec3 up_{ 0.f, 0.f, 1.f };
   float radius_ = 5.f;
-  float theta_ = glm::pi<float>() / 4.f;
+  float theta_ = -glm::pi<float>() / 4.f;
   float phi_ = glm::pi<float>() / 4.f;
 
   float translation_sensitivity_ = 0.003f;

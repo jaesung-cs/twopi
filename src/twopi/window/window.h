@@ -27,6 +27,9 @@ public:
   virtual std::vector<std::shared_ptr<Event>> PollEvents(core::Timestamp timestamp) = 0;
   virtual void SwapBuffers() = 0;
 
+  virtual int MaxWidth() const;
+  virtual int MaxHeight() const;
+
 protected:
   void Resized(int width, int height);
 

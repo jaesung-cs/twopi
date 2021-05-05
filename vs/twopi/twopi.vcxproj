@@ -179,6 +179,14 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vke\vke_image.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory_manager.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_buffer.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_engine.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_memory_manager.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_object.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_rendertarget.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_swapchain.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_uniform_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkw\vkw_command_pool.cc" />
@@ -237,6 +245,15 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vke\vke_image.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory_manager.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_buffer.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_engine.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_memory.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_memory_manager.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_object.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_rendertarget.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_swapchain.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_uniform_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkw\vkw_command_pool.h" />
@@ -281,16 +298,6 @@ python compile.py</Command>
     <None Include="..\..\src\twopi\shader\light_color.vert" />
     <None Include="..\..\src\twopi\shader\light_floor.frag" />
     <None Include="..\..\src\twopi\shader\light_floor.vert" />
-    <None Include="..\..\src\twopi\shader\light_instance.frag" />
-    <None Include="..\..\src\twopi\shader\light_instance.vert" />
-    <None Include="..\..\src\twopi\shader\mesh.frag" />
-    <None Include="..\..\src\twopi\shader\mesh.vert" />
-    <None Include="..\..\src\twopi\shader\mesh_instance.frag" />
-    <None Include="..\..\src\twopi\shader\mesh_instance.vert" />
-    <None Include="..\..\src\twopi\shader\triangle.frag" />
-    <None Include="..\..\src\twopi\shader\triangle.vert" />
-    <None Include="..\..\src\twopi\shader\triangle_3d.frag" />
-    <None Include="..\..\src\twopi\shader\triangle_3d.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

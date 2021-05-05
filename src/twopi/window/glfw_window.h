@@ -25,6 +25,9 @@ public:
   std::vector<std::shared_ptr<Event>> PollEvents(core::Timestamp timestamp) override;
   void SwapBuffers() override;
 
+  int MaxWidth() const override;
+  int MaxHeight() const override;
+
 private:
   class Impl;
   std::unique_ptr<Impl> impl_;

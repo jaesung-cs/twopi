@@ -43,6 +43,9 @@
     <Filter Include="src\twopi\shader\core">
       <UniqueIdentifier>{21c829b7-d3bb-4a17-a072-5b74db291bff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\twopi\vkl">
+      <UniqueIdentifier>{78fdcec4-4671-4ba8-b8d0-8715b213e823}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -206,6 +209,30 @@
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vke\vke_memory.cc">
       <Filter>src\twopi\vke</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_engine.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_memory_manager.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_buffer.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_rendertarget.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_object.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_swapchain.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_uniform_buffer.cc">
+      <Filter>src\twopi\vkl</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -380,6 +407,33 @@
     <ClInclude Include="..\..\src\twopi\shader\core\light.h">
       <Filter>src\twopi\shader\core</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_engine.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_memory_manager.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_buffer.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_rendertarget.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_object.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_memory.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_swapchain.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_uniform_buffer.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\.gitignore">
@@ -392,36 +446,6 @@
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\compile.py">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle_3d.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\triangle_3d.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh_instance.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\mesh_instance.vert">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\light_instance.frag">
-      <Filter>src\twopi\shader</Filter>
-    </None>
-    <None Include="..\..\src\twopi\shader\light_instance.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
     <None Include="..\..\src\twopi\shader\light_floor.frag">

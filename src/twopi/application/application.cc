@@ -14,7 +14,7 @@
 #include <twopi/scene/vr_camera.h>
 #include <twopi/scene/camera_orbit_control.h>
 #include <twopi/scene/light.h>
-#include <twopi/vke/vke_engine.h>
+#include <twopi/vkl/vkl_engine.h>
 
 #include <glm/glm.hpp>
 
@@ -31,7 +31,7 @@ public:
 
     window_ = std::make_shared<window::GlfwWindow>();
 
-    vk_engine_ = std::make_shared<vke::Engine>(window_);
+    vk_engine_ = std::make_shared<vkl::Engine>(window_);
 
     camera_ = std::make_shared<scene::Camera>();
     camera_->SetScreenSize(window_->Width(), window_->Height());
@@ -49,12 +49,12 @@ public:
     light->SetPosition(glm::vec3{ 0.f, 0.f, 1.f });
     light->SetAmbient(glm::vec3{ 0.1f, 0.1f, 0.1f });
     light->SetDiffuse(glm::vec3{ 0.2f, 0.2f, 0.2f });
-    light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });
+    light->SetSpecular(glm::vec3{ 0.1f, 0.1f, 0.1f });
     lights_.emplace_back(std::move(light));
 
     light = std::make_shared<scene::Light>();
     light->SetPointLight();
-    light->SetPosition(glm::vec3{ 0.f, 0.f, 5.f });
+    light->SetPosition(glm::vec3{ 3.f, 0.f, 3.f });
     light->SetAmbient(glm::vec3{ 0.1f, 0.1f, 0.1f });
     light->SetDiffuse(glm::vec3{ 0.8f, 0.8f, 0.8f });
     light->SetSpecular(glm::vec3{ 1.f, 1.f, 1.f });
@@ -82,6 +82,10 @@ public:
 
       // Light position updated to camera eye
       lights_[0]->SetPosition(current_camera_->Eye() - current_camera_->Center());
+
+      // Point light motion
+      const auto t = core::Duration(current_timestamp - start_timestamp).count();
+      lights_[1]->SetPosition(glm::vec3(3.f * std::cos(t * 3.f), 3.f * std::sin(t * 3.f), 3.f));
 
       // Draw on Vulkan surface
       vk_engine_->UpdateLights(lights_);
@@ -218,17 +222,19 @@ private:
 
   void UpdateKeyboard(double dt)
   {
+    const auto dtf = static_cast<float>(dt);
+
     // Move camera
     if (key_pressed_['W'])
-      camera_control_->MoveForward(dt);
+      camera_control_->MoveForward(dtf);
     if (key_pressed_['S'])
-      camera_control_->MoveForward(-dt);
+      camera_control_->MoveForward(-dtf);
     if (key_pressed_['A'])
-      camera_control_->MoveRight(-dt);
+      camera_control_->MoveRight(-dtf);
     if (key_pressed_['D'])
-      camera_control_->MoveRight(dt);
+      camera_control_->MoveRight(dtf);
     if (key_pressed_[' '])
-      camera_control_->MoveUp(dt);
+      camera_control_->MoveUp(dtf);
   }
 
   void SwapBuffers()
@@ -246,7 +252,7 @@ private:
   std::shared_ptr<window::Window> window_;
 
   // Vulkan engine
-  std::shared_ptr<vke::Engine> vk_engine_;
+  std::shared_ptr<vkl::Engine> vk_engine_;
 
   // Mouse
   int mouse_last_x_ = 0;

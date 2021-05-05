@@ -13,15 +13,22 @@ layout (std140, binding = 0) uniform Camera
   vec3 eye;
 } camera;
 
+layout (std140, binding = 1) uniform ModelUbo
+{
+  mat4 model;
+  mat3 model_inverse_transpose;
+} model;
+
 layout (location = 0) out vec3 frag_position;
 layout (location = 1) out vec3 frag_normal;
 layout (location = 2) out vec2 frag_tex_coord;
 
 void main()
 {
-  gl_Position = camera.projection * camera.view * vec4(position, 1.f);
+  vec4 p = model.model * vec4(position, 1.f);
+  gl_Position = camera.projection * camera.view * p;
 
-  frag_position = position;
-  frag_normal = normal;
+  frag_position = p.xyz / p.w;
+  frag_normal = model.model_inverse_transpose * normal;
   frag_tex_coord = tex_coord;
 }
