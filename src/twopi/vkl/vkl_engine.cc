@@ -126,7 +126,7 @@ public:
     const auto graphics_queue = context_->GraphicsQueue();
     const auto present_queue = context_->PresentQueue();
 
-    device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
+    auto wait_result = device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
 
     const auto result = device.acquireNextImageKHR(*swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
     if (result.result == vk::Result::eErrorOutOfDateKHR)
@@ -140,7 +140,7 @@ public:
     const auto& image_index = result.value;
 
     if (images_in_flight_[image_index])
-      device.waitForFences(images_in_flight_[image_index], true, UINT64_MAX);
+      wait_result = device.waitForFences(images_in_flight_[image_index], true, UINT64_MAX);
     images_in_flight_[image_index] = in_flight_fences_[current_frame_];
 
     device.resetFences(in_flight_fences_[current_frame_]);
@@ -401,7 +401,7 @@ private:
       .setRenderPass(render_pass_);
 
     framebuffers_.resize(swapchain_->Images().size());
-    for (int i = 0; i < swapchain_->ImageCount(); i++)
+    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
       const std::vector<vk::ImageView> attachments = {
         rendertarget_->ColorImageView(),
@@ -810,7 +810,7 @@ private:
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-    for (int i = 0; i < swapchain_->ImageCount(); i++)
+    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
       image_available_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
       render_finished_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
@@ -848,17 +848,17 @@ private:
 
     uniform_buffer_ = std::make_unique<vkl::UniformBuffer>(context_);
 
-    for (int i = 0; i < image_count; i++)
+    for (uint32_t i = 0; i < image_count; i++)
       camera_ubos_.emplace_back(uniform_buffer_->Allocate<CameraUbo>());
 
-    for (int i = 0; i < image_count; i++)
+    for (uint32_t i = 0; i < image_count; i++)
       light_ubos_.emplace_back(uniform_buffer_->Allocate<LightUbo>());
 
     // Dynamic uniform buffers
-    for (int i = 0; i < image_count; i++)
+    for (uint32_t i = 0; i < image_count; i++)
       model_ubos_.emplace_back(uniform_buffer_->Allocate<ModelUbo>(num_objects_));
 
-    for (int i = 0; i < image_count; i++)
+    for (uint32_t i = 0; i < image_count; i++)
       material_ubos_.emplace_back(uniform_buffer_->Allocate<MaterialUbo>(num_objects_));
 
     // Allocate descriptor sets
@@ -908,7 +908,7 @@ private:
     writes.push_back(write);
     */
 
-    for (int i = 0; i < image_count; i++)
+    for (uint32_t i = 0; i < image_count; i++)
     {
       buffer_infos[0]
         .setBuffer(uniform_buffer_->Buffer())
@@ -1173,7 +1173,7 @@ private:
       .setCommandBufferCount(swapchain_->ImageCount());
     draw_command_buffers_ = device.allocateCommandBuffers(allocate_info);
 
-    for (int i = 0; i < swapchain_->ImageCount(); i++)
+    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
       auto& command_buffer = draw_command_buffers_[i];
 
