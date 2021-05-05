@@ -181,9 +181,24 @@ std::vector<uint32_t> Context::QueueFamilyIndices() const
   };
 }
 
+Memory Context::AllocateDeviceMemory(vk::Buffer buffer)
+{
+  return memory_manager_->AllocateDeviceMemory(buffer);
+}
+
 Memory Context::AllocateDeviceMemory(vk::Image image)
 {
   return memory_manager_->AllocateDeviceMemory(image);
+}
+
+Memory Context::AllocateHostMemory(vk::Buffer buffer)
+{
+  return memory_manager_->AllocateHostMemory(buffer);
+}
+
+Memory Context::AllocatePersistentlyMappedMemory(vk::Buffer buffer)
+{
+  return memory_manager_->AllocatePersistentlyMappedMemory(buffer);
 }
 }
 }

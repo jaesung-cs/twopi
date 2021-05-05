@@ -30,22 +30,9 @@ namespace vkl
 class Engine::Impl
 {
 private:
-  struct Memory
-  {
-    vk::DeviceMemory memory;
-    uint64_t offset = 0;
-    uint64_t size = 0;
-  };
-
   struct Buffer
   {
     vk::Buffer buffer;
-    Memory memory;
-  };
-
-  struct Image
-  {
-    vk::Image image;
     Memory memory;
   };
 
@@ -258,7 +245,6 @@ private:
   {
     context_ = std::make_shared<vkl::Context>(glfw_window_handle_);
 
-    PreallocateMemories();
     CreateSwapchain();
     CreateRenderPass();
     CreateSwapchainFramebuffers();
@@ -287,7 +273,6 @@ private:
     DestroySwapchainFramebuffers();
     DestroyRenderPass();
     DestroySwapchain();
-    FreePreallocatedMemories();
     context_.reset();
   }
 
@@ -306,62 +291,6 @@ private:
     CreateRenderPass();
     CreateSwapchainFramebuffers();
     CreateCommandBuffers();
-  }
-
-  void PreallocateMemories()
-  {
-    const auto physical_device = context_->PhysicalDevice();
-    const auto device = context_->Device();
-
-    // Find memroy type index
-    uint64_t device_available_size = 0;
-    uint64_t host_available_size = 0;
-    const auto memory_properties = physical_device.getMemoryProperties();
-    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-    {
-      const auto properties = memory_properties.memoryTypes[i].propertyFlags;
-      const auto heap_index = memory_properties.memoryTypes[i].heapIndex;
-      const auto heap = memory_properties.memoryHeaps[heap_index];
-
-      if ((properties & vk::MemoryPropertyFlagBits::eDeviceLocal) == vk::MemoryPropertyFlagBits::eDeviceLocal)
-      {
-        if (heap.size > device_available_size)
-        {
-          device_index_ = i;
-          device_available_size = heap.size;
-        }
-      }
-
-      if ((properties & (vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent))
-        == (vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent))
-      {
-        if (heap.size > host_available_size)
-        {
-          host_index_ = i;
-          host_available_size = heap.size;
-        }
-      }
-    }
-
-    constexpr uint64_t chunk_size = 256 * 1024 * 1024; // 256MB
-
-    vk::MemoryAllocateInfo allocate_info;
-    allocate_info
-      .setAllocationSize(chunk_size)
-      .setMemoryTypeIndex(device_index_);
-    device_memory_ = device.allocateMemory(allocate_info);
-
-    allocate_info
-      .setMemoryTypeIndex(host_index_);
-    host_memory_ = device.allocateMemory(allocate_info);
-  }
-
-  void FreePreallocatedMemories()
-  {
-    const auto device = context_->Device();
-
-    device.freeMemory(device_memory_);
-    device.freeMemory(host_memory_);
   }
 
   void CreateSwapchain()
@@ -1040,16 +969,16 @@ private:
       .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
       .setSize(256 * 1024 * 1024); // 256MB
     uniform_buffer_.buffer = device.createBuffer(buffer_create_info);
-    uniform_buffer_.memory = AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
-    device.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
-    uniform_buffer_map_ = static_cast<unsigned char*>(device.mapMemory(uniform_buffer_.memory.memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
+    uniform_buffer_.memory = context_->AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
+    device.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.device_memory, uniform_buffer_.memory.offset);
+    uniform_buffer_map_ = static_cast<unsigned char*>(device.mapMemory(uniform_buffer_.memory.device_memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
 
     camera_ubos_.resize(image_count_);
     for (int i = 0; i < camera_ubos_.size(); i++)
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
-      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
       buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * i;
       buffer.memory.size = sizeof(CameraUbo);
 
@@ -1061,7 +990,7 @@ private:
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
-      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
       buffer.memory.offset = uniform_buffer_.memory.offset + camera_stride * image_count_ + light_stride * i;
       buffer.memory.size = sizeof(LightUbo);
 
@@ -1077,7 +1006,7 @@ private:
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
-      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
       buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride) * image_count_ + (model_stride * num_objects_) * i;
       buffer.memory.size = sizeof(ModelUbo);
 
@@ -1090,7 +1019,7 @@ private:
     {
       Buffer buffer;
       buffer.buffer = uniform_buffer_.buffer;
-      buffer.memory.memory = uniform_buffer_.memory.memory;
+      buffer.memory.device_memory = uniform_buffer_.memory.device_memory;
       buffer.memory.offset = uniform_buffer_.memory.offset + (camera_stride + light_stride + model_stride * num_objects_) * image_count_ + (material_stride * num_objects_) * i;
       buffer.memory.size = sizeof(MaterialUbo);
 
@@ -1190,8 +1119,8 @@ private:
       .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
       .setSize(32 * 1024 * 1024); // 32MB
     stage_buffer_.buffer = device.createBuffer(buffer_create_info);
-    stage_buffer_.memory = AllocateHostMemory(stage_buffer_.buffer);
-    device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.memory, stage_buffer_.memory.offset);
+    stage_buffer_.memory = context_->AllocateHostMemory(stage_buffer_.buffer);
+    device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.device_memory, stage_buffer_.memory.offset);
 
     // Floor
     constexpr float floor_range = 30.f;
@@ -1226,17 +1155,17 @@ private:
 
     const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
 
-    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset, floor_buffer_size));
+    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, floor_buffer_size));
     std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
     std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.device_memory);
 
     buffer_create_info
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSize(floor_buffer_size);
     floor_.buffer.buffer = device.createBuffer(buffer_create_info);
-    floor_.buffer.memory = AllocateDeviceMemory(floor_.buffer.buffer);
-    device.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.memory, floor_.buffer.memory.offset);
+    floor_.buffer.memory = context_->AllocateDeviceMemory(floor_.buffer.buffer);
+    device.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.device_memory, floor_.buffer.memory.offset);
 
     vk::CommandBufferAllocateInfo allocate_info;
     allocate_info
@@ -1320,17 +1249,17 @@ private:
     sphere_.num_indices = static_cast<uint32_t>(sphere_index_buffer.size());
 
     const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
     std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
     std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
     std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.device_memory);
 
     buffer_create_info
       .setSize(sphere_buffer_size);
     sphere_.buffer.buffer = device.createBuffer(buffer_create_info);
-    sphere_.buffer.memory = AllocateDeviceMemory(sphere_.buffer.buffer);
-    device.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.memory, sphere_.buffer.memory.offset);
+    sphere_.buffer.memory = context_->AllocateDeviceMemory(sphere_.buffer.buffer);
+    device.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.device_memory, sphere_.buffer.memory.offset);
 
     transfer_commands[1].begin(begin_info);
     region
@@ -1356,18 +1285,18 @@ private:
     mesh_.num_indices = static_cast<uint32_t>(mesh_indices.size());
 
     const auto mesh_buffer_size = mesh_.index_offset + mesh_indices.size() * sizeof(uint32_t);
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
     std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
     std::memcpy(ptr + mesh_.normal_offset, mesh_normals.data(), mesh_normals.size() * sizeof(float));
     std::memcpy(ptr + mesh_.tex_coord_offset, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
     std::memcpy(ptr + mesh_.index_offset, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.device_memory);
 
     buffer_create_info
       .setSize(mesh_buffer_size);
     mesh_.buffer.buffer = device.createBuffer(buffer_create_info);
-    mesh_.buffer.memory = AllocateDeviceMemory(mesh_.buffer.buffer);
-    device.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.memory, mesh_.buffer.memory.offset);
+    mesh_.buffer.memory = context_->AllocateDeviceMemory(mesh_.buffer.buffer);
+    device.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.device_memory, mesh_.buffer.memory.offset);
 
     transfer_commands[2].begin(begin_info);
     region
@@ -1390,8 +1319,8 @@ private:
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
 
-    device.unmapMemory(uniform_buffer_.memory.memory);
-    device.freeMemory(uniform_buffer_.memory.memory);
+    device.unmapMemory(uniform_buffer_.memory.device_memory);
+    device.freeMemory(uniform_buffer_.memory.device_memory);
 
     device.destroyBuffer(floor_.buffer.buffer);
     device.destroyBuffer(sphere_.buffer.buffer);
@@ -1490,84 +1419,6 @@ private:
     draw_command_buffers_.clear();
   }
 
-  Memory AllocateDeviceMemory(vk::Image image)
-  {
-    const auto device = context_->Device();
-
-    return AllocateDeviceMemory(device.getImageMemoryRequirements(image));
-  }
-
-  Memory AllocateDeviceMemory(vk::Buffer buffer)
-  {
-    const auto device = context_->Device();
-
-    return AllocateDeviceMemory(device.getBufferMemoryRequirements(buffer));
-  }
-
-  Memory AllocateDeviceMemory(const vk::MemoryRequirements& requirements)
-  {
-    Memory memory;
-    memory.memory = device_memory_;
-    memory.offset = (device_memory_offset_ + requirements.alignment - 1ull) / requirements.alignment * requirements.alignment;
-    memory.size = requirements.size;
-    device_memory_offset_ = memory.offset + memory.size;
-    return memory;
-  }
-
-  Memory AllocateHostMemory(vk::Image image)
-  {
-    const auto device = context_->Device();
-
-    return AllocateHostMemory(device.getImageMemoryRequirements(image));
-  }
-
-  Memory AllocateHostMemory(vk::Buffer buffer)
-  {
-    const auto device = context_->Device();
-
-    return AllocateHostMemory(device.getBufferMemoryRequirements(buffer));
-  }
-
-  Memory AllocateHostMemory(const vk::MemoryRequirements& requirements)
-  {
-    Memory memory;
-    memory.memory = host_memory_;
-    memory.offset = (host_memory_offset_ + requirements.alignment - 1) / requirements.alignment * requirements.alignment;
-    memory.size = requirements.size;
-    host_memory_offset_ = memory.offset + memory.size;
-    return memory;
-  }
-
-  Memory AllocatePersistentlyMappedMemory(vk::Image image)
-  {
-    const auto device = context_->Device();
-
-    return AllocatePersistentlyMappedMemory(device.getImageMemoryRequirements(image));
-  }
-
-  Memory AllocatePersistentlyMappedMemory(vk::Buffer buffer)
-  {
-    const auto device = context_->Device();
-
-    return AllocatePersistentlyMappedMemory(device.getBufferMemoryRequirements(buffer));
-  }
-
-  Memory AllocatePersistentlyMappedMemory(const vk::MemoryRequirements& requirements)
-  {
-    const auto device = context_->Device();
-
-    vk::MemoryAllocateInfo allocate_info;
-    allocate_info
-      .setMemoryTypeIndex(host_index_)
-      .setAllocationSize(requirements.size);
-
-    Memory memory;
-    memory.memory = device.allocateMemory(allocate_info);
-    memory.offset = 0;
-    memory.size = requirements.size;
-    return memory;
-  }
-
   vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
   {
     const auto device = context_->Device();
@@ -1638,14 +1489,6 @@ private:
 
   // Context
   std::shared_ptr<vkl::Context> context_;
-
-  // Memory
-  uint32_t device_index_ = 0;
-  uint32_t host_index_ = 0;
-  vk::DeviceMemory device_memory_;
-  vk::DeviceMemory host_memory_;
-  uint64_t device_memory_offset_ = 0;
-  uint64_t host_memory_offset_ = 0;
 
   // Swapchain
   vk::SwapchainKHR swapchain_;

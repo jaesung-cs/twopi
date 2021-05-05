@@ -31,7 +31,10 @@ public:
   std::vector<uint32_t> QueueFamilyIndices() const;
   const auto GraphicsQueueIndex() const { return graphics_queue_index_.value(); }
 
+  Memory AllocateDeviceMemory(vk::Buffer buffer);
   Memory AllocateDeviceMemory(vk::Image image);
+  Memory AllocateHostMemory(vk::Buffer buffer);
+  Memory AllocatePersistentlyMappedMemory(vk::Buffer buffer);
 
 private:
   void CreateInstance(GLFWwindow* glfw_window);

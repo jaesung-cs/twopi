@@ -14,7 +14,6 @@ MemoryManager::MemoryManager(Context* context)
   const auto device = context_->Device();
 
   uint32_t device_index = 0;
-  uint32_t host_index = 0;
 
   // Find memroy type index
   uint64_t device_available_size = 0;
@@ -40,7 +39,7 @@ MemoryManager::MemoryManager(Context* context)
     {
       if (heap.size > host_available_size)
       {
-        host_index = i;
+        host_index_ = i;
         host_available_size = heap.size;
       }
     }
@@ -55,7 +54,7 @@ MemoryManager::MemoryManager(Context* context)
   device_memory_ = device.allocateMemory(allocate_info);
 
   allocate_info
-    .setMemoryTypeIndex(host_index);
+    .setMemoryTypeIndex(host_index_);
   host_memory_ = device.allocateMemory(allocate_info);
 }
 
@@ -67,14 +66,46 @@ MemoryManager::~MemoryManager()
   device.freeMemory(host_memory_);
 }
 
+Memory MemoryManager::AllocateDeviceMemory(vk::Buffer buffer)
+{
+  const auto device = context_->Device();
+
+  return AllocateDeviceMemory(device.getBufferMemoryRequirements(buffer));
+}
+
 Memory MemoryManager::AllocateDeviceMemory(vk::Image image)
 {
-  return AllocateDeviceMemory(context_->Device().getImageMemoryRequirements(image));
+  const auto device = context_->Device();
+
+  return AllocateDeviceMemory(device.getImageMemoryRequirements(image));
+}
+
+Memory MemoryManager::AllocateHostMemory(vk::Buffer buffer)
+{
+  const auto device = context_->Device();
+
+  return AllocateHostMemory(device.getBufferMemoryRequirements(buffer));
 }
 
 Memory MemoryManager::AllocateHostMemory(vk::Image image)
 {
-  return AllocateHostMemory(context_->Device().getImageMemoryRequirements(image));
+  const auto device = context_->Device();
+
+  return AllocateHostMemory(device.getImageMemoryRequirements(image));
+}
+
+Memory MemoryManager::AllocatePersistentlyMappedMemory(vk::Image image)
+{
+  const auto device = context_->Device();
+
+  return AllocatePersistentlyMappedMemory(device.getImageMemoryRequirements(image));
+}
+
+Memory MemoryManager::AllocatePersistentlyMappedMemory(vk::Buffer buffer)
+{
+  const auto device = context_->Device();
+
+  return AllocatePersistentlyMappedMemory(device.getBufferMemoryRequirements(buffer));
 }
 
 Memory MemoryManager::AllocateDeviceMemory(const vk::MemoryRequirements& requirements)
@@ -94,6 +125,22 @@ Memory MemoryManager::AllocateHostMemory(const vk::MemoryRequirements& requireme
   memory.offset = (host_memory_offset_ + requirements.alignment - 1ull) & ~(requirements.alignment - 1ull);
   memory.size = requirements.size;
   host_memory_offset_ = memory.offset + memory.size;
+  return memory;
+}
+
+Memory MemoryManager::AllocatePersistentlyMappedMemory(const vk::MemoryRequirements& requirements)
+{
+  const auto device = context_->Device();
+
+  vk::MemoryAllocateInfo allocate_info;
+  allocate_info
+    .setMemoryTypeIndex(host_index_)
+    .setAllocationSize(requirements.size);
+
+  Memory memory;
+  memory.device_memory = device.allocateMemory(allocate_info);
+  memory.offset = 0;
+  memory.size = requirements.size;
   return memory;
 }
 }
