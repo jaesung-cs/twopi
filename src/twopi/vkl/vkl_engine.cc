@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <twopi/vkl/vkl_context.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -25,21 +26,6 @@ namespace twopi
 {
 namespace vkl
 {
-namespace
-{
-VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-  VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-  VkDebugUtilsMessageTypeFlagsEXT message_type,
-  const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-  void* pUserData)
-{
-  if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-    std::cerr << callback_data->pMessage << std::endl << std::endl;
-
-  return VK_FALSE;
-}
-}
-
 class Engine::Impl
 {
 private:
@@ -159,9 +145,13 @@ public:
 
   void Draw(core::Duration duration)
   {
-    device_.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
+    const auto device = context_->Device();
+    const auto graphics_queue = context_->GraphicsQueue();
+    const auto present_queue = context_->PresentQueue();
 
-    const auto result = device_.acquireNextImageKHR(swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
+    device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
+
+    const auto result = device.acquireNextImageKHR(swapchain_, UINT64_MAX, image_available_semaphores_[current_frame_]);
     if (result.result == vk::Result::eErrorOutOfDateKHR)
     {
       RecreateSwapchain();
@@ -173,10 +163,10 @@ public:
     const auto& image_index = result.value;
 
     if (images_in_flight_[image_index])
-      device_.waitForFences(images_in_flight_[image_index], true, UINT64_MAX);
+      device.waitForFences(images_in_flight_[image_index], true, UINT64_MAX);
     images_in_flight_[image_index] = in_flight_fences_[current_frame_];
 
-    device_.resetFences(in_flight_fences_[current_frame_]);
+    device.resetFences(in_flight_fences_[current_frame_]);
 
     // Update uniforms
     std::memcpy(uniform_buffer_map_ + camera_ubos_[image_index].buffer.memory.offset, &camera_, sizeof(CameraUbo));
@@ -195,7 +185,7 @@ public:
       .setCommandBuffers(draw_command_buffers_[image_index])
       .setSignalSemaphores(render_finished_semaphores_[current_frame_])
       .setWaitDstStageMask(stage_mask);
-    graphics_queue_.submit(submit_info, in_flight_fences_[current_frame_]);
+    graphics_queue.submit(submit_info, in_flight_fences_[current_frame_]);
 
     std::vector<uint32_t> image_indices{ image_index };
     vk::PresentInfoKHR present_info;
@@ -203,7 +193,7 @@ public:
       .setSwapchains(swapchain_)
       .setWaitSemaphores(render_finished_semaphores_[current_frame_])
       .setImageIndices(image_indices);
-    const auto present_result = present_queue_.presentKHR(present_info);
+    const auto present_result = present_queue.presentKHR(present_info);
 
     if (present_result == vk::Result::eErrorOutOfDateKHR || present_result == vk::Result::eSuboptimalKHR)
       RecreateSwapchain();
@@ -265,8 +255,8 @@ public:
 private:
   void Prepare()
   {
-    CreateInstance();
-    CreateDevice();
+    context_ = std::make_shared<vkl::Context>(glfw_window_handle_);
+
     PreallocateMemories();
     CreateSwapchain();
     PreallocateRenderPassAttachments();
@@ -279,15 +269,13 @@ private:
     CreateSynchronizationObjects();
     PrepareResources();
     CreateCommandBuffers();
-
-    PrepareShadowMap();
   }
 
   void Cleanup()
   {
-    device_.waitIdle();
+    const auto device = context_->Device();
 
-    CleanupShadowMap();
+    device.waitIdle();
 
     DestroyCommandBuffers();
     CleanupResources();
@@ -300,13 +288,14 @@ private:
     DestroyRenderPass();
     DestroySwapchain();
     FreePreallocatedMemories();
-    DestroyDevice();
-    DestroyInstance();
+    context_.reset();
   }
 
   void RecreateSwapchain()
   {
-    device_.waitIdle();
+    const auto device = context_->Device();
+
+    device.waitIdle();
 
     DestroyCommandBuffers();
     DestroySwapchainFramebuffers();
@@ -319,142 +308,15 @@ private:
     CreateCommandBuffers();
   }
 
-  void CreateInstance()
-  {
-    // App
-    vk::ApplicationInfo app_info;
-    app_info
-      .setPApplicationName("Twopi")
-      .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
-      .setPEngineName("Twopi Engine")
-      .setEngineVersion(VK_MAKE_VERSION(1, 0, 0))
-      .setApiVersion(VK_API_VERSION_1_2);
-
-    // Layers
-    std::vector<const char*> layers = {
-      "VK_LAYER_KHRONOS_validation",
-    };
-
-    // Extensions
-    std::vector<const char*> extensions = {
-      VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-    };
-
-    uint32_t num_glfw_extensions = 0;
-    const char** glfw_extensions;
-    glfw_extensions = glfwGetRequiredInstanceExtensions(&num_glfw_extensions);
-    for (uint32_t i = 0; i < num_glfw_extensions; i++)
-      extensions.push_back(glfw_extensions[i]);
-
-    // Messenger
-    vk::DebugUtilsMessengerCreateInfoEXT messenger_create_info;
-    messenger_create_info
-      .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eError | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose)
-      .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
-      .setPfnUserCallback(debug_callback)
-      .setPUserData(nullptr);
-
-    // Create instance
-    vk::InstanceCreateInfo instance_create_info;
-    instance_create_info
-      .setPApplicationInfo(&app_info)
-      .setPEnabledLayerNames(layers)
-      .setPEnabledExtensionNames(extensions)
-      .setPNext(&messenger_create_info);
-
-    instance_ = vk::createInstance(instance_create_info);
-
-    // Create messneger
-    vk::DynamicLoader dl;
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-    vk::DispatchLoaderDynamic dld(static_cast<vk::Instance>(instance_), vkGetInstanceProcAddr);
-    messenger_ = instance_.createDebugUtilsMessengerEXT(messenger_create_info, nullptr, dld);
-
-    // Create surface
-    VkSurfaceKHR surface_handle;
-    glfwCreateWindowSurface(instance_, glfw_window_handle_, nullptr, &surface_handle);
-    surface_ = surface_handle;
-  }
-
-  void DestroyInstance()
-  {
-    instance_.destroySurfaceKHR(surface_);
-
-    vk::DynamicLoader dl;
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-    vk::DispatchLoaderDynamic dld(instance_, vkGetInstanceProcAddr);
-    instance_.destroyDebugUtilsMessengerEXT(messenger_, nullptr, dld);
-
-    instance_.destroy();
-  }
-
-  void CreateDevice()
-  {
-    // Choose the first GPU
-    physical_device_ = instance_.enumeratePhysicalDevices()[0];
-
-    // Find queues
-    const auto queue_family_properties = physical_device_.getQueueFamilyProperties();
-    for (int i = 0; i < queue_family_properties.size(); i++)
-    {
-      if (!graphics_queue_index_ && queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
-        graphics_queue_index_ = i;
-
-      // TODO: select unique queue family indices
-      if ((!present_queue_index_ || graphics_queue_index_ == present_queue_index_) && physical_device_.getSurfaceSupportKHR(i, surface_))
-        present_queue_index_ = i;
-    }
-
-    float queue_priority = 1.f;
-    vk::DeviceQueueCreateInfo graphics_queue_create_info;
-    graphics_queue_create_info
-      .setQueueFamilyIndex(graphics_queue_index_.value())
-      .setQueueCount(1)
-      .setQueuePriorities(queue_priority);
-
-    vk::DeviceQueueCreateInfo present_queue_create_info;
-    present_queue_create_info
-      .setQueueFamilyIndex(present_queue_index_.value())
-      .setQueueCount(1)
-      .setQueuePriorities(queue_priority);
-
-    std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {
-      graphics_queue_create_info,
-      present_queue_create_info,
-    };
-
-    // Device extensions
-    std::vector<const char*> extensions = {
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
-    // Device features
-    auto features = physical_device_.getFeatures();
-
-    // Create device
-    vk::DeviceCreateInfo device_create_info;
-    device_create_info
-      .setPEnabledExtensionNames(extensions)
-      .setQueueCreateInfos(queue_create_infos)
-      .setPEnabledFeatures(&features);
-
-    device_ = physical_device_.createDevice(device_create_info);
-
-    graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-    present_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-  }
-
-  void DestroyDevice()
-  {
-    device_.destroy();
-  }
-
   void PreallocateMemories()
   {
+    const auto physical_device = context_->PhysicalDevice();
+    const auto device = context_->Device();
+
     // Find memroy type index
     uint64_t device_available_size = 0;
     uint64_t host_available_size = 0;
-    const auto memory_properties = physical_device_.getMemoryProperties();
+    const auto memory_properties = physical_device.getMemoryProperties();
     for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
     {
       const auto properties = memory_properties.memoryTypes[i].propertyFlags;
@@ -487,22 +349,28 @@ private:
     allocate_info
       .setAllocationSize(chunk_size)
       .setMemoryTypeIndex(device_index_);
-    device_memory_ = device_.allocateMemory(allocate_info);
+    device_memory_ = device.allocateMemory(allocate_info);
 
     allocate_info
       .setMemoryTypeIndex(host_index_);
-    host_memory_ = device_.allocateMemory(allocate_info);
+    host_memory_ = device.allocateMemory(allocate_info);
   }
 
   void FreePreallocatedMemories()
   {
-    device_.freeMemory(device_memory_);
-    device_.freeMemory(host_memory_);
+    const auto device = context_->Device();
+
+    device.freeMemory(device_memory_);
+    device.freeMemory(host_memory_);
   }
 
   void CreateSwapchain()
   {
-    const auto capabilities = physical_device_.getSurfaceCapabilitiesKHR(surface_);
+    const auto physical_device = context_->PhysicalDevice();
+    const auto device = context_->Device();
+    const auto surface = context_->Surface();
+
+    const auto capabilities = physical_device.getSurfaceCapabilitiesKHR(surface);
 
     // Triple buffering
     auto image_count = capabilities.minImageCount + 1;
@@ -513,7 +381,7 @@ private:
       throw core::Error("Triple buffering is not supported.");
 
     vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo;
-    const auto present_modes = physical_device_.getSurfacePresentModesKHR(surface_);
+    const auto present_modes = physical_device.getSurfacePresentModesKHR(surface);
     for (auto available_mode : present_modes)
     {
       if (available_mode == vk::PresentModeKHR::eMailbox)
@@ -521,7 +389,7 @@ private:
     }
 
     // Format
-    const auto available_formats = physical_device_.getSurfaceFormatsKHR(surface_);
+    const auto available_formats = physical_device.getSurfaceFormatsKHR(surface);
     auto format = available_formats[0];
     for (const auto& available_format : available_formats)
     {
@@ -545,15 +413,12 @@ private:
     }
 
     // Image sharing mode
-    std::vector<uint32_t> queue_family_indices{
-      graphics_queue_index_.value(),
-      present_queue_index_.value(),
-    };
+    const auto queue_family_indices = context_->QueueFamilyIndices();
 
     // Create swapchain
     vk::SwapchainCreateInfoKHR swapchain_create_info;
     swapchain_create_info
-      .setSurface(surface_)
+      .setSurface(surface)
       .setImageArrayLayers(1)
       .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
       .setPreTransform(capabilities.currentTransform)
@@ -568,10 +433,10 @@ private:
       .setImageSharingMode(vk::SharingMode::eConcurrent)
       .setQueueFamilyIndices(queue_family_indices);
 
-    swapchain_ = device_.createSwapchainKHR(swapchain_create_info);
+    swapchain_ = device.createSwapchainKHR(swapchain_create_info);
     swapchain_image_format_ = format.format;
 
-    swapchain_images_ = device_.getSwapchainImagesKHR(swapchain_);
+    swapchain_images_ = device.getSwapchainImagesKHR(swapchain_);
 
     // Create image view for swapchain
     vk::ImageSubresourceRange image_subresource_range;
@@ -595,21 +460,25 @@ private:
       image_view_create_info
         .setImage(swapchain_images_[i]);
 
-      swapchain_image_views_[i] = device_.createImageView(image_view_create_info);
+      swapchain_image_views_[i] = device.createImageView(image_view_create_info);
     }
   }
 
   void DestroySwapchain()
   {
+    const auto device = context_->Device();
+
     for (auto& swapchain_iamge_view : swapchain_image_views_)
-      device_.destroyImageView(swapchain_iamge_view);
+      device.destroyImageView(swapchain_iamge_view);
     swapchain_image_views_.clear();
 
-    device_.destroySwapchainKHR(swapchain_);
+    device.destroySwapchainKHR(swapchain_);
   }
 
   void PreallocateRenderPassAttachments()
   {
+    const auto device = context_->Device();
+
     // Allocate render pass attachment image memories
     vk::ImageCreateInfo image_create_info;
     image_create_info
@@ -623,23 +492,25 @@ private:
       .setExtent(vk::Extent3D{ max_width_, max_height_, 1 })
       .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
       .setFormat(swapchain_image_format_);
-    auto limit_rendertarget_image = device_.createImage(image_create_info);
+    auto limit_rendertarget_image = device.createImage(image_create_info);
 
     rendertarget_image_memory_ = AllocateDeviceMemory(limit_rendertarget_image);
 
     image_create_info
       .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
       .setFormat(vk::Format::eD24UnormS8Uint);
-    auto limit_depth_image = device_.createImage(image_create_info);
+    auto limit_depth_image = device.createImage(image_create_info);
 
     depth_image_memory_ = AllocateDeviceMemory(limit_depth_image);
 
-    device_.destroyImage(limit_rendertarget_image);
-    device_.destroyImage(limit_depth_image);
+    device.destroyImage(limit_rendertarget_image);
+    device.destroyImage(limit_depth_image);
   }
 
   void CreateRenderPass()
   {
+    const auto device = context_->Device();
+
     // Create multisample rendertarget image
     vk::ImageCreateInfo image_create_info;
     image_create_info
@@ -653,9 +524,9 @@ private:
       .setExtent(vk::Extent3D{ width_, height_, 1 })
       .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment)
       .setFormat(swapchain_image_format_);
-    rendertarget_image_ = device_.createImage(image_create_info);
+    rendertarget_image_ = device.createImage(image_create_info);
 
-    device_.bindImageMemory(rendertarget_image_, rendertarget_image_memory_.memory, rendertarget_image_memory_.offset);
+    device.bindImageMemory(rendertarget_image_, rendertarget_image_memory_.memory, rendertarget_image_memory_.offset);
 
     vk::ImageSubresourceRange image_subresource_range;
     image_subresource_range
@@ -674,15 +545,15 @@ private:
 
     image_view_create_info
       .setImage(rendertarget_image_);
-    rendertarget_image_view_ = device_.createImageView(image_view_create_info);
+    rendertarget_image_view_ = device.createImageView(image_view_create_info);
 
     // Create multisample depth image
     image_create_info
       .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
       .setFormat(vk::Format::eD24UnormS8Uint);
-    depth_image_ = device_.createImage(image_create_info);
+    depth_image_ = device.createImage(image_create_info);
 
-    device_.bindImageMemory(depth_image_, depth_image_memory_.memory, depth_image_memory_.offset);
+    device.bindImageMemory(depth_image_, depth_image_memory_.memory, depth_image_memory_.offset);
 
     image_subresource_range
       .setAspectMask(vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
@@ -691,7 +562,7 @@ private:
       .setSubresourceRange(image_subresource_range)
       .setFormat(vk::Format::eD24UnormS8Uint)
       .setImage(depth_image_);
-    depth_image_view_ = device_.createImageView(image_view_create_info);
+    depth_image_view_ = device.createImageView(image_view_create_info);
 
     // Create render pass
     vk::AttachmentDescription color_attachment;
@@ -770,22 +641,26 @@ private:
       .setSubpasses(subpass)
       .setDependencies(dependency);
 
-    swapchain_render_pass_ = device_.createRenderPass(render_pass_create_info);
+    swapchain_render_pass_ = device.createRenderPass(render_pass_create_info);
   }
 
   void DestroyRenderPass()
   {
-    device_.destroyRenderPass(swapchain_render_pass_);
+    const auto device = context_->Device();
 
-    device_.destroyImage(depth_image_);
-    device_.destroyImageView(depth_image_view_);
+    device.destroyRenderPass(swapchain_render_pass_);
 
-    device_.destroyImage(rendertarget_image_);
-    device_.destroyImageView(rendertarget_image_view_);
+    device.destroyImage(depth_image_);
+    device.destroyImageView(depth_image_view_);
+
+    device.destroyImage(rendertarget_image_);
+    device.destroyImageView(rendertarget_image_view_);
   }
 
   void CreateSwapchainFramebuffers()
   {
+    const auto device = context_->Device();
+
     // Create framebuffers
     vk::FramebufferCreateInfo framebuffer_create_info;
     framebuffer_create_info
@@ -806,23 +681,28 @@ private:
       framebuffer_create_info
         .setAttachments(attachments);
 
-      swapchain_framebuffers_[i] = device_.createFramebuffer(framebuffer_create_info);
+      swapchain_framebuffers_[i] = device.createFramebuffer(framebuffer_create_info);
     }
   }
 
   void DestroySwapchainFramebuffers()
   {
+    const auto device = context_->Device();
+
     for (auto& swapchain_framebuffer : swapchain_framebuffers_)
-      device_.destroyFramebuffer(swapchain_framebuffer);
+      device.destroyFramebuffer(swapchain_framebuffer);
     swapchain_framebuffers_.clear();
   }
 
   void CreateSampler()
   {
+    const auto physical_device = context_->PhysicalDevice();
+    const auto device = context_->Device();
+
     vk::SamplerCreateInfo sampler_create_info;
     sampler_create_info
       .setAnisotropyEnable(true)
-      .setMaxAnisotropy(physical_device_.getProperties().limits.maxSamplerAnisotropy)
+      .setMaxAnisotropy(physical_device.getProperties().limits.maxSamplerAnisotropy)
       .setMagFilter(vk::Filter::eLinear)
       .setMinFilter(vk::Filter::eLinear)
       .setAddressModeU(vk::SamplerAddressMode::eRepeat)
@@ -837,16 +717,20 @@ private:
       .setMinLod(0.f)
       .setMaxLod(static_cast<float>(mip_levels_));
 
-    sampler_ = device_.createSampler(sampler_create_info);
+    sampler_ = device.createSampler(sampler_create_info);
   }
 
   void DestroySampler()
   {
-    device_.destroySampler(sampler_);
+    const auto device = context_->Device();
+
+    device.destroySampler(sampler_);
   }
 
   void CreateDescriptorSet()
   {
+    const auto device = context_->Device();
+
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     vk::DescriptorSetLayoutBinding binding;
 
@@ -894,7 +778,7 @@ private:
     descriptor_set_layout_create_info
       .setBindings(bindings);
 
-    descriptor_set_layout_ = device_.createDescriptorSetLayout(descriptor_set_layout_create_info);
+    descriptor_set_layout_ = device.createDescriptorSetLayout(descriptor_set_layout_create_info);
 
     // Descriptor pool
     std::vector<vk::DescriptorPoolSize> pool_sizes;
@@ -922,17 +806,21 @@ private:
     descriptor_pool_create_info
       .setMaxSets(descriptor_count)
       .setPoolSizes(pool_sizes);
-    descriptor_pool_ = device_.createDescriptorPool(descriptor_pool_create_info);
+    descriptor_pool_ = device.createDescriptorPool(descriptor_pool_create_info);
   }
 
   void DestroyDesciptorSet()
   {
-    device_.destroyDescriptorPool(descriptor_pool_);
-    device_.destroyDescriptorSetLayout(descriptor_set_layout_);
+    const auto device = context_->Device();
+
+    device.destroyDescriptorPool(descriptor_pool_);
+    device.destroyDescriptorSetLayout(descriptor_set_layout_);
   }
 
   void CreateGraphicsPipelines()
   {
+    const auto device = context_->Device();
+
     vk::PipelineRasterizationStateCreateInfo rasterization_info;
     rasterization_info
       .setDepthClampEnable(false)
@@ -1020,7 +908,7 @@ private:
     pipeline_layout_create_info
       .setSetLayouts(descriptor_set_layout_);
 
-    pipeline_layout_ = device_.createPipelineLayout(pipeline_layout_create_info);
+    pipeline_layout_ = device.createPipelineLayout(pipeline_layout_create_info);
 
     // Color pipeline
     vk::VertexInputBindingDescription binding_description;
@@ -1096,10 +984,10 @@ private:
       .setBasePipelineIndex(-1)
       .setStages(shader_stages);
 
-    color_pipeline_ = device_.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+    color_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
-    device_.destroyShaderModule(vert_shader_module);
-    device_.destroyShaderModule(frag_shader_module);
+    device.destroyShaderModule(vert_shader_module);
+    device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
 
     // Floor pipeline
@@ -1138,55 +1026,64 @@ private:
     graphics_pipeline_create_info
       .setStages(shader_stages);
 
-    floor_pipeline_ = device_.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+    floor_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
-    device_.destroyShaderModule(vert_shader_module);
-    device_.destroyShaderModule(frag_shader_module);
+    device.destroyShaderModule(vert_shader_module);
+    device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
   }
 
   void DestroyGraphicsPipelines()
   {
-    device_.destroyPipelineLayout(pipeline_layout_);
-    device_.destroyPipeline(color_pipeline_);
-    device_.destroyPipeline(floor_pipeline_);
+    const auto device = context_->Device();
+
+    device.destroyPipelineLayout(pipeline_layout_);
+    device.destroyPipeline(color_pipeline_);
+    device.destroyPipeline(floor_pipeline_);
   }
 
   void CreateCommandPool()
   {
+    const auto device = context_->Device();
+    const auto graphics_queue_index = context_->GraphicsQueueIndex();
+
     vk::CommandPoolCreateInfo command_pool_create_info;
     command_pool_create_info
-      .setQueueFamilyIndex(graphics_queue_index_.value());
+      .setQueueFamilyIndex(graphics_queue_index);
 
-    command_pool_ = device_.createCommandPool(command_pool_create_info);
+    command_pool_ = device.createCommandPool(command_pool_create_info);
 
     command_pool_create_info
       .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
 
-    transient_command_pool_ = device_.createCommandPool(command_pool_create_info);
+    transient_command_pool_ = device.createCommandPool(command_pool_create_info);
   }
 
   void DestroyCommandPool()
   {
-    device_.destroyCommandPool(command_pool_);
-    device_.destroyCommandPool(transient_command_pool_);
+    const auto device = context_->Device();
+
+    device.destroyCommandPool(command_pool_);
+    device.destroyCommandPool(transient_command_pool_);
   }
 
   void CreateSynchronizationObjects()
   {
+    const auto device = context_->Device();
+
     vk::SemaphoreCreateInfo semaphore_create_info;
     vk::FenceCreateInfo fence_create_info;
 
-    transfer_fence_ = device_.createFence(fence_create_info);
+    transfer_fence_ = device.createFence(fence_create_info);
 
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
     for (int i = 0; i < image_count_; i++)
     {
-      image_available_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
-      render_finished_semaphores_.emplace_back(device_.createSemaphore(semaphore_create_info));
-      in_flight_fences_.emplace_back(device_.createFence(fence_create_info));
+      image_available_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
+      render_finished_semaphores_.emplace_back(device.createSemaphore(semaphore_create_info));
+      in_flight_fences_.emplace_back(device.createFence(fence_create_info));
     }
 
     images_in_flight_.resize(image_count_);
@@ -1194,25 +1091,31 @@ private:
 
   void DestroySynchronizationObjects()
   {
+    const auto device = context_->Device();
+
     for (auto& semaphore : image_available_semaphores_)
-      device_.destroySemaphore(semaphore);
+      device.destroySemaphore(semaphore);
     image_available_semaphores_.clear();
 
     for (auto& semaphore : render_finished_semaphores_)
-      device_.destroySemaphore(semaphore);
+      device.destroySemaphore(semaphore);
     render_finished_semaphores_.clear();
 
     for (auto& fence : in_flight_fences_)
-      device_.destroyFence(fence);
+      device.destroyFence(fence);
     in_flight_fences_.clear();
 
-    device_.destroyFence(transfer_fence_);
+    device.destroyFence(transfer_fence_);
   }
 
   void PrepareResources()
   {
+    const auto device = context_->Device();
+    const auto physical_device = context_->PhysicalDevice();
+    const auto graphics_queue = context_->GraphicsQueue();
+
     // UBO alignment
-    const auto ubo_alignment = physical_device_.getProperties().limits.minUniformBufferOffsetAlignment;
+    const auto ubo_alignment = physical_device.getProperties().limits.minUniformBufferOffsetAlignment;
 
     const auto camera_stride = (sizeof(CameraUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
     const auto light_stride = (sizeof(LightUbo) + ubo_alignment - 1) & ~(ubo_alignment - 1);
@@ -1223,10 +1126,10 @@ private:
       .setSharingMode(vk::SharingMode::eExclusive)
       .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
       .setSize(256 * 1024 * 1024); // 256MB
-    uniform_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    uniform_buffer_.buffer = device.createBuffer(buffer_create_info);
     uniform_buffer_.memory = AllocatePersistentlyMappedMemory(uniform_buffer_.buffer);
-    device_.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
-    uniform_buffer_map_ = static_cast<unsigned char*>(device_.mapMemory(uniform_buffer_.memory.memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
+    device.bindBufferMemory(uniform_buffer_.buffer, uniform_buffer_.memory.memory, uniform_buffer_.memory.offset);
+    uniform_buffer_map_ = static_cast<unsigned char*>(device.mapMemory(uniform_buffer_.memory.memory, uniform_buffer_.memory.offset, uniform_buffer_.memory.size));
 
     camera_ubos_.resize(image_count_);
     for (int i = 0; i < camera_ubos_.size(); i++)
@@ -1289,7 +1192,7 @@ private:
       .setSetLayouts(layouts)
       .setDescriptorPool(descriptor_pool_);
 
-    descriptor_sets_ = device_.allocateDescriptorSets(descriptor_set_allocate_info);
+    descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
 
     std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
     std::vector<vk::DescriptorImageInfo> image_infos(1);
@@ -1365,7 +1268,7 @@ private:
       for (auto& write : writes)
         write.setDstSet(descriptor_sets_[i]);
 
-      device_.updateDescriptorSets(writes, nullptr);
+      device.updateDescriptorSets(writes, nullptr);
     }
 
     // Stage buffer
@@ -1373,9 +1276,9 @@ private:
       .setSharingMode(vk::SharingMode::eExclusive)
       .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
       .setSize(32 * 1024 * 1024); // 32MB
-    stage_buffer_.buffer = device_.createBuffer(buffer_create_info);
+    stage_buffer_.buffer = device.createBuffer(buffer_create_info);
     stage_buffer_.memory = AllocateHostMemory(stage_buffer_.buffer);
-    device_.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.memory, stage_buffer_.memory.offset);
+    device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.memory, stage_buffer_.memory.offset);
 
     // Floor
     constexpr float floor_range = 30.f;
@@ -1410,24 +1313,24 @@ private:
 
     const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
 
-    auto* ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset, floor_buffer_size));
+    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset, floor_buffer_size));
     std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
     std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
-    device_.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.memory);
 
     buffer_create_info
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSize(floor_buffer_size);
-    floor_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    floor_.buffer.buffer = device.createBuffer(buffer_create_info);
     floor_.buffer.memory = AllocateDeviceMemory(floor_.buffer.buffer);
-    device_.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.memory, floor_.buffer.memory.offset);
+    device.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.memory, floor_.buffer.memory.offset);
 
     vk::CommandBufferAllocateInfo allocate_info;
     allocate_info
       .setLevel(vk::CommandBufferLevel::ePrimary)
       .setCommandPool(transient_command_pool_)
       .setCommandBufferCount(3);
-    auto transfer_commands = device_.allocateCommandBuffers(allocate_info);
+    auto transfer_commands = device.allocateCommandBuffers(allocate_info);
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -1504,17 +1407,17 @@ private:
     sphere_.num_indices = static_cast<uint32_t>(sphere_index_buffer.size());
 
     const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
-    ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
     std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
     std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
     std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    device_.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.memory);
 
     buffer_create_info
       .setSize(sphere_buffer_size);
-    sphere_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    sphere_.buffer.buffer = device.createBuffer(buffer_create_info);
     sphere_.buffer.memory = AllocateDeviceMemory(sphere_.buffer.buffer);
-    device_.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.memory, sphere_.buffer.memory.offset);
+    device.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.memory, sphere_.buffer.memory.offset);
 
     transfer_commands[1].begin(begin_info);
     region
@@ -1540,18 +1443,18 @@ private:
     mesh_.num_indices = static_cast<uint32_t>(mesh_indices.size());
 
     const auto mesh_buffer_size = mesh_.index_offset + mesh_indices.size() * sizeof(uint32_t);
-    ptr = static_cast<unsigned char*>(device_.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
     std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
     std::memcpy(ptr + mesh_.normal_offset, mesh_normals.data(), mesh_normals.size() * sizeof(float));
     std::memcpy(ptr + mesh_.tex_coord_offset, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
     std::memcpy(ptr + mesh_.index_offset, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
-    device_.unmapMemory(stage_buffer_.memory.memory);
+    device.unmapMemory(stage_buffer_.memory.memory);
 
     buffer_create_info
       .setSize(mesh_buffer_size);
-    mesh_.buffer.buffer = device_.createBuffer(buffer_create_info);
+    mesh_.buffer.buffer = device.createBuffer(buffer_create_info);
     mesh_.buffer.memory = AllocateDeviceMemory(mesh_.buffer.buffer);
-    device_.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.memory, mesh_.buffer.memory.offset);
+    device.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.memory, mesh_.buffer.memory.offset);
 
     transfer_commands[2].begin(begin_info);
     region
@@ -1564,31 +1467,36 @@ private:
     // Submit transfer commands
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_commands);
-    graphics_queue_.submit(submit_info, transfer_fence_);
+    graphics_queue.submit(submit_info, transfer_fence_);
 
-    const auto result = device_.waitForFences(transfer_fence_, true, UINT64_MAX);
+    const auto result = device.waitForFences(transfer_fence_, true, UINT64_MAX);
   }
 
   void CleanupResources()
   {
-    device_.unmapMemory(uniform_buffer_.memory.memory);
-    device_.freeMemory(uniform_buffer_.memory.memory);
+    const auto device = context_->Device();
+    const auto physical_device = context_->PhysicalDevice();
 
-    device_.destroyBuffer(floor_.buffer.buffer);
-    device_.destroyBuffer(sphere_.buffer.buffer);
-    device_.destroyBuffer(mesh_.buffer.buffer);
-    device_.destroyBuffer(stage_buffer_.buffer);
-    device_.destroyBuffer(uniform_buffer_.buffer);
+    device.unmapMemory(uniform_buffer_.memory.memory);
+    device.freeMemory(uniform_buffer_.memory.memory);
+
+    device.destroyBuffer(floor_.buffer.buffer);
+    device.destroyBuffer(sphere_.buffer.buffer);
+    device.destroyBuffer(mesh_.buffer.buffer);
+    device.destroyBuffer(stage_buffer_.buffer);
+    device.destroyBuffer(uniform_buffer_.buffer);
   }
 
   void CreateCommandBuffers()
   {
+    const auto device = context_->Device();
+
     vk::CommandBufferAllocateInfo allocate_info;
     allocate_info
       .setCommandPool(command_pool_)
       .setLevel(vk::CommandBufferLevel::ePrimary)
       .setCommandBufferCount(image_count_);
-    draw_command_buffers_ = device_.allocateCommandBuffers(allocate_info);
+    draw_command_buffers_ = device.allocateCommandBuffers(allocate_info);
 
     for (int i = 0; i < image_count_; i++)
     {
@@ -1663,109 +1571,24 @@ private:
 
   void DestroyCommandBuffers()
   {
-    device_.freeCommandBuffers(command_pool_, draw_command_buffers_);
+    const auto device = context_->Device();
+
+    device.freeCommandBuffers(command_pool_, draw_command_buffers_);
     draw_command_buffers_.clear();
-  }
-
-  void PrepareShadowMap()
-  {
-    // Image
-    vk::ImageCreateInfo image_create_info;
-    image_create_info
-      .setImageType(vk::ImageType::e2D)
-      .setFormat(vk::Format::eR32Sfloat)
-      .setExtent(vk::Extent3D{ shadowmap_width_, shadowmap_height_, 1 })
-      .setMipLevels(1)
-      .setArrayLayers(6)
-      .setSamples(vk::SampleCountFlagBits::e1)
-      .setTiling(vk::ImageTiling::eOptimal)
-      .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
-    shadow_map_image_.image = device_.createImage(image_create_info);
-    shadow_map_image_.memory = AllocateDeviceMemory(shadow_map_image_.image);
-    device_.bindImageMemory(shadow_map_image_.image, shadow_map_image_.memory.memory, shadow_map_image_.memory.offset);
-
-    // Image layout transition
-    vk::ImageSubresourceRange subresource_range;
-    subresource_range
-      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-      .setLevelCount(1)
-      .setBaseMipLevel(0)
-      .setLayerCount(6)
-      .setBaseArrayLayer(0);
-
-    vk::CommandBufferAllocateInfo command_buffer_allocate_info;
-    command_buffer_allocate_info
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandPool(transient_command_pool_)
-      .setCommandBufferCount(1);
-    const auto command_buffers = device_.allocateCommandBuffers(command_buffer_allocate_info);
-
-    auto command_buffer = command_buffers[0];
-    vk::CommandBufferBeginInfo begin_info;
-    begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    command_buffer.begin(begin_info);
-
-    ChangeImageLayout(command_buffer, shadow_map_image_.image,
-      vk::ImageLayout::eUndefined,
-      vk::ImageLayout::eShaderReadOnlyOptimal,
-      subresource_range);
-
-    command_buffer.end();
-
-    device_.resetFences(transfer_fence_);
-    vk::SubmitInfo submit_info;
-    submit_info.setCommandBuffers(command_buffer);
-    graphics_queue_.submit(submit_info, transfer_fence_);
-    device_.waitForFences(transfer_fence_, true, UINT64_MAX);
-
-    device_.freeCommandBuffers(transient_command_pool_, command_buffers);
-
-    // Sampler
-    vk::SamplerCreateInfo sampler_create_info;
-    sampler_create_info
-      .setMagFilter(vk::Filter::eLinear)
-      .setMinFilter(vk::Filter::eLinear)
-      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-      .setAddressModeU(vk::SamplerAddressMode::eClampToBorder)
-      .setAddressModeV(vk::SamplerAddressMode::eClampToBorder)
-      .setAddressModeW(vk::SamplerAddressMode::eClampToBorder)
-      .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-      .setCompareOp(vk::CompareOp::eNever)
-      .setMinLod(0.f)
-      .setMaxLod(1.f)
-      .setMipLodBias(0.f)
-      .setMaxAnisotropy(1.f);
-    shadow_map_sampler_ = device_.createSampler(sampler_create_info);
-
-    // Shadow map image view
-    vk::ImageViewCreateInfo image_view_create_info;
-    image_view_create_info
-      .setImage(shadow_map_image_.image)
-      .setViewType(vk::ImageViewType::eCube)
-      .setFormat(vk::Format::eR32Sfloat)
-      .setComponents(vk::ComponentSwizzle::eR)
-      .setSubresourceRange(vk::ImageSubresourceRange{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 6 });
-    shadow_map_image_view_ = device_.createImageView(image_view_create_info);
-  }
-
-  void CleanupShadowMap()
-  {
-    device_.destroyImageView(shadow_map_image_view_);
-    device_.destroySampler(shadow_map_sampler_);
-    device_.destroyImage(shadow_map_image_.image);
   }
 
   Memory AllocateDeviceMemory(vk::Image image)
   {
-    return AllocateDeviceMemory(device_.getImageMemoryRequirements(image));
+    const auto device = context_->Device();
+
+    return AllocateDeviceMemory(device.getImageMemoryRequirements(image));
   }
 
   Memory AllocateDeviceMemory(vk::Buffer buffer)
   {
-    return AllocateDeviceMemory(device_.getBufferMemoryRequirements(buffer));
+    const auto device = context_->Device();
+
+    return AllocateDeviceMemory(device.getBufferMemoryRequirements(buffer));
   }
 
   Memory AllocateDeviceMemory(const vk::MemoryRequirements& requirements)
@@ -1780,12 +1603,16 @@ private:
 
   Memory AllocateHostMemory(vk::Image image)
   {
-    return AllocateHostMemory(device_.getImageMemoryRequirements(image));
+    const auto device = context_->Device();
+
+    return AllocateHostMemory(device.getImageMemoryRequirements(image));
   }
 
   Memory AllocateHostMemory(vk::Buffer buffer)
   {
-    return AllocateHostMemory(device_.getBufferMemoryRequirements(buffer));
+    const auto device = context_->Device();
+
+    return AllocateHostMemory(device.getBufferMemoryRequirements(buffer));
   }
 
   Memory AllocateHostMemory(const vk::MemoryRequirements& requirements)
@@ -1800,23 +1627,29 @@ private:
 
   Memory AllocatePersistentlyMappedMemory(vk::Image image)
   {
-    return AllocatePersistentlyMappedMemory(device_.getImageMemoryRequirements(image));
+    const auto device = context_->Device();
+
+    return AllocatePersistentlyMappedMemory(device.getImageMemoryRequirements(image));
   }
 
   Memory AllocatePersistentlyMappedMemory(vk::Buffer buffer)
   {
-    return AllocatePersistentlyMappedMemory(device_.getBufferMemoryRequirements(buffer));
+    const auto device = context_->Device();
+
+    return AllocatePersistentlyMappedMemory(device.getBufferMemoryRequirements(buffer));
   }
 
   Memory AllocatePersistentlyMappedMemory(const vk::MemoryRequirements& requirements)
   {
+    const auto device = context_->Device();
+
     vk::MemoryAllocateInfo allocate_info;
     allocate_info
       .setMemoryTypeIndex(host_index_)
       .setAllocationSize(requirements.size);
 
     Memory memory;
-    memory.memory = device_.allocateMemory(allocate_info);
+    memory.memory = device.allocateMemory(allocate_info);
     memory.offset = 0;
     memory.size = requirements.size;
     return memory;
@@ -1824,6 +1657,8 @@ private:
 
   vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
   {
+    const auto device = context_->Device();
+
     const auto filepath = dirpath + '/' + filename;
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -1843,7 +1678,8 @@ private:
     vk::ShaderModuleCreateInfo shader_module_create_info;
     shader_module_create_info
       .setCode(code);
-    return device_.createShaderModule(shader_module_create_info);
+
+    return device.createShaderModule(shader_module_create_info);
   }
 
   void ChangeImageLayout(vk::CommandBuffer& command_buffer, vk::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout, vk::ImageSubresourceRange subresource_range)
@@ -1887,18 +1723,8 @@ private:
 
   GLFWwindow* glfw_window_handle_;
 
-  // Instance
-  vk::Instance instance_;
-  vk::DebugUtilsMessengerEXT messenger_;
-  vk::SurfaceKHR surface_;
-
-  // Device
-  vk::PhysicalDevice physical_device_;
-  vk::Device device_;
-  std::optional<uint32_t> graphics_queue_index_;
-  std::optional<uint32_t> present_queue_index_;
-  vk::Queue graphics_queue_;
-  vk::Queue present_queue_;
+  // Context
+  std::shared_ptr<vkl::Context> context_;
 
   // Memory
   uint32_t device_index_ = 0;
@@ -1987,13 +1813,6 @@ private:
   std::vector<vk::Semaphore> render_finished_semaphores_;
   std::vector<vk::Fence> in_flight_fences_;
   std::vector<vk::Fence> images_in_flight_;
-
-  // Shadow map
-  Image shadow_map_image_;
-  vk::Sampler shadow_map_sampler_;
-  vk::ImageView shadow_map_image_view_;
-  uint32_t shadowmap_width_ = 1024;
-  uint32_t shadowmap_height_ = 1024;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

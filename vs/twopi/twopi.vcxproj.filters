@@ -213,6 +213,12 @@
     <ClCompile Include="..\..\src\twopi\vkl\vkl_engine.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_memory_manager.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -387,6 +393,12 @@
       <Filter>src\twopi\shader\core</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_engine.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_memory_manager.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
   </ItemGroup>
