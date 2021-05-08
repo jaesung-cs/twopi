@@ -286,12 +286,14 @@ private:
   {
     const auto device = context_->Device();
 
-    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_->ImageFormat(), vk::SampleCountFlagBits::e4);
+    constexpr auto samples = vk::SampleCountFlagBits::e4;
+
+    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_->ImageFormat(), samples);
 
     // Create render pass
     vk::AttachmentDescription color_attachment;
     color_attachment
-      .setSamples(vk::SampleCountFlagBits::e4)
+      .setSamples(samples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eStore)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -307,7 +309,7 @@ private:
 
     vk::AttachmentDescription depth_attachment;
     depth_attachment
-      .setSamples(vk::SampleCountFlagBits::e4)
+      .setSamples(samples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
