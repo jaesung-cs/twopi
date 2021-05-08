@@ -36,12 +36,18 @@ public:
   Memory AllocateHostMemory(vk::Buffer buffer);
   Memory AllocatePersistentlyMappedMemory(vk::Buffer buffer);
 
+  std::vector<vk::CommandBuffer> AllocateCommandBuffers(int count);
+  std::vector<vk::CommandBuffer> AllocateTransientCommandBuffers(int count);
+
 private:
   void CreateInstance(GLFWwindow* glfw_window);
   void DestroyInstance();
 
   void CreateDevice();
   void DestroyDevice();
+
+  void CreateCommandPools();
+  void DestroyCommandPools();
 
   vk::Instance instance_;
   vk::DebugUtilsMessengerEXT messenger_;
@@ -56,6 +62,10 @@ private:
   std::optional<uint32_t> present_queue_index_;
 
   std::unique_ptr<MemoryManager> memory_manager_;
+
+  // Command pool
+  vk::CommandPool command_pool_;
+  vk::CommandPool transient_command_pool_;
 };
 }
 }

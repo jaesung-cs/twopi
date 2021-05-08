@@ -232,7 +232,6 @@ private:
     CreateSampler();
     CreateDescriptorSet();
     CreateGraphicsPipelines();
-    CreateCommandPool();
     CreateSynchronizationObjects();
     PrepareResources();
     CreateCommandBuffers();
@@ -247,7 +246,6 @@ private:
     DestroyCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
-    DestroyCommandPool();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
@@ -764,31 +762,6 @@ private:
     device.destroyPipeline(floor_pipeline_);
   }
 
-  void CreateCommandPool()
-  {
-    const auto device = context_->Device();
-    const auto graphics_queue_index = context_->GraphicsQueueIndex();
-
-    vk::CommandPoolCreateInfo command_pool_create_info;
-    command_pool_create_info
-      .setQueueFamilyIndex(graphics_queue_index);
-
-    command_pool_ = device.createCommandPool(command_pool_create_info);
-
-    command_pool_create_info
-      .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
-
-    transient_command_pool_ = device.createCommandPool(command_pool_create_info);
-  }
-
-  void DestroyCommandPool()
-  {
-    const auto device = context_->Device();
-
-    device.destroyCommandPool(command_pool_);
-    device.destroyCommandPool(transient_command_pool_);
-  }
-
   void CreateSynchronizationObjects()
   {
     const auto device = context_->Device();
@@ -891,14 +864,6 @@ private:
       .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
     writes.push_back(write);
 
-    // TODO
-    /*
-    write
-      .setDstBinding(4)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-    writes.push_back(write);
-    */
-
     for (uint32_t i = 0; i < image_count; i++)
     {
       buffer_infos[0]
@@ -925,12 +890,6 @@ private:
       writes[1].setBufferInfo(buffer_infos[1]);
       writes[2].setBufferInfo(buffer_infos[2]);
       writes[3].setBufferInfo(buffer_infos[3]);
-
-      // TODO: image
-      /*
-      image_infos[0];
-      writes[4].setImageInfo(image_infos[0]);
-      */
 
       for (auto& write : writes)
         write.setDstSet(descriptor_sets_[i]);
@@ -973,7 +932,7 @@ private:
       0, 1, 2, 2, 1, 3
     };
 
-    floor_vbo_ = std::make_unique<VertexBuffer>(context_, 4, floor_indices.size());
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, 4, static_cast<int>(floor_indices.size()));
     (*floor_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
@@ -987,12 +946,7 @@ private:
     std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    vk::CommandBufferAllocateInfo allocate_info;
-    allocate_info
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandPool(transient_command_pool_)
-      .setCommandBufferCount(3);
-    auto transfer_commands = device.allocateCommandBuffers(allocate_info);
+    auto transfer_commands = context_->AllocateTransientCommandBuffers(3);
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -1141,12 +1095,7 @@ private:
   {
     const auto device = context_->Device();
 
-    vk::CommandBufferAllocateInfo allocate_info;
-    allocate_info
-      .setCommandPool(command_pool_)
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(swapchain_->ImageCount());
-    draw_command_buffers_ = device.allocateCommandBuffers(allocate_info);
+    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
 
     for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
@@ -1221,9 +1170,6 @@ private:
 
   void DestroyCommandBuffers()
   {
-    const auto device = context_->Device();
-
-    device.freeCommandBuffers(command_pool_, draw_command_buffers_);
     draw_command_buffers_.clear();
   }
 
@@ -1328,8 +1274,6 @@ private:
   vk::Pipeline floor_pipeline_;
 
   // Commands
-  vk::CommandPool command_pool_;
-  vk::CommandPool transient_command_pool_;
   std::vector<vk::CommandBuffer> draw_command_buffers_;
 
   // Uniform buffers per swapchain framebuffer
