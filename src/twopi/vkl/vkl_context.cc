@@ -240,7 +240,7 @@ std::vector<vk::CommandBuffer> Context::AllocateTransientCommandBuffers(int coun
   allocate_info
     .setLevel(vk::CommandBufferLevel::ePrimary)
     .setCommandPool(transient_command_pool_)
-    .setCommandBufferCount(3);
+    .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
 }
 }

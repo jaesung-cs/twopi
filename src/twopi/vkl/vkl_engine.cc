@@ -767,7 +767,7 @@ private:
 
     vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
     tessellation_stage_create_info
-      .setPatchControlPoints(16);
+      .setPatchControlPoints(4);
 
     vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
     vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
@@ -802,6 +802,9 @@ private:
       .setStages(shader_stages)
       .setPTessellationState(&tessellation_stage_create_info);
 
+    rasterization_info
+      .setCullMode(vk::CullModeFlagBits::eNone);
+
     input_assembly_info
       .setTopology(vk::PrimitiveTopology::ePatchList);
 
@@ -809,6 +812,7 @@ private:
 
     rasterization_info
       .setPolygonMode(vk::PolygonMode::eLine);
+
     surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
     device.destroyShaderModule(vert_shader_module);
@@ -1091,6 +1095,14 @@ private:
     std::memcpy(ptr + surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
+    transfer_commands[3].begin(begin_info);
+    region
+      .setSrcOffset(floor_buffer_size + sphere_buffer_size + mesh_buffer_size)
+      .setDstOffset(0)
+      .setSize(surface_buffer_size);
+    transfer_commands[3].copyBuffer(stage_buffer_.buffer, surface_vbo_->Buffer(), region);
+    transfer_commands[3].end();
+
     // Submit transfer commands
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_commands);
@@ -1160,6 +1172,7 @@ private:
       command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
 
       // Mesh
+      /*
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0 });
 
@@ -1170,6 +1183,22 @@ private:
       command_buffer.bindIndexBuffer(mesh_vbo_->Buffer(), mesh_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
       command_buffer.drawIndexed(mesh_vbo_->NumIndices(), 1, 0, 0, 0);
+      */
+
+      // Surface
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
+      // command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
+
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+        { descriptor_sets_[i] }, { 0ull, 0ull });
+
+      command_buffer.bindVertexBuffers(0,
+        { surface_vbo_->Buffer(), surface_vbo_->Buffer() },
+        { surface_vbo_->Offset(0), surface_vbo_->Offset(1) });
+
+      command_buffer.bindIndexBuffer(surface_vbo_->Buffer(), surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
+      
+      command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
       
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
