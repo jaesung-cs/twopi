@@ -180,6 +180,8 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\vke\vke_image.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory.cc" />
     <ClCompile Include="..\..\src\twopi\vke\vke_memory_manager.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_floor.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_sphere.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_engine.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_memory_manager.cc" />
@@ -247,6 +249,8 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\vke\vke_image.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory.h" />
     <ClInclude Include="..\..\src\twopi\vke\vke_memory_manager.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_floor.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_sphere.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_engine.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_memory.h" />

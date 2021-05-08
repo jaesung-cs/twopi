@@ -18,6 +18,8 @@
 #include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/vkl/vkl_uniform_buffer.h>
 #include <twopi/vkl/vkl_vertex_buffer.h>
+#include <twopi/vkl/primitive/vkl_sphere.h>
+#include <twopi/vkl/primitive/vkl_floor.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -911,41 +913,25 @@ private:
 
     // Floor
     constexpr float floor_range = 30.f;
+    floor_ = std::make_unique<Floor>(floor_range);
+    const auto& floor_position_buffer = floor_->PositionBuffer();
+    const auto& floor_normal_buffer = floor_->NormalBuffer();
+    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
+    const auto& floor_index_buffer = floor_->IndexBuffer();
 
-    std::vector<float> floor_buffer = {
-      // position
-      -floor_range, -floor_range, 0.f,
-      floor_range, -floor_range, 0.f,
-      -floor_range, floor_range, 0.f,
-      floor_range, floor_range, 0.f,
-      // normal
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      // tex_coord
-      -floor_range, -floor_range,
-      floor_range, -floor_range,
-      -floor_range, floor_range,
-      floor_range, floor_range,
-    };
-
-    std::vector<uint32_t> floor_indices = {
-      0, 1, 2, 2, 1, 3
-    };
-
-    floor_vbo_ = std::make_unique<VertexBuffer>(context_, 4, static_cast<int>(floor_indices.size()));
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_position_buffer.size() / 3, static_cast<int>(floor_index_buffer.size()));
     (*floor_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .AddAttribute<float, 2>(2)
       .Prepare();
 
-    const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
-
+    const uint64_t floor_buffer_size = floor_vbo_->BufferSize();
     auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, floor_buffer_size));
-    std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
+    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
     auto transfer_commands = context_->AllocateTransientCommandBuffers(3);
@@ -964,73 +950,23 @@ private:
 
     // Sphere
     constexpr int sphere_grid_size = 32;
+    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
+    const auto& sphere_position_buffer = sphere_->PositionBuffer();
+    const auto& sphere_normal_buffer = sphere_->NormalBuffer();
+    const auto& sphere_index_buffer = sphere_->IndexBuffer();
 
-    std::vector<float> sphere_vertex_buffer;
-    std::vector<float> sphere_normal_buffer;
-    std::vector<uint32_t> sphere_index_buffer;
-    const uint32_t top_index = sphere_grid_size * (sphere_grid_size - 1);
-    const uint32_t bottom_index = top_index + 1;
-    for (int i = 0; i < sphere_grid_size; i++)
-    {
-      sphere_index_buffer.push_back(top_index);
-      sphere_index_buffer.push_back(i * (sphere_grid_size - 1));
-      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1));
-
-      const float u = static_cast<float>(i) / sphere_grid_size;
-      const float theta = u * 2.f * glm::pi<float>();
-      for (int j = 1; j < sphere_grid_size; j++)
-      {
-        const float v = static_cast<float>(j) / sphere_grid_size;
-        const float phi = v * glm::pi<float>();
-        sphere_vertex_buffer.push_back(std::cos(theta) * std::sin(phi));
-        sphere_vertex_buffer.push_back(std::sin(theta) * std::sin(phi));
-        sphere_vertex_buffer.push_back(std::cos(phi));
-        sphere_normal_buffer.push_back(std::cos(theta) * std::sin(phi));
-        sphere_normal_buffer.push_back(std::sin(theta) * std::sin(phi));
-        sphere_normal_buffer.push_back(std::cos(phi));
-
-        if (j < sphere_grid_size - 1)
-        {
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j - 1);
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
-
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
-        }
-      }
-
-      sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + sphere_grid_size - 2);
-      sphere_index_buffer.push_back(bottom_index);
-      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + sphere_grid_size - 2);
-    }
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(1.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(1.f);
-
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(-1.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(-1.f);
-
-    const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
-    std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_vertex_buffer.size() / 3, sphere_index_buffer.size());
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_position_buffer.size() / 3, sphere_index_buffer.size());
     (*sphere_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .Prepare();
+
+    const auto sphere_buffer_size = sphere_vbo_->BufferSize();
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
+    std::memcpy(ptr + sphere_vbo_->Offset(0), sphere_position_buffer.data(), sphere_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vbo_->Offset(1), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
+    device.unmapMemory(stage_buffer_.memory.device_memory);
 
     transfer_commands[1].begin(begin_info);
     region
@@ -1295,6 +1231,10 @@ private:
 
   // Stage buffer
   Buffer stage_buffer_;
+
+  // Primitives
+  std::unique_ptr<Floor> floor_;
+  std::unique_ptr<Sphere> sphere_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
