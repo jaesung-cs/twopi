@@ -46,6 +46,12 @@
     <Filter Include="src\twopi\vkl">
       <UniqueIdentifier>{78fdcec4-4671-4ba8-b8d0-8715b213e823}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\twopi\scene\geometry">
+      <UniqueIdentifier>{0f767773-0d0e-4a24-af31-8bf14afadff3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\twopi\vkl\primitive">
+      <UniqueIdentifier>{afb9ef15-0832-43a2-bb4a-c14760dc5a50}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -118,9 +124,6 @@
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\scene\light.cc">
-      <Filter>src\twopi\scene</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\scene\geometry.cc">
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc">
@@ -219,9 +222,6 @@
     <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vkl\vkl_buffer.cc">
-      <Filter>src\twopi\vkl</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_rendertarget.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
@@ -233,6 +233,21 @@
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_uniform_buffer.cc">
       <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_vertex_buffer.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\geometry\geometry.cc">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\geometry\patch_geometry.cc">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_floor.cc">
+      <Filter>src\twopi\vkl\primitive</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_sphere.cc">
+      <Filter>src\twopi\vkl\primitive</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -312,9 +327,6 @@
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\scene\light.h">
-      <Filter>src\twopi\scene</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\scene\geometry.h">
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h">
@@ -416,9 +428,6 @@
     <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vkl\vkl_buffer.h">
-      <Filter>src\twopi\vkl</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_rendertarget.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
@@ -433,6 +442,21 @@
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_uniform_buffer.h">
       <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_vertex_buffer.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\geometry\geometry.h">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\geometry\patch_geometry.h">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_floor.h">
+      <Filter>src\twopi\vkl\primitive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_sphere.h">
+      <Filter>src\twopi\vkl\primitive</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

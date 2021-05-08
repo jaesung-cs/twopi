@@ -31,6 +31,7 @@ Context::Context(GLFWwindow* glfw_window)
 {
   CreateInstance(glfw_window);
   CreateDevice();
+  CreateCommandPools();
 
   memory_manager_ = std::make_unique<MemoryManager>(this);
 }
@@ -39,6 +40,7 @@ Context::~Context()
 {
   memory_manager_.reset();
 
+  DestroyCommandPools();
   DestroyDevice();
   DestroyInstance();
 }
@@ -173,6 +175,27 @@ void Context::DestroyDevice()
   device_.destroy();
 }
 
+void Context::CreateCommandPools()
+{
+  // Create command pools
+  vk::CommandPoolCreateInfo command_pool_create_info;
+  command_pool_create_info
+    .setQueueFamilyIndex(graphics_queue_index_.value());
+
+  command_pool_ = device_.createCommandPool(command_pool_create_info);
+
+  command_pool_create_info
+    .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+
+  transient_command_pool_ = device_.createCommandPool(command_pool_create_info);
+}
+
+void Context::DestroyCommandPools()
+{
+  device_.destroyCommandPool(command_pool_);
+  device_.destroyCommandPool(transient_command_pool_);
+}
+
 std::vector<uint32_t> Context::QueueFamilyIndices() const
 {
   return std::vector<uint32_t>{
@@ -199,6 +222,26 @@ Memory Context::AllocateHostMemory(vk::Buffer buffer)
 Memory Context::AllocatePersistentlyMappedMemory(vk::Buffer buffer)
 {
   return memory_manager_->AllocatePersistentlyMappedMemory(buffer);
+}
+
+std::vector<vk::CommandBuffer> Context::AllocateCommandBuffers(int count)
+{
+  vk::CommandBufferAllocateInfo allocate_info;
+  allocate_info
+    .setLevel(vk::CommandBufferLevel::ePrimary)
+    .setCommandPool(transient_command_pool_)
+    .setCommandBufferCount(3);
+  return device_.allocateCommandBuffers(allocate_info);
+}
+
+std::vector<vk::CommandBuffer> Context::AllocateTransientCommandBuffers(int count)
+{
+  vk::CommandBufferAllocateInfo allocate_info;
+  allocate_info
+    .setLevel(vk::CommandBufferLevel::ePrimary)
+    .setCommandPool(transient_command_pool_)
+    .setCommandBufferCount(3);
+  return device_.allocateCommandBuffers(allocate_info);
 }
 }
 }

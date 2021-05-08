@@ -17,6 +17,9 @@
 #include <twopi/vkl/vkl_rendertarget.h>
 #include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/vkl/vkl_uniform_buffer.h>
+#include <twopi/vkl/vkl_vertex_buffer.h>
+#include <twopi/vkl/primitive/vkl_sphere.h>
+#include <twopi/vkl/primitive/vkl_floor.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -36,16 +39,6 @@ private:
   {
     vk::Buffer buffer;
     Memory memory;
-  };
-
-  struct Mesh
-  {
-    Buffer buffer;
-    uint64_t position_offset;
-    uint64_t normal_offset;
-    uint64_t tex_coord_offset;
-    uint64_t index_offset;
-    uint32_t num_indices;
   };
 
   // Binding 0
@@ -241,7 +234,6 @@ private:
     CreateSampler();
     CreateDescriptorSet();
     CreateGraphicsPipelines();
-    CreateCommandPool();
     CreateSynchronizationObjects();
     PrepareResources();
     CreateCommandBuffers();
@@ -256,7 +248,6 @@ private:
     DestroyCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
-    DestroyCommandPool();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
@@ -297,12 +288,14 @@ private:
   {
     const auto device = context_->Device();
 
-    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_->ImageFormat(), vk::SampleCountFlagBits::e4);
+    constexpr auto samples = vk::SampleCountFlagBits::e4;
+
+    rendertarget_ = std::make_unique<Rendertarget>(context_, max_width_, max_height_, width_, height_, swapchain_->ImageFormat(), samples);
 
     // Create render pass
     vk::AttachmentDescription color_attachment;
     color_attachment
-      .setSamples(vk::SampleCountFlagBits::e4)
+      .setSamples(samples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eStore)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -318,7 +311,7 @@ private:
 
     vk::AttachmentDescription depth_attachment;
     depth_attachment
-      .setSamples(vk::SampleCountFlagBits::e4)
+      .setSamples(samples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -773,31 +766,6 @@ private:
     device.destroyPipeline(floor_pipeline_);
   }
 
-  void CreateCommandPool()
-  {
-    const auto device = context_->Device();
-    const auto graphics_queue_index = context_->GraphicsQueueIndex();
-
-    vk::CommandPoolCreateInfo command_pool_create_info;
-    command_pool_create_info
-      .setQueueFamilyIndex(graphics_queue_index);
-
-    command_pool_ = device.createCommandPool(command_pool_create_info);
-
-    command_pool_create_info
-      .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
-
-    transient_command_pool_ = device.createCommandPool(command_pool_create_info);
-  }
-
-  void DestroyCommandPool()
-  {
-    const auto device = context_->Device();
-
-    device.destroyCommandPool(command_pool_);
-    device.destroyCommandPool(transient_command_pool_);
-  }
-
   void CreateSynchronizationObjects()
   {
     const auto device = context_->Device();
@@ -900,14 +868,6 @@ private:
       .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
     writes.push_back(write);
 
-    // TODO
-    /*
-    write
-      .setDstBinding(4)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-    writes.push_back(write);
-    */
-
     for (uint32_t i = 0; i < image_count; i++)
     {
       buffer_infos[0]
@@ -935,12 +895,6 @@ private:
       writes[2].setBufferInfo(buffer_infos[2]);
       writes[3].setBufferInfo(buffer_infos[3]);
 
-      // TODO: image
-      /*
-      image_infos[0];
-      writes[4].setImageInfo(image_infos[0]);
-      */
-
       for (auto& write : writes)
         write.setDstSet(descriptor_sets_[i]);
 
@@ -959,55 +913,28 @@ private:
 
     // Floor
     constexpr float floor_range = 30.f;
+    floor_ = std::make_unique<Floor>(floor_range);
+    const auto& floor_position_buffer = floor_->PositionBuffer();
+    const auto& floor_normal_buffer = floor_->NormalBuffer();
+    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
+    const auto& floor_index_buffer = floor_->IndexBuffer();
 
-    std::vector<float> floor_buffer = {
-      // position
-      -floor_range, -floor_range, 0.f,
-      floor_range, -floor_range, 0.f,
-      -floor_range, floor_range, 0.f,
-      floor_range, floor_range, 0.f,
-      // normal
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      0.f, 0.f, 1.f,
-      // tex_coord
-      -floor_range, -floor_range,
-      floor_range, -floor_range,
-      -floor_range, floor_range,
-      floor_range, floor_range,
-    };
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_position_buffer.size() / 3, static_cast<int>(floor_index_buffer.size()));
+    (*floor_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .AddAttribute<float, 2>(2)
+      .Prepare();
 
-    std::vector<uint32_t> floor_indices = {
-      0, 1, 2, 2, 1, 3
-    };
-
-    floor_.position_offset = 0;
-    floor_.normal_offset = sizeof(float) * 12;
-    floor_.tex_coord_offset = sizeof(float) * 24;
-    floor_.index_offset = sizeof(float) * 32;
-    floor_.num_indices = static_cast<uint32_t>(floor_indices.size());
-
-    const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
-
+    const uint64_t floor_buffer_size = floor_vbo_->BufferSize();
     auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, floor_buffer_size));
-    std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
+    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    buffer_create_info
-      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
-      .setSize(floor_buffer_size);
-    floor_.buffer.buffer = device.createBuffer(buffer_create_info);
-    floor_.buffer.memory = context_->AllocateDeviceMemory(floor_.buffer.buffer);
-    device.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.device_memory, floor_.buffer.memory.offset);
-
-    vk::CommandBufferAllocateInfo allocate_info;
-    allocate_info
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandPool(transient_command_pool_)
-      .setCommandBufferCount(3);
-    auto transfer_commands = device.allocateCommandBuffers(allocate_info);
+    auto transfer_commands = context_->AllocateTransientCommandBuffers(3);
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -1018,90 +945,35 @@ private:
       .setSrcOffset(0)
       .setDstOffset(0)
       .setSize(floor_buffer_size);
-    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_.buffer.buffer, region);
+    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
     transfer_commands[0].end();
 
     // Sphere
     constexpr int sphere_grid_size = 32;
+    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
+    const auto& sphere_position_buffer = sphere_->PositionBuffer();
+    const auto& sphere_normal_buffer = sphere_->NormalBuffer();
+    const auto& sphere_index_buffer = sphere_->IndexBuffer();
 
-    std::vector<float> sphere_vertex_buffer;
-    std::vector<float> sphere_normal_buffer;
-    std::vector<uint32_t> sphere_index_buffer;
-    const uint32_t top_index = sphere_grid_size * (sphere_grid_size - 1);
-    const uint32_t bottom_index = top_index + 1;
-    for (int i = 0; i < sphere_grid_size; i++)
-    {
-      sphere_index_buffer.push_back(top_index);
-      sphere_index_buffer.push_back(i * (sphere_grid_size - 1));
-      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1));
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_position_buffer.size() / 3, sphere_index_buffer.size());
+    (*sphere_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .Prepare();
 
-      const float u = static_cast<float>(i) / sphere_grid_size;
-      const float theta = u * 2.f * glm::pi<float>();
-      for (int j = 1; j < sphere_grid_size; j++)
-      {
-        const float v = static_cast<float>(j) / sphere_grid_size;
-        const float phi = v * glm::pi<float>();
-        sphere_vertex_buffer.push_back(std::cos(theta) * std::sin(phi));
-        sphere_vertex_buffer.push_back(std::sin(theta) * std::sin(phi));
-        sphere_vertex_buffer.push_back(std::cos(phi));
-        sphere_normal_buffer.push_back(std::cos(theta) * std::sin(phi));
-        sphere_normal_buffer.push_back(std::sin(theta) * std::sin(phi));
-        sphere_normal_buffer.push_back(std::cos(phi));
-
-        if (j < sphere_grid_size - 1)
-        {
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j - 1);
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
-
-          sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j);
-          sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + j - 1);
-        }
-      }
-
-      sphere_index_buffer.push_back(i * (sphere_grid_size - 1) + sphere_grid_size - 2);
-      sphere_index_buffer.push_back(bottom_index);
-      sphere_index_buffer.push_back(((i + 1) % sphere_grid_size) * (sphere_grid_size - 1) + sphere_grid_size - 2);
-    }
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(1.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(1.f);
-
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(0.f);
-    sphere_vertex_buffer.push_back(-1.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(0.f);
-    sphere_normal_buffer.push_back(-1.f);
-
-    sphere_.position_offset = 0;
-    sphere_.normal_offset = static_cast<uint32_t>(sphere_vertex_buffer.size()) * sizeof(float);
-    sphere_.index_offset = static_cast<uint32_t>(sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
-    sphere_.num_indices = static_cast<uint32_t>(sphere_index_buffer.size());
-
-    const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
+    const auto sphere_buffer_size = sphere_vbo_->BufferSize();
     ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
-    std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vertex_buffer.size() * sizeof(float), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
+    std::memcpy(ptr + sphere_vbo_->Offset(0), sphere_position_buffer.data(), sphere_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vbo_->Offset(1), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    buffer_create_info
-      .setSize(sphere_buffer_size);
-    sphere_.buffer.buffer = device.createBuffer(buffer_create_info);
-    sphere_.buffer.memory = context_->AllocateDeviceMemory(sphere_.buffer.buffer);
-    device.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.device_memory, sphere_.buffer.memory.offset);
 
     transfer_commands[1].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size)
       .setDstOffset(0)
       .setSize(sphere_buffer_size);
-    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_.buffer.buffer, region);
+    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
     transfer_commands[1].end();
 
     // Mesh loading
@@ -1113,32 +985,27 @@ private:
     const auto& mesh_tex_coords = mesh->TexCoords();
     const auto& mesh_indices = mesh->Indices();
 
-    mesh_.position_offset = 0;
-    mesh_.normal_offset = static_cast<uint32_t>(mesh_vertices.size()) * sizeof(float);
-    mesh_.tex_coord_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size()) * sizeof(float);
-    mesh_.index_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size() + mesh_tex_coords.size()) * sizeof(float);
-    mesh_.num_indices = static_cast<uint32_t>(mesh_indices.size());
+    mesh_vbo_ = std::make_unique<VertexBuffer>(context_, mesh_vertices.size() / 3, mesh_indices.size());
+    (*mesh_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .AddAttribute<float, 2>(2)
+      .Prepare();
 
-    const auto mesh_buffer_size = mesh_.index_offset + mesh_indices.size() * sizeof(uint32_t);
+    const auto mesh_buffer_size = mesh_vbo_->BufferSize();
     ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
-    std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.normal_offset, mesh_normals.data(), mesh_normals.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.tex_coord_offset, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.index_offset, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
+    std::memcpy(ptr + mesh_vbo_->Offset(0), mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->Offset(1), mesh_normals.data(), mesh_normals.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->Offset(2), mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->IndexOffset(), mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    buffer_create_info
-      .setSize(mesh_buffer_size);
-    mesh_.buffer.buffer = device.createBuffer(buffer_create_info);
-    mesh_.buffer.memory = context_->AllocateDeviceMemory(mesh_.buffer.buffer);
-    device.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.device_memory, mesh_.buffer.memory.offset);
 
     transfer_commands[2].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
       .setDstOffset(0)
       .setSize(mesh_buffer_size);
-    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_.buffer.buffer, region);
+    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_vbo_->Buffer(), region);
     transfer_commands[2].end();
 
     // Submit transfer commands
@@ -1154,11 +1021,11 @@ private:
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
 
-    device.destroyBuffer(floor_.buffer.buffer);
-    device.destroyBuffer(sphere_.buffer.buffer);
-    device.destroyBuffer(mesh_.buffer.buffer);
     device.destroyBuffer(stage_buffer_.buffer);
 
+    floor_vbo_.reset();
+    sphere_vbo_.reset();
+    mesh_vbo_.reset();
     uniform_buffer_.reset();
   }
 
@@ -1166,12 +1033,7 @@ private:
   {
     const auto device = context_->Device();
 
-    vk::CommandBufferAllocateInfo allocate_info;
-    allocate_info
-      .setCommandPool(command_pool_)
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(swapchain_->ImageCount());
-    draw_command_buffers_ = device.allocateCommandBuffers(allocate_info);
+    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
 
     for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
@@ -1206,24 +1068,24 @@ private:
         { descriptor_sets_[i] }, { model_ubos_[i].Stride(), 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { sphere_.buffer.buffer, sphere_.buffer.buffer },
-        { sphere_.position_offset, sphere_.normal_offset });
+        { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
+        { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
 
-      command_buffer.bindIndexBuffer(sphere_.buffer.buffer, sphere_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(sphere_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
 
       // Mesh
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { mesh_.buffer.buffer, mesh_.buffer.buffer },
-        { mesh_.position_offset, mesh_.normal_offset });
+        { mesh_vbo_->Buffer(), mesh_vbo_->Buffer(), mesh_vbo_->Buffer() },
+        { mesh_vbo_->Offset(0), mesh_vbo_->Offset(1), mesh_vbo_->Offset(2) });
 
-      command_buffer.bindIndexBuffer(mesh_.buffer.buffer, mesh_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(mesh_vbo_->Buffer(), mesh_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(mesh_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(mesh_vbo_->NumIndices(), 1, 0, 0, 0);
       
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
@@ -1232,12 +1094,12 @@ private:
         { descriptor_sets_[i] }, { 0ull, 0ull });
 
       command_buffer.bindVertexBuffers(0,
-        { floor_.buffer.buffer, floor_.buffer.buffer, floor_.buffer.buffer },
-        { floor_.position_offset, floor_.normal_offset, floor_.tex_coord_offset });
+        { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
+        { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
 
-      command_buffer.bindIndexBuffer(floor_.buffer.buffer, floor_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(floor_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
 
       command_buffer.endRenderPass();
       command_buffer.end();
@@ -1246,9 +1108,6 @@ private:
 
   void DestroyCommandBuffers()
   {
-    const auto device = context_->Device();
-
-    device.freeCommandBuffers(command_pool_, draw_command_buffers_);
     draw_command_buffers_.clear();
   }
 
@@ -1353,8 +1212,6 @@ private:
   vk::Pipeline floor_pipeline_;
 
   // Commands
-  vk::CommandPool command_pool_;
-  vk::CommandPool transient_command_pool_;
   std::vector<vk::CommandBuffer> draw_command_buffers_;
 
   // Uniform buffers per swapchain framebuffer
@@ -1375,14 +1232,14 @@ private:
   // Stage buffer
   Buffer stage_buffer_;
 
-  // Floor buffer
-  Mesh floor_;
+  // Primitives
+  std::unique_ptr<Floor> floor_;
+  std::unique_ptr<Sphere> sphere_;
 
-  // Sphere buffer
-  Mesh sphere_;
-
-  // Mesh
-  Mesh mesh_;
+  // Vertex buffers
+  std::unique_ptr<VertexBuffer> floor_vbo_;
+  std::unique_ptr<VertexBuffer> sphere_vbo_;
+  std::unique_ptr<VertexBuffer> mesh_vbo_;
 
   // Synchronization
   vk::Fence transfer_fence_;
