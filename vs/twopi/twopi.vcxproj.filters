@@ -484,5 +484,17 @@
     <None Include="..\..\src\twopi\shader\light_color.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\surface.frag">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\surface.tesc">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\surface.tese">
+      <Filter>src\twopi\shader</Filter>
+    </None>
+    <None Include="..\..\src\twopi\shader\surface.vert">
+      <Filter>src\twopi\shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

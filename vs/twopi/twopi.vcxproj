@@ -304,6 +304,10 @@ python compile.py</Command>
     <None Include="..\..\src\twopi\shader\light_color.vert" />
     <None Include="..\..\src\twopi\shader\light_floor.frag" />
     <None Include="..\..\src\twopi\shader\light_floor.vert" />
+    <None Include="..\..\src\twopi\shader\surface.frag" />
+    <None Include="..\..\src\twopi\shader\surface.tesc" />
+    <None Include="..\..\src\twopi\shader\surface.tese" />
+    <None Include="..\..\src\twopi\shader\surface.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
