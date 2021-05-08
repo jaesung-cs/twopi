@@ -249,6 +249,9 @@
     <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_sphere.cc">
       <Filter>src\twopi\vkl\primitive</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_surface.cc">
+      <Filter>src\twopi\vkl\primitive</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -456,6 +459,9 @@
       <Filter>src\twopi\vkl\primitive</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_sphere.h">
+      <Filter>src\twopi\vkl\primitive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_surface.h">
       <Filter>src\twopi\vkl\primitive</Filter>
     </ClInclude>
   </ItemGroup>

@@ -20,6 +20,7 @@
 #include <twopi/vkl/vkl_vertex_buffer.h>
 #include <twopi/vkl/primitive/vkl_sphere.h>
 #include <twopi/vkl/primitive/vkl_floor.h>
+#include <twopi/vkl/primitive/vkl_surface.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -462,7 +463,7 @@ private:
     binding
       .setBinding(0)
       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eTessellationEvaluation | vk::ShaderStageFlagBits::eFragment)
       .setDescriptorCount(1);
     bindings.push_back(binding);
 
@@ -757,9 +758,16 @@ private:
     shader_stages.clear();
 
     // Tessellation shader
+    binding_descriptions.resize(2);
+    attribute_descriptions.resize(2);
+
+    vertex_input_info
+      .setVertexBindingDescriptions(binding_descriptions)
+      .setVertexAttributeDescriptions(attribute_descriptions);
+
     vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
     tessellation_stage_create_info
-      .setPatchControlPoints(4);
+      .setPatchControlPoints(16);
 
     vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
     vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
@@ -989,7 +997,7 @@ private:
     std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    auto transfer_commands = context_->AllocateTransientCommandBuffers(3);
+    auto transfer_commands = context_->AllocateTransientCommandBuffers(4);
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -1063,6 +1071,26 @@ private:
     transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_vbo_->Buffer(), region);
     transfer_commands[2].end();
 
+    // Surface
+    surface_ = std::make_unique<Surface>();
+
+    const auto& surface_position_buffer = surface_->PositionBuffer();
+    const auto& surface_normal_buffer = surface_->NormalBuffer();
+    const auto& surface_index_buffer = surface_->IndexBuffer();
+
+    surface_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(surface_position_buffer.size()) / 3, static_cast<int>(surface_index_buffer.size()));
+    (*surface_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .Prepare();
+
+    const auto surface_buffer_size = surface_vbo_->BufferSize();
+    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size + mesh_buffer_size, surface_buffer_size));
+    std::memcpy(ptr + surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + surface_vbo_->Offset(1), surface_normal_buffer.data(), surface_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
+    device.unmapMemory(stage_buffer_.memory.device_memory);
+
     // Submit transfer commands
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_commands);
@@ -1081,6 +1109,7 @@ private:
     floor_vbo_.reset();
     sphere_vbo_.reset();
     mesh_vbo_.reset();
+    surface_vbo_.reset();
     uniform_buffer_.reset();
   }
 
@@ -1292,11 +1321,13 @@ private:
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
+  std::unique_ptr<Surface> surface_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
   std::unique_ptr<VertexBuffer> sphere_vbo_;
   std::unique_ptr<VertexBuffer> mesh_vbo_;
+  std::unique_ptr<VertexBuffer> surface_vbo_;
 
   // Synchronization
   vk::Fence transfer_fence_;
