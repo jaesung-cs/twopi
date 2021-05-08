@@ -755,6 +755,59 @@ private:
     device.destroyShaderModule(vert_shader_module);
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
+
+    // Tessellation shader
+    vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
+    tessellation_stage_create_info
+      .setPatchControlPoints(4);
+
+    vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
+    vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
+    vk::ShaderModule tese_shader_module = CreateShaderModule(base_dirpath, "surface.tese.spv");
+    frag_shader_module = CreateShaderModule(base_dirpath, "surface.frag.spv");
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setPName("main")
+      .setModule(vert_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eTessellationControl)
+      .setPName("main")
+      .setModule(tesc_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eTessellationEvaluation)
+      .setPName("main")
+      .setModule(tese_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setPName("main")
+      .setModule(frag_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    graphics_pipeline_create_info
+      .setStages(shader_stages)
+      .setPTessellationState(&tessellation_stage_create_info);
+
+    input_assembly_info
+      .setTopology(vk::PrimitiveTopology::ePatchList);
+
+    surface_tessellation_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
+    rasterization_info
+      .setPolygonMode(vk::PolygonMode::eLine);
+    surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
+    device.destroyShaderModule(vert_shader_module);
+    device.destroyShaderModule(tesc_shader_module);
+    device.destroyShaderModule(tese_shader_module);
+    device.destroyShaderModule(frag_shader_module);
+    shader_stages.clear();
   }
 
   void DestroyGraphicsPipelines()
@@ -764,6 +817,8 @@ private:
     device.destroyPipelineLayout(pipeline_layout_);
     device.destroyPipeline(color_pipeline_);
     device.destroyPipeline(floor_pipeline_);
+    device.destroyPipeline(surface_tessellation_pipeline_);
+    device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -919,7 +974,7 @@ private:
     const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
     const auto& floor_index_buffer = floor_->IndexBuffer();
 
-    floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_position_buffer.size() / 3, static_cast<int>(floor_index_buffer.size()));
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(floor_position_buffer.size()) / 3, static_cast<int>(floor_index_buffer.size()));
     (*floor_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
@@ -955,7 +1010,7 @@ private:
     const auto& sphere_normal_buffer = sphere_->NormalBuffer();
     const auto& sphere_index_buffer = sphere_->IndexBuffer();
 
-    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_position_buffer.size() / 3, sphere_index_buffer.size());
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(sphere_position_buffer.size()) / 3, static_cast<int>(sphere_index_buffer.size()));
     (*sphere_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
@@ -985,7 +1040,7 @@ private:
     const auto& mesh_tex_coords = mesh->TexCoords();
     const auto& mesh_indices = mesh->Indices();
 
-    mesh_vbo_ = std::make_unique<VertexBuffer>(context_, mesh_vertices.size() / 3, mesh_indices.size());
+    mesh_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(mesh_vertices.size()) / 3, static_cast<int>(mesh_indices.size()));
     (*mesh_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
@@ -1210,6 +1265,8 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
+  vk::Pipeline surface_tessellation_pipeline_;
+  vk::Pipeline surface_tessellation_wireframe_pipeline_;
 
   // Commands
   std::vector<vk::CommandBuffer> draw_command_buffers_;

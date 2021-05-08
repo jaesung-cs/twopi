@@ -1,3 +1,5 @@
 *.vert.spv
 *.frag.spv
 *.comp.spv
+*.tesc.spv
+*.tese.spv
