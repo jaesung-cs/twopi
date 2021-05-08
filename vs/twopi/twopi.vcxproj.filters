@@ -46,6 +46,9 @@
     <Filter Include="src\twopi\vkl">
       <UniqueIdentifier>{78fdcec4-4671-4ba8-b8d0-8715b213e823}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\twopi\scene\geometry">
+      <UniqueIdentifier>{0f767773-0d0e-4a24-af31-8bf14afadff3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\twopi\main.cc">
@@ -118,9 +121,6 @@
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\scene\light.cc">
-      <Filter>src\twopi\scene</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\twopi\scene\geometry.cc">
       <Filter>src\twopi\scene</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkw\vkw_buffer.cc">
@@ -234,6 +234,12 @@
     <ClCompile Include="..\..\src\twopi\vkl\vkl_vertex_buffer.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\geometry\geometry.cc">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\scene\geometry\patch_geometry.cc">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\twopi\application\application.h">
@@ -312,9 +318,6 @@
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\scene\light.h">
-      <Filter>src\twopi\scene</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\twopi\scene\geometry.h">
       <Filter>src\twopi\scene</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkw\vkw_buffer.h">
@@ -433,6 +436,12 @@
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_vertex_buffer.h">
       <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\geometry\geometry.h">
+      <Filter>src\twopi\scene\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\scene\geometry\patch_geometry.h">
+      <Filter>src\twopi\scene\geometry</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -168,7 +168,8 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\scene\camera_control.cc" />
     <ClCompile Include="..\..\src\twopi\scene\camera_orbit_control.cc" />
     <ClCompile Include="..\..\src\twopi\scene\color_material.cc" />
-    <ClCompile Include="..\..\src\twopi\scene\geometry.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\geometry\geometry.cc" />
+    <ClCompile Include="..\..\src\twopi\scene\geometry\patch_geometry.cc" />
     <ClCompile Include="..\..\src\twopi\scene\light.cc" />
     <ClCompile Include="..\..\src\twopi\scene\material.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
@@ -233,7 +234,8 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\scene\camera_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\camera_orbit_control.h" />
     <ClInclude Include="..\..\src\twopi\scene\color_material.h" />
-    <ClInclude Include="..\..\src\twopi\scene\geometry.h" />
+    <ClInclude Include="..\..\src\twopi\scene\geometry\geometry.h" />
+    <ClInclude Include="..\..\src\twopi\scene\geometry\patch_geometry.h" />
     <ClInclude Include="..\..\src\twopi\scene\light.h" />
     <ClInclude Include="..\..\src\twopi\scene\material.h" />
     <ClInclude Include="..\..\src\twopi\scene\scene.h" />
