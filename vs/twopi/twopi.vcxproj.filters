@@ -219,9 +219,6 @@
     <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vkl\vkl_buffer.cc">
-      <Filter>src\twopi\vkl</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_rendertarget.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
@@ -232,6 +229,9 @@
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_uniform_buffer.cc">
+      <Filter>src\twopi\vkl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\twopi\vkl\vkl_vertex_buffer.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
   </ItemGroup>
@@ -416,9 +416,6 @@
     <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vkl\vkl_buffer.h">
-      <Filter>src\twopi\vkl</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_rendertarget.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
@@ -432,6 +429,9 @@
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_uniform_buffer.h">
+      <Filter>src\twopi\vkl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\twopi\vkl\vkl_vertex_buffer.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
   </ItemGroup>

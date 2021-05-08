@@ -17,6 +17,7 @@
 #include <twopi/vkl/vkl_rendertarget.h>
 #include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/vkl/vkl_uniform_buffer.h>
+#include <twopi/vkl/vkl_vertex_buffer.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -36,16 +37,6 @@ private:
   {
     vk::Buffer buffer;
     Memory memory;
-  };
-
-  struct Mesh
-  {
-    Buffer buffer;
-    uint64_t position_offset;
-    uint64_t normal_offset;
-    uint64_t tex_coord_offset;
-    uint64_t index_offset;
-    uint32_t num_indices;
   };
 
   // Binding 0
@@ -982,11 +973,12 @@ private:
       0, 1, 2, 2, 1, 3
     };
 
-    floor_.position_offset = 0;
-    floor_.normal_offset = sizeof(float) * 12;
-    floor_.tex_coord_offset = sizeof(float) * 24;
-    floor_.index_offset = sizeof(float) * 32;
-    floor_.num_indices = static_cast<uint32_t>(floor_indices.size());
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, 4, floor_indices.size());
+    (*floor_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .AddAttribute<float, 2>(2)
+      .Prepare();
 
     const uint64_t floor_buffer_size = floor_buffer.size() * sizeof(float) + floor_indices.size() * sizeof(uint32_t);
 
@@ -994,13 +986,6 @@ private:
     std::memcpy(ptr, floor_buffer.data(), floor_buffer.size() * sizeof(float));
     std::memcpy(ptr + floor_buffer.size() * sizeof(float), floor_indices.data(), floor_indices.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    buffer_create_info
-      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
-      .setSize(floor_buffer_size);
-    floor_.buffer.buffer = device.createBuffer(buffer_create_info);
-    floor_.buffer.memory = context_->AllocateDeviceMemory(floor_.buffer.buffer);
-    device.bindBufferMemory(floor_.buffer.buffer, floor_.buffer.memory.device_memory, floor_.buffer.memory.offset);
 
     vk::CommandBufferAllocateInfo allocate_info;
     allocate_info
@@ -1018,7 +1003,7 @@ private:
       .setSrcOffset(0)
       .setDstOffset(0)
       .setSize(floor_buffer_size);
-    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_.buffer.buffer, region);
+    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
     transfer_commands[0].end();
 
     // Sphere
@@ -1078,11 +1063,6 @@ private:
     sphere_normal_buffer.push_back(0.f);
     sphere_normal_buffer.push_back(-1.f);
 
-    sphere_.position_offset = 0;
-    sphere_.normal_offset = static_cast<uint32_t>(sphere_vertex_buffer.size()) * sizeof(float);
-    sphere_.index_offset = static_cast<uint32_t>(sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float);
-    sphere_.num_indices = static_cast<uint32_t>(sphere_index_buffer.size());
-
     const auto sphere_buffer_size = (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float) + sphere_index_buffer.size() * sizeof(uint32_t);
     ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
     std::memcpy(ptr, sphere_vertex_buffer.data(), sphere_vertex_buffer.size() * sizeof(float));
@@ -1090,18 +1070,18 @@ private:
     std::memcpy(ptr + (sphere_vertex_buffer.size() + sphere_normal_buffer.size()) * sizeof(float), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    buffer_create_info
-      .setSize(sphere_buffer_size);
-    sphere_.buffer.buffer = device.createBuffer(buffer_create_info);
-    sphere_.buffer.memory = context_->AllocateDeviceMemory(sphere_.buffer.buffer);
-    device.bindBufferMemory(sphere_.buffer.buffer, sphere_.buffer.memory.device_memory, sphere_.buffer.memory.offset);
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_vertex_buffer.size() / 3, sphere_index_buffer.size());
+    (*sphere_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .Prepare();
 
     transfer_commands[1].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size)
       .setDstOffset(0)
       .setSize(sphere_buffer_size);
-    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_.buffer.buffer, region);
+    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
     transfer_commands[1].end();
 
     // Mesh loading
@@ -1113,32 +1093,27 @@ private:
     const auto& mesh_tex_coords = mesh->TexCoords();
     const auto& mesh_indices = mesh->Indices();
 
-    mesh_.position_offset = 0;
-    mesh_.normal_offset = static_cast<uint32_t>(mesh_vertices.size()) * sizeof(float);
-    mesh_.tex_coord_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size()) * sizeof(float);
-    mesh_.index_offset = static_cast<uint32_t>(mesh_vertices.size() + mesh_normals.size() + mesh_tex_coords.size()) * sizeof(float);
-    mesh_.num_indices = static_cast<uint32_t>(mesh_indices.size());
+    mesh_vbo_ = std::make_unique<VertexBuffer>(context_, mesh_vertices.size() / 3, mesh_indices.size());
+    (*mesh_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .AddAttribute<float, 2>(2)
+      .Prepare();
 
-    const auto mesh_buffer_size = mesh_.index_offset + mesh_indices.size() * sizeof(uint32_t);
+    const auto mesh_buffer_size = mesh_vbo_->BufferSize();
     ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
-    std::memcpy(ptr, mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.normal_offset, mesh_normals.data(), mesh_normals.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.tex_coord_offset, mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
-    std::memcpy(ptr + mesh_.index_offset, mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
+    std::memcpy(ptr + mesh_vbo_->Offset(0), mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->Offset(1), mesh_normals.data(), mesh_normals.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->Offset(2), mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
+    std::memcpy(ptr + mesh_vbo_->IndexOffset(), mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    buffer_create_info
-      .setSize(mesh_buffer_size);
-    mesh_.buffer.buffer = device.createBuffer(buffer_create_info);
-    mesh_.buffer.memory = context_->AllocateDeviceMemory(mesh_.buffer.buffer);
-    device.bindBufferMemory(mesh_.buffer.buffer, mesh_.buffer.memory.device_memory, mesh_.buffer.memory.offset);
 
     transfer_commands[2].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
       .setDstOffset(0)
       .setSize(mesh_buffer_size);
-    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_.buffer.buffer, region);
+    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_vbo_->Buffer(), region);
     transfer_commands[2].end();
 
     // Submit transfer commands
@@ -1154,11 +1129,11 @@ private:
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
 
-    device.destroyBuffer(floor_.buffer.buffer);
-    device.destroyBuffer(sphere_.buffer.buffer);
-    device.destroyBuffer(mesh_.buffer.buffer);
     device.destroyBuffer(stage_buffer_.buffer);
 
+    floor_vbo_.reset();
+    sphere_vbo_.reset();
+    mesh_vbo_.reset();
     uniform_buffer_.reset();
   }
 
@@ -1206,24 +1181,24 @@ private:
         { descriptor_sets_[i] }, { model_ubos_[i].Stride(), 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { sphere_.buffer.buffer, sphere_.buffer.buffer },
-        { sphere_.position_offset, sphere_.normal_offset });
+        { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
+        { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
 
-      command_buffer.bindIndexBuffer(sphere_.buffer.buffer, sphere_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(sphere_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
 
       // Mesh
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0 });
 
       command_buffer.bindVertexBuffers(0,
-        { mesh_.buffer.buffer, mesh_.buffer.buffer },
-        { mesh_.position_offset, mesh_.normal_offset });
+        { mesh_vbo_->Buffer(), mesh_vbo_->Buffer(), mesh_vbo_->Buffer() },
+        { mesh_vbo_->Offset(0), mesh_vbo_->Offset(1), mesh_vbo_->Offset(2) });
 
-      command_buffer.bindIndexBuffer(mesh_.buffer.buffer, mesh_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(mesh_vbo_->Buffer(), mesh_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(mesh_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(mesh_vbo_->NumIndices(), 1, 0, 0, 0);
       
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
@@ -1232,12 +1207,12 @@ private:
         { descriptor_sets_[i] }, { 0ull, 0ull });
 
       command_buffer.bindVertexBuffers(0,
-        { floor_.buffer.buffer, floor_.buffer.buffer, floor_.buffer.buffer },
-        { floor_.position_offset, floor_.normal_offset, floor_.tex_coord_offset });
+        { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
+        { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
 
-      command_buffer.bindIndexBuffer(floor_.buffer.buffer, floor_.index_offset, vk::IndexType::eUint32);
+      command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-      command_buffer.drawIndexed(floor_.num_indices, 1, 0, 0, 0);
+      command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
 
       command_buffer.endRenderPass();
       command_buffer.end();
@@ -1375,14 +1350,10 @@ private:
   // Stage buffer
   Buffer stage_buffer_;
 
-  // Floor buffer
-  Mesh floor_;
-
-  // Sphere buffer
-  Mesh sphere_;
-
-  // Mesh
-  Mesh mesh_;
+  // Vertex buffers
+  std::unique_ptr<VertexBuffer> floor_vbo_;
+  std::unique_ptr<VertexBuffer> sphere_vbo_;
+  std::unique_ptr<VertexBuffer> mesh_vbo_;
 
   // Synchronization
   vk::Fence transfer_fence_;
