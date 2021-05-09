@@ -167,7 +167,7 @@ void Context::CreateDevice()
   device_ = physical_device_.createDevice(device_create_info);
 
   graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-  present_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
+  present_queue_ = device_.getQueue(present_queue_index_.value(), 0);
 }
 
 void Context::DestroyDevice()
