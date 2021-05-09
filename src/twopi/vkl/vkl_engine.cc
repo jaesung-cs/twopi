@@ -20,7 +20,7 @@
 #include <twopi/vkl/vkl_vertex_buffer.h>
 #include <twopi/vkl/primitive/vkl_sphere.h>
 #include <twopi/vkl/primitive/vkl_floor.h>
-#include <twopi/vkl/primitive/vkl_surface.h>
+#include <twopi/vkl/primitive/vkl_halfsphere_surface.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -246,6 +246,12 @@ public:
   void SetDrawWireframe()
   {
     draw_mode_ = DrawMode::WIREFRAME;
+    needs_rebuild_command_buffers_ = true;
+  }
+
+  void SetDrawNormal(bool draw_normal)
+  {
+    draw_normal_ = draw_normal;
     needs_rebuild_command_buffers_ = true;
   }
 
@@ -488,10 +494,10 @@ private:
     binding
       .setBinding(0)
       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eTessellationEvaluation | vk::ShaderStageFlagBits::eFragment)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eTessellationEvaluation | vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment)
       .setDescriptorCount(1);
     bindings.push_back(binding);
-
+    
     // Binding 1: ModelUbo
     binding
       .setBinding(1)
@@ -833,16 +839,36 @@ private:
     input_assembly_info
       .setTopology(vk::PrimitiveTopology::ePatchList);
 
+    // Polygon shader
     surface_tessellation_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
+    // Wireframe shader
     rasterization_info
       .setPolygonMode(vk::PolygonMode::eLine);
 
     surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
+    // Normal shader
+    vk::ShaderModule geom_shader_module = CreateShaderModule(base_dirpath, "surface.geom.spv");
+    
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eGeometry)
+      .setPName("main")
+      .setModule(geom_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    rasterization_info
+      .setPolygonMode(vk::PolygonMode::eFill);
+
+    graphics_pipeline_create_info
+      .setStages(shader_stages);
+
+    surface_tessellation_normal_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
     device.destroyShaderModule(vert_shader_module);
     device.destroyShaderModule(tesc_shader_module);
     device.destroyShaderModule(tese_shader_module);
+    device.destroyShaderModule(geom_shader_module);
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
   }
@@ -856,6 +882,7 @@ private:
     device.destroyPipeline(floor_pipeline_);
     device.destroyPipeline(surface_tessellation_pipeline_);
     device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
+    device.destroyPipeline(surface_tessellation_normal_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -1100,24 +1127,24 @@ private:
     transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_vbo_->Buffer(), region);
     transfer_commands[2].end();
 
-    // Surface
-    surface_ = std::make_unique<Surface>();
+    // Halfsphere surface
+    halfsphere_surface_ = std::make_unique<HalfsphereSurface>();
 
-    const auto& surface_position_buffer = surface_->PositionBuffer();
-    const auto& surface_normal_buffer = surface_->NormalBuffer();
-    const auto& surface_index_buffer = surface_->IndexBuffer();
+    auto& surface_position_buffer = halfsphere_surface_->PositionBuffer();
+    auto& surface_normal_buffer = halfsphere_surface_->NormalBuffer();
+    auto& surface_index_buffer = halfsphere_surface_->IndexBuffer();
 
-    surface_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(surface_position_buffer.size()) / 3, static_cast<int>(surface_index_buffer.size()));
-    (*surface_vbo_)
+    halfsphere_surface_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(surface_position_buffer.size()) / 3, static_cast<int>(surface_index_buffer.size()));
+    (*halfsphere_surface_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .Prepare();
 
-    const auto surface_buffer_size = surface_vbo_->BufferSize();
+    const auto surface_buffer_size = halfsphere_surface_vbo_->BufferSize();
     ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size + mesh_buffer_size, surface_buffer_size));
-    std::memcpy(ptr + surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + surface_vbo_->Offset(1), surface_normal_buffer.data(), surface_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
+    std::memcpy(ptr + halfsphere_surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + halfsphere_surface_vbo_->Offset(1), surface_normal_buffer.data(), surface_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + halfsphere_surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
     transfer_commands[3].begin(begin_info);
@@ -1125,7 +1152,7 @@ private:
       .setSrcOffset(floor_buffer_size + sphere_buffer_size + mesh_buffer_size)
       .setDstOffset(0)
       .setSize(surface_buffer_size);
-    transfer_commands[3].copyBuffer(stage_buffer_.buffer, surface_vbo_->Buffer(), region);
+    transfer_commands[3].copyBuffer(stage_buffer_.buffer, halfsphere_surface_vbo_->Buffer(), region);
     transfer_commands[3].end();
 
     // Submit transfer commands
@@ -1146,7 +1173,7 @@ private:
     floor_vbo_.reset();
     sphere_vbo_.reset();
     mesh_vbo_.reset();
-    surface_vbo_.reset();
+    halfsphere_surface_vbo_.reset();
     uniform_buffer_.reset();
   }
 
@@ -1161,6 +1188,8 @@ private:
 
   void BuildCommandBuffers()
   {
+    constexpr float line_width = 1.f;
+
     for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
       auto& command_buffer = draw_command_buffers_[i];
@@ -1180,6 +1209,8 @@ private:
 
       vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
       command_buffer.setScissor(0, scissor);
+
+      command_buffer.setLineWidth(line_width);
 
       vk::RenderPassBeginInfo render_pass_begin_info;
       render_pass_begin_info
@@ -1234,13 +1265,29 @@ private:
         { descriptor_sets_[i] }, { 0ull, 0ull });
 
       command_buffer.bindVertexBuffers(0,
-        { surface_vbo_->Buffer(), surface_vbo_->Buffer() },
-        { surface_vbo_->Offset(0), surface_vbo_->Offset(1) });
+        { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
+        { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
 
-      command_buffer.bindIndexBuffer(surface_vbo_->Buffer(), surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-      
-      command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
-      
+      command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+      command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+
+      if (draw_normal_)
+      {
+        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
+
+        command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+          { descriptor_sets_[i] }, { 0ull, 0ull });
+
+        command_buffer.bindVertexBuffers(0,
+          { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
+          { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
+
+        command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+        command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+      }
+
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
 
@@ -1366,12 +1413,14 @@ private:
   vk::Pipeline floor_pipeline_;
   vk::Pipeline surface_tessellation_pipeline_;
   vk::Pipeline surface_tessellation_wireframe_pipeline_;
+  vk::Pipeline surface_tessellation_normal_pipeline_;
 
   // Commands
   std::vector<vk::CommandBuffer> draw_command_buffers_;
 
   // Draw mode
   DrawMode draw_mode_ = DrawMode::SOLID;
+  bool draw_normal_ = false;
 
   // Command buffer update
   bool needs_rebuild_command_buffers_ = false;
@@ -1397,13 +1446,13 @@ private:
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
-  std::unique_ptr<Surface> surface_;
+  std::unique_ptr<HalfsphereSurface> halfsphere_surface_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
   std::unique_ptr<VertexBuffer> sphere_vbo_;
   std::unique_ptr<VertexBuffer> mesh_vbo_;
-  std::unique_ptr<VertexBuffer> surface_vbo_;
+  std::unique_ptr<VertexBuffer> halfsphere_surface_vbo_;
 
   // Synchronization
   vk::Fence transfer_fence_;
@@ -1446,6 +1495,11 @@ void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)
 void Engine::SetDrawWireframe()
 {
   impl_->SetDrawWireframe();
+}
+
+void Engine::SetDrawNormal(bool draw_normal)
+{
+  impl_->SetDrawNormal(draw_normal);
 }
 
 void Engine::SetDrawSolid()

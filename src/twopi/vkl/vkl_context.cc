@@ -156,6 +156,9 @@ void Context::CreateDevice()
 
   // Device features
   auto features = physical_device_.getFeatures();
+  features
+    .setTessellationShader(true)
+    .setGeometryShader(true);
 
   // Create device
   vk::DeviceCreateInfo device_create_info;

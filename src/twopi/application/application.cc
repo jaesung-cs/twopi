@@ -203,6 +203,12 @@ private:
               vk_engine_->SetDrawWireframe();
             }
 
+            else if (keyboard_event->Key() == 'N')
+            {
+              draw_normal_ ^= true;
+              vk_engine_->SetDrawNormal(draw_normal_);
+            }
+
             else if (keyboard_event->Key() == '3')
             {
               current_camera_ = camera_;
@@ -257,6 +263,8 @@ private:
       camera_control_->MoveRight(dtf);
     if (key_pressed_[' '])
       camera_control_->MoveUp(dtf);
+
+    camera_control_->Update();
   }
 
   void SwapBuffers()
@@ -292,6 +300,9 @@ private:
 
   // Light
   std::vector<std::shared_ptr<scene::Light>> lights_;
+
+  // Debug
+  bool draw_normal_ = false;
 };
 
 Application::Application()

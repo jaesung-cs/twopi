@@ -4,7 +4,7 @@ import functools
 import operator
 
 if __name__ == "__main__":
-  extensions = ['vert', 'frag', 'comp', 'tesc', 'tese']
+  extensions = ['vert', 'frag', 'geom', 'tesc', 'tese', 'comp']
   filenames = functools.reduce(operator.add, [glob.glob(f'*.{extension}') for extension in extensions])
 
   for filename in filenames:

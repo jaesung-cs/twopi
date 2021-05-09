@@ -76,9 +76,26 @@ void main()
     + (p13 - p03) * dx0 * y3 + (p23 - p13) * dx1 * y3 + (p33 - p23) * dx2 * y3;
 
   vec3 vy = 
+      (p01 - p00) * dy0 * x0 + (p02 - p01) * dy1 * x0 + (p03 - p02) * dy2 * x0
+    + (p11 - p10) * dy0 * x1 + (p12 - p11) * dy1 * x1 + (p13 - p12) * dy2 * x1
+    + (p21 - p20) * dy0 * x2 + (p22 - p21) * dy1 * x2 + (p23 - p22) * dy2 * x2
+    + (p31 - p30) * dy0 * x3 + (p32 - p31) * dy1 * x3 + (p33 - p32) * dy2 * x3;
+
+    /*
+  vec3 vy = 
       (p01 - p00) * x0 * dy0 + (p11 - p10) * x1 * dy0 + (p21 - p20) * x2 * dy0 + (p31 - p30) * x3 * dy0
     + (p02 - p01) * x0 * dy1 + (p12 - p11) * x1 * dy1 + (p22 - p21) * x2 * dy1 + (p32 - p31) * x3 * dy1
     + (p03 - p02) * x0 * dy2 + (p13 - p12) * x1 * dy2 + (p23 - p22) * x2 * dy2 + (p33 - p32) * x3 * dy2;
+    */
+
+  vec3 n00 = in_normal[0];
+  vec3 n30 = in_normal[1];
+  vec3 n03 = in_normal[2];
+  vec3 n33 = in_normal[3];
+
+  vec3 n0 = mix(n00, n30, uv.x);
+  vec3 n1 = mix(n03, n33, uv.x);
+  vec3 n = normalize(mix(n0, n1, uv.y));
 
   frag_normal = normalize(cross(vx, vy));
   

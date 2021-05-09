@@ -35,6 +35,7 @@ public:
 
   // Draw setting
   void SetDrawWireframe();
+  void SetDrawNormal(bool draw_normal);
   void SetDrawSolid();
 
 private:
