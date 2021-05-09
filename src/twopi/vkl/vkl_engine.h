@@ -33,6 +33,10 @@ public:
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights);
   void UpdateCamera(std::shared_ptr<scene::Camera> camera);
 
+  // Draw setting
+  void SetDrawWireframe();
+  void SetDrawSolid();
+
 private:
   class Impl;
   std::unique_ptr<Impl> impl_;

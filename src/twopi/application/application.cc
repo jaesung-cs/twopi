@@ -107,6 +107,7 @@ private:
     const auto events = window_->PollEvents(timestamp);
 
     bool resized = false;
+    bool camera_updated = false;
     int resize_width = 1600;
     int resize_height = 900;
 
@@ -145,13 +146,22 @@ private:
         const auto dy = y - mouse_last_y_;
 
         if (mouse_buttons_[0] && mouse_buttons_[1])
+        {
           camera_control_->ZoomByPixels(dx, dy);
+          camera_updated = true;
+        }
 
         else if (mouse_buttons_[0])
+        {
           camera_control_->RotateByPixels(dx, dy);
+          camera_updated = true;
+        }
 
         else if (mouse_buttons_[1])
+        {
           camera_control_->TranslateByPixels(dx, dy);
+          camera_updated = true;
+        }
 
         mouse_last_x_ = x;
         mouse_last_y_ = y;
@@ -161,6 +171,7 @@ private:
       {
         const auto scroll = mouse_wheel_event->Scroll();
         camera_control_->ZoomByWheel(scroll);
+        camera_updated = true;
       }
 
       else if (auto keyboard_event = std::dynamic_pointer_cast<window::KeyboardEvent>(event))
@@ -184,13 +195,25 @@ private:
           {
             if (keyboard_event->Key() == '1')
             {
+              vk_engine_->SetDrawSolid();
+            }
+
+            else if (keyboard_event->Key() == '2')
+            {
+              vk_engine_->SetDrawWireframe();
+            }
+
+            else if (keyboard_event->Key() == '3')
+            {
               current_camera_ = camera_;
               camera_control_->SetCamera(current_camera_);
+              camera_updated = true;
             }
-            else if (keyboard_event->Key() == '2')
+            else if (keyboard_event->Key() == '4')
             {
               current_camera_ = vr_camera_;
               camera_control_->SetCamera(current_camera_);
+              camera_updated = true;
             }
           }
         }
@@ -213,7 +236,10 @@ private:
       vk_engine_->Resize(resize_width, resize_height);
     }
 
-    camera_control_->Update();
+    if (camera_updated)
+    {
+      camera_control_->Update();
+    }
   }
 
   void UpdateKeyboard(double dt)

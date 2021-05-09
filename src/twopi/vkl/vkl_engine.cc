@@ -36,6 +36,12 @@ namespace vkl
 class Engine::Impl
 {
 private:
+  enum class DrawMode
+  {
+    SOLID,
+    WIREFRAME,
+  };
+
   struct Buffer
   {
     vk::Buffer buffer;
@@ -139,6 +145,13 @@ public:
 
     device.resetFences(in_flight_fences_[current_frame_]);
 
+    // Rebuild command buffers
+    if (needs_rebuild_command_buffers_)
+    {
+      BuildCommandBuffers();
+      needs_rebuild_command_buffers_ = false;
+    }
+
     // Update uniforms
     camera_ubos_[image_index] = camera_;
     light_ubos_[image_index] = lights_;
@@ -222,6 +235,18 @@ public:
     camera_.view = camera->ViewMatrix();
 
     camera_.eye = camera->Eye();
+  }
+
+  void SetDrawSolid()
+  {
+    draw_mode_ = DrawMode::SOLID;
+    needs_rebuild_command_buffers_ = true;
+  }
+
+  void SetDrawWireframe()
+  {
+    draw_mode_ = DrawMode::WIREFRAME;
+    needs_rebuild_command_buffers_ = true;
   }
 
 private:
@@ -1193,8 +1218,17 @@ private:
       */
 
       // Surface
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
-      // command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
+      switch (draw_mode_)
+      {
+      case DrawMode::WIREFRAME:
+        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
+        break;
+
+      case DrawMode::SOLID:
+      default:
+        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
+        break;
+      }
 
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { 0ull, 0ull });
@@ -1336,6 +1370,12 @@ private:
   // Commands
   std::vector<vk::CommandBuffer> draw_command_buffers_;
 
+  // Draw mode
+  DrawMode draw_mode_ = DrawMode::SOLID;
+
+  // Command buffer update
+  bool needs_rebuild_command_buffers_ = false;
+
   // Uniform buffers per swapchain framebuffer
   uint32_t num_objects_ = 0;
   std::unique_ptr<UniformBuffer> uniform_buffer_;
@@ -1401,6 +1441,16 @@ void Engine::UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& ligh
 void Engine::UpdateCamera(std::shared_ptr<scene::Camera> camera)
 {
   impl_->UpdateCamera(camera);
+}
+
+void Engine::SetDrawWireframe()
+{
+  impl_->SetDrawWireframe();
+}
+
+void Engine::SetDrawSolid()
+{
+  impl_->SetDrawSolid();
 }
 }
 }
