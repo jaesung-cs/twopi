@@ -1131,9 +1131,16 @@ private:
 
     draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
 
+    BuildCommandBuffers();
+  }
+
+  void BuildCommandBuffers()
+  {
     for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
     {
       auto& command_buffer = draw_command_buffers_[i];
+
+      command_buffer.reset();
 
       vk::CommandBufferBeginInfo begin_info;
       command_buffer.begin(begin_info);

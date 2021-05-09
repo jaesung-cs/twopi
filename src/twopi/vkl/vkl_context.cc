@@ -180,7 +180,8 @@ void Context::CreateCommandPools()
   // Create command pools
   vk::CommandPoolCreateInfo command_pool_create_info;
   command_pool_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value());
+    .setQueueFamilyIndex(graphics_queue_index_.value())
+    .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   command_pool_ = device_.createCommandPool(command_pool_create_info);
 
@@ -229,8 +230,8 @@ std::vector<vk::CommandBuffer> Context::AllocateCommandBuffers(int count)
   vk::CommandBufferAllocateInfo allocate_info;
   allocate_info
     .setLevel(vk::CommandBufferLevel::ePrimary)
-    .setCommandPool(transient_command_pool_)
-    .setCommandBufferCount(3);
+    .setCommandPool(command_pool_)
+    .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
 }
 
