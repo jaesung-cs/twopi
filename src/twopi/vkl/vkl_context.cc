@@ -156,6 +156,9 @@ void Context::CreateDevice()
 
   // Device features
   auto features = physical_device_.getFeatures();
+  features
+    .setTessellationShader(true)
+    .setGeometryShader(true);
 
   // Create device
   vk::DeviceCreateInfo device_create_info;
@@ -167,7 +170,7 @@ void Context::CreateDevice()
   device_ = physical_device_.createDevice(device_create_info);
 
   graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-  present_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
+  present_queue_ = device_.getQueue(present_queue_index_.value(), 0);
 }
 
 void Context::DestroyDevice()
@@ -180,7 +183,8 @@ void Context::CreateCommandPools()
   // Create command pools
   vk::CommandPoolCreateInfo command_pool_create_info;
   command_pool_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value());
+    .setQueueFamilyIndex(graphics_queue_index_.value())
+    .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   command_pool_ = device_.createCommandPool(command_pool_create_info);
 
@@ -229,8 +233,8 @@ std::vector<vk::CommandBuffer> Context::AllocateCommandBuffers(int count)
   vk::CommandBufferAllocateInfo allocate_info;
   allocate_info
     .setLevel(vk::CommandBufferLevel::ePrimary)
-    .setCommandPool(transient_command_pool_)
-    .setCommandBufferCount(3);
+    .setCommandPool(command_pool_)
+    .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
 }
 
@@ -240,7 +244,7 @@ std::vector<vk::CommandBuffer> Context::AllocateTransientCommandBuffers(int coun
   allocate_info
     .setLevel(vk::CommandBufferLevel::ePrimary)
     .setCommandPool(transient_command_pool_)
-    .setCommandBufferCount(3);
+    .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
 }
 }
