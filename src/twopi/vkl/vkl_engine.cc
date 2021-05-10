@@ -260,15 +260,25 @@ private:
   {
     context_ = std::make_shared<vkl::Context>(glfw_window_handle_);
 
+    std::cout << "Creating swapchain" << std::endl;
     CreateSwapchain();
+    std::cout << "Creating render pass" << std::endl;
     CreateRenderPass();
+    std::cout << "Creating swapchain framebuffers" << std::endl;
     CreateSwapchainFramebuffers();
+    std::cout << "Creating sampler" << std::endl;
     CreateSampler();
+    std::cout << "Creating descriptor set" << std::endl;
     CreateDescriptorSet();
+    std::cout << "Creating pipelines" << std::endl;
     CreateGraphicsPipelines();
+    std::cout << "Creating synchronization objects" << std::endl;
     CreateSynchronizationObjects();
+    std::cout << "Preparing resources" << std::endl;
     PrepareResources();
+    std::cout << "Creating command buffers" << std::endl;
     CreateCommandBuffers();
+    std::cout << "Vulkan engine is ready" << std::endl;
   }
 
   void Cleanup()
