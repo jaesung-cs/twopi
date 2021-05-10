@@ -797,90 +797,6 @@ private:
     device.destroyShaderModule(vert_shader_module);
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
-
-    // Tessellation shader
-    binding_descriptions.resize(2);
-    attribute_descriptions.resize(2);
-
-    vertex_input_info
-      .setVertexBindingDescriptions(binding_descriptions)
-      .setVertexAttributeDescriptions(attribute_descriptions);
-
-    vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
-    tessellation_stage_create_info
-      .setPatchControlPoints(4);
-
-    vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
-    vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
-    vk::ShaderModule tese_shader_module = CreateShaderModule(base_dirpath, "surface.tese.spv");
-    frag_shader_module = CreateShaderModule(base_dirpath, "surface.frag.spv");
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setPName("main")
-      .setModule(vert_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationControl)
-      .setPName("main")
-      .setModule(tesc_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationEvaluation)
-      .setPName("main")
-      .setModule(tese_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setPName("main")
-      .setModule(frag_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    graphics_pipeline_create_info
-      .setStages(shader_stages)
-      .setPTessellationState(&tessellation_stage_create_info);
-
-    rasterization_info
-      .setCullMode(vk::CullModeFlagBits::eNone);
-
-    input_assembly_info
-      .setTopology(vk::PrimitiveTopology::ePatchList);
-
-    // Polygon shader
-    surface_tessellation_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Wireframe shader
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eLine);
-
-    surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Normal shader
-    vk::ShaderModule geom_shader_module = CreateShaderModule(base_dirpath, "surface.geom.spv");
-    
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eGeometry)
-      .setPName("main")
-      .setModule(geom_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eFill);
-
-    graphics_pipeline_create_info
-      .setStages(shader_stages);
-
-    surface_tessellation_normal_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    device.destroyShaderModule(vert_shader_module);
-    device.destroyShaderModule(tesc_shader_module);
-    device.destroyShaderModule(tese_shader_module);
-    device.destroyShaderModule(geom_shader_module);
-    device.destroyShaderModule(frag_shader_module);
-    shader_stages.clear();
   }
 
   void DestroyGraphicsPipelines()
@@ -890,9 +806,6 @@ private:
     device.destroyPipelineLayout(pipeline_layout_);
     device.destroyPipeline(color_pipeline_);
     device.destroyPipeline(floor_pipeline_);
-    device.destroyPipeline(surface_tessellation_pipeline_);
-    device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
-    device.destroyPipeline(surface_tessellation_normal_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -1245,7 +1158,6 @@ private:
       command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
 
       // Mesh
-      /*
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
         { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0 });
 
@@ -1256,48 +1168,7 @@ private:
       command_buffer.bindIndexBuffer(mesh_vbo_->Buffer(), mesh_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
       command_buffer.drawIndexed(mesh_vbo_->NumIndices(), 1, 0, 0, 0);
-      */
-
-      // Surface
-      switch (draw_mode_)
-      {
-      case DrawMode::WIREFRAME:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
-        break;
-
-      case DrawMode::SOLID:
-      default:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
-        break;
-      }
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { 0ull, 0ull });
-
-      command_buffer.bindVertexBuffers(0,
-        { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
-        { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
-
-      command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      if (draw_normal_)
-      {
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
-
-        command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-          { descriptor_sets_[i] }, { 0ull, 0ull });
-
-        command_buffer.bindVertexBuffers(0,
-          { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
-          { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
-
-        command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-        command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-      }
-
+      
       // Floor
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
 
@@ -1421,9 +1292,6 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
-  vk::Pipeline surface_tessellation_pipeline_;
-  vk::Pipeline surface_tessellation_wireframe_pipeline_;
-  vk::Pipeline surface_tessellation_normal_pipeline_;
 
   // Commands
   std::vector<vk::CommandBuffer> draw_command_buffers_;
