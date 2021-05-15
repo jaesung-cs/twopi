@@ -146,11 +146,8 @@ public:
     device.resetFences(in_flight_fences_[current_frame_]);
 
     // Rebuild command buffers
-    if (needs_rebuild_command_buffers_)
-    {
-      BuildCommandBuffers();
-      needs_rebuild_command_buffers_ = false;
-    }
+    auto command_buffer = context_->AllocateCommandBuffers(1)[0];
+    BuildDrawCommandBuffer(command_buffer, image_index);
 
     // Update uniforms
     camera_ubos_[image_index] = camera_;
@@ -160,17 +157,21 @@ public:
     model_ubos_[image_index][2] = surface_model_;
     material_ubos_[image_index] = material_;
 
+    // Submit to graphics queue
+    command_buffer.end();
+
     std::vector<vk::PipelineStageFlags> stage_mask = {
       vk::PipelineStageFlagBits::eColorAttachmentOutput,
     };
     vk::SubmitInfo submit_info;
     submit_info
       .setWaitSemaphores(image_available_semaphores_[current_frame_])
-      .setCommandBuffers(draw_command_buffers_[image_index])
+      .setCommandBuffers(command_buffer)
       .setSignalSemaphores(render_finished_semaphores_[current_frame_])
       .setWaitDstStageMask(stage_mask);
     queue.submit(submit_info, in_flight_fences_[current_frame_]);
 
+    // Submit to present queue
     std::vector<uint32_t> image_indices{ image_index };
     vk::PresentInfoKHR present_info;
     std::vector<vk::SwapchainKHR> swapchains = { *swapchain_ };
@@ -240,22 +241,111 @@ public:
   void SetDrawSolid()
   {
     draw_mode_ = DrawMode::SOLID;
-    needs_rebuild_command_buffers_ = true;
   }
 
   void SetDrawWireframe()
   {
     draw_mode_ = DrawMode::WIREFRAME;
-    needs_rebuild_command_buffers_ = true;
   }
 
   void SetDrawNormal(bool draw_normal)
   {
     draw_normal_ = draw_normal;
-    needs_rebuild_command_buffers_ = true;
   }
 
 private:
+  vk::CommandBuffer BuildDrawCommandBuffer(vk::CommandBuffer& command_buffer, int image_index)
+  {
+    constexpr float line_width = 1.f;
+
+    command_buffer.reset();
+
+    vk::CommandBufferBeginInfo begin_info;
+    command_buffer.begin(begin_info);
+
+    std::array<vk::ClearValue, 2> clear_values = {
+      vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
+      vk::ClearDepthStencilValue{ 1.f, 0u }
+    };
+
+    vk::Viewport viewport{ 0.f, 0.f, static_cast<float>(width_), static_cast<float>(height_), 0.f, 1.f };
+    command_buffer.setViewport(0, viewport);
+
+    vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
+    command_buffer.setScissor(0, scissor);
+
+    command_buffer.setLineWidth(line_width);
+
+    vk::RenderPassBeginInfo render_pass_begin_info;
+    render_pass_begin_info
+      .setClearValues(clear_values)
+      .setRenderPass(render_pass_)
+      .setFramebuffer(framebuffers_[image_index])
+      .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
+    command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+    // Sphere
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, color_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride(), 0 });
+
+    command_buffer.bindVertexBuffers(0,
+      { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
+      { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
+
+    command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+    command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
+
+    // Floor
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { 0ull, 0ull });
+
+    command_buffer.bindVertexBuffers(0,
+      { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
+      { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
+
+    command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+    command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
+
+    // Fur surface
+    switch (draw_mode_)
+    {
+    case DrawMode::WIREFRAME:
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
+      break;
+    case DrawMode::SOLID:
+    default:
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
+      break;
+    }
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 2, 0ull });
+
+    command_buffer.bindVertexBuffers(0,
+      { fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer() },
+      { fur_surface_vbo_->Offset(0), fur_surface_vbo_->Offset(1), fur_surface_vbo_->Offset(2) });
+
+    command_buffer.bindIndexBuffer(fur_surface_vbo_->Buffer(), fur_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+    command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+
+    // Fur surface normal
+    if (draw_normal_)
+    {
+      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
+
+      command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+    }
+
+    command_buffer.endRenderPass();
+  }
+
   void Prepare()
   {
     context_ = std::make_shared<vkl::Context>(glfw_window_handle_);
@@ -278,8 +368,6 @@ private:
     PrepareDescriptors();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
-    std::cout << "Creating command buffers" << std::endl;
-    CreateCommandBuffers();
     std::cout << "Vulkan engine is ready" << std::endl;
   }
 
@@ -289,7 +377,6 @@ private:
 
     device.waitIdle();
 
-    DestroyCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
     DestroyGraphicsPipelines();
@@ -307,7 +394,6 @@ private:
 
     device.waitIdle();
 
-    DestroyCommandBuffers();
     DestroySwapchainFramebuffers();
     DestroyRenderPass();
     DestroySwapchain();
@@ -315,7 +401,6 @@ private:
     CreateSwapchain();
     CreateRenderPass();
     CreateSwapchainFramebuffers();
-    CreateCommandBuffers();
   }
 
   void CreateSwapchain()
@@ -1204,118 +1289,6 @@ private:
     uniform_buffer_.reset();
   }
 
-  void CreateCommandBuffers()
-  {
-    const auto device = context_->Device();
-
-    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
-
-    BuildCommandBuffers();
-  }
-
-  void BuildCommandBuffers()
-  {
-    constexpr float line_width = 1.f;
-    
-    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
-    {
-      auto& command_buffer = draw_command_buffers_[i];
-
-      command_buffer.reset();
-      
-      vk::CommandBufferBeginInfo begin_info;
-      command_buffer.begin(begin_info);
-
-      std::array<vk::ClearValue, 2> clear_values = {
-        vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
-        vk::ClearDepthStencilValue{ 1.f, 0u }
-      };
-
-      vk::Viewport viewport{ 0.f, 0.f, static_cast<float>(width_), static_cast<float>(height_), 0.f, 1.f };
-      command_buffer.setViewport(0, viewport);
-
-      vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
-      command_buffer.setScissor(0, scissor);
-
-      command_buffer.setLineWidth(line_width);
-
-      vk::RenderPassBeginInfo render_pass_begin_info;
-      render_pass_begin_info
-        .setClearValues(clear_values)
-        .setRenderPass(render_pass_)
-        .setFramebuffer(framebuffers_[i])
-        .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
-      command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
-
-      // Sphere
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, color_pipeline_);
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { model_ubos_[i].Stride(), 0 });
-
-      command_buffer.bindVertexBuffers(0,
-        { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
-        { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
-
-      command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      // Floor
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { 0ull, 0ull });
-
-      command_buffer.bindVertexBuffers(0,
-        { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
-        { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
-
-      command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      // Fur surface
-      switch (draw_mode_)
-      {
-      case DrawMode::WIREFRAME:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
-        break;
-      case DrawMode::SOLID:
-      default:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
-        break;
-      }
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0ull });
-
-      command_buffer.bindVertexBuffers(0,
-        { fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer() },
-        { fur_surface_vbo_->Offset(0), fur_surface_vbo_->Offset(1), fur_surface_vbo_->Offset(2) });
-
-      command_buffer.bindIndexBuffer(fur_surface_vbo_->Buffer(), fur_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      // Fur surface normal
-      if (draw_normal_)
-      {
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
-
-        command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-      }
-
-      command_buffer.endRenderPass();
-      command_buffer.end();
-    }
-  }
-
-  void DestroyCommandBuffers()
-  {
-    draw_command_buffers_.clear();
-  }
-
   vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
   {
     const auto device = context_->Device();
@@ -1419,15 +1392,9 @@ private:
   vk::Pipeline surface_tessellation_wireframe_pipeline_;
   vk::Pipeline surface_tessellation_normal_pipeline_;
 
-  // Commands
-  std::vector<vk::CommandBuffer> draw_command_buffers_;
-
   // Draw mode
   DrawMode draw_mode_ = DrawMode::SOLID;
   bool draw_normal_ = false;
-
-  // Command buffer update
-  bool needs_rebuild_command_buffers_ = false;
 
   // Uniform buffers per swapchain framebuffer
   uint32_t num_objects_ = 0;
