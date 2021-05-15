@@ -274,6 +274,8 @@ private:
     CreateGraphicsPipelines();
     std::cout << "Creating synchronization objects" << std::endl;
     CreateSynchronizationObjects();
+    std::cout << "Preparing descriptors" << std::endl;
+    PrepareDescriptors();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
     std::cout << "Creating command buffers" << std::endl;
@@ -979,11 +981,9 @@ private:
     device.destroyFence(transfer_fence_);
   }
 
-  void PrepareResources()
+  void PrepareDescriptors()
   {
     const auto device = context_->Device();
-    const auto physical_device = context_->PhysicalDevice();
-    const auto queue = context_->Queue();
     const auto image_count = swapchain_->ImageCount();
 
     uniform_buffer_ = std::make_unique<vkl::UniformBuffer>(context_);
@@ -1072,6 +1072,13 @@ private:
 
       device.updateDescriptorSets(writes, nullptr);
     }
+  }
+
+  void PrepareResources()
+  {
+    const auto device = context_->Device();
+    const auto physical_device = context_->PhysicalDevice();
+    const auto queue = context_->Queue();
 
     // Stage buffer
     vk::BufferCreateInfo buffer_create_info;
@@ -1106,19 +1113,18 @@ private:
     std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    auto transfer_commands = context_->AllocateTransientCommandBuffers(3);
+    auto transfer_command = context_->AllocateTransientCommandBuffers(1)[0];
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    transfer_commands[0].begin(begin_info);
+    transfer_command.begin(begin_info);
 
     vk::BufferCopy region;
     region
       .setSrcOffset(0)
       .setDstOffset(0)
       .setSize(floor_buffer_size);
-    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
-    transfer_commands[0].end();
+    transfer_command.copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
 
     // Sphere
     constexpr int sphere_grid_size = 32;
@@ -1140,13 +1146,11 @@ private:
     std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    transfer_commands[1].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size)
       .setDstOffset(0)
       .setSize(sphere_buffer_size);
-    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
-    transfer_commands[1].end();
+    transfer_command.copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
 
     // Fur surface
     fur_surface_ = std::make_unique<Surface>();
@@ -1171,17 +1175,16 @@ private:
     std::memcpy(ptr + fur_surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    transfer_commands[2].begin(begin_info);
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
       .setDstOffset(0)
       .setSize(surface_buffer_size);
-    transfer_commands[2].copyBuffer(stage_buffer_.buffer, fur_surface_vbo_->Buffer(), region);
-    transfer_commands[2].end();
+    transfer_command.copyBuffer(stage_buffer_.buffer, fur_surface_vbo_->Buffer(), region);
+    transfer_command.end();
 
     // Submit transfer commands
     vk::SubmitInfo submit_info;
-    submit_info.setCommandBuffers(transfer_commands);
+    submit_info.setCommandBuffers(transfer_command);
     queue.submit(submit_info, transfer_fence_);
 
     const auto result = device.waitForFences(transfer_fence_, true, UINT64_MAX);
