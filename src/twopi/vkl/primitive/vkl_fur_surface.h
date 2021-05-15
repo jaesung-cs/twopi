@@ -1,5 +1,5 @@
-#ifndef TWOPI_VKL_PRIMITIVE_VKL_HALFSPHERE_SURFACE_H_
-#define TWOPI_VKL_PRIMITIVE_VKL_HALFSPHERE_SURFACE_H_
+#ifndef TWOPI_VKL_PRIMITIVE_VKL_FUR_SURFACE_H_
+#define TWOPI_VKL_PRIMITIVE_VKL_FUR_SURFACE_H_
 
 #include <vector>
 
@@ -7,12 +7,12 @@ namespace twopi
 {
 namespace vkl
 {
-class HalfsphereSurface
+class FurSurface
 {
 public:
-  HalfsphereSurface();
+  FurSurface();
 
-  ~HalfsphereSurface();
+  ~FurSurface();
 
   auto& PositionBuffer() { return position_buffer_; }
   auto& NormalBuffer() { return normal_buffer_; }
@@ -30,4 +30,4 @@ private:
 }
 }
 
-#endif // TWOPI_VKL_PRIMITIVE_VKL_HALFSPHERE_SURFACE_H_
+#endif // TWOPI_VKL_PRIMITIVE_VKL_FUR_SURFACE_H_
