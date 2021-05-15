@@ -14,6 +14,9 @@ public:
 
   ~Surface();
 
+  const int NumVertices() const { return position_buffer_.size() / 3; }
+  const int NumIndices() const { return index_buffer_.size(); }
+
   const auto& PositionBuffer() const { return position_buffer_; }
   const auto& VxBuffer() const { return vx_buffer_; }
   const auto& VyBuffer() const { return vy_buffer_; }

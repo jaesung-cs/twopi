@@ -1090,34 +1090,57 @@ private:
     stage_buffer_.memory = context_->AllocateHostMemory(stage_buffer_.buffer);
     device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.device_memory, stage_buffer_.memory.offset);
 
-    // Floor
+    // Primitives in CPU
     constexpr float floor_range = 30.f;
     floor_ = std::make_unique<Floor>(floor_range);
-    const auto& floor_position_buffer = floor_->PositionBuffer();
-    const auto& floor_normal_buffer = floor_->NormalBuffer();
-    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
-    const auto& floor_index_buffer = floor_->IndexBuffer();
+    constexpr int sphere_grid_size = 32;
+    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
+    fur_surface_ = std::make_unique<Surface>();
 
-    floor_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(floor_position_buffer.size()) / 3, static_cast<int>(floor_index_buffer.size()));
+    // Vertex buffers
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_->NumVertices(), floor_->NumIndices());
     (*floor_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .AddAttribute<float, 2>(2)
       .Prepare();
-
     const uint64_t floor_buffer_size = floor_vbo_->BufferSize();
-    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, floor_buffer_size));
-    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
 
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_->NumVertices(), sphere_->NumIndices());
+    (*sphere_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .Prepare();
+    const auto sphere_buffer_size = sphere_vbo_->BufferSize();
+
+    fur_surface_vbo_ = std::make_unique<VertexBuffer>(context_, fur_surface_->NumVertices(), fur_surface_->NumIndices());
+    (*fur_surface_vbo_)
+      .AddAttribute<float, 3>(0)
+      .AddAttribute<float, 3>(1)
+      .AddAttribute<float, 3>(2)
+      .Prepare();
+    const auto surface_buffer_size = fur_surface_vbo_->BufferSize();
+
+    // To stage buffer
     auto transfer_command = context_->AllocateTransientCommandBuffers(1)[0];
 
     vk::CommandBufferBeginInfo begin_info;
     begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
     transfer_command.begin(begin_info);
+
+    const auto total_buffer_size = floor_buffer_size + sphere_buffer_size + surface_buffer_size;
+    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, total_buffer_size));
+
+    const auto& floor_position_buffer = floor_->PositionBuffer();
+    const auto& floor_normal_buffer = floor_->NormalBuffer();
+    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
+    const auto& floor_index_buffer = floor_->IndexBuffer();
+
+    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
+    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
+    ptr += floor_buffer_size;
 
     vk::BufferCopy region;
     region
@@ -1126,63 +1149,41 @@ private:
       .setSize(floor_buffer_size);
     transfer_command.copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
 
-    // Sphere
-    constexpr int sphere_grid_size = 32;
-    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
     const auto& sphere_position_buffer = sphere_->PositionBuffer();
     const auto& sphere_normal_buffer = sphere_->NormalBuffer();
     const auto& sphere_index_buffer = sphere_->IndexBuffer();
 
-    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(sphere_position_buffer.size()) / 3, static_cast<int>(sphere_index_buffer.size()));
-    (*sphere_vbo_)
-      .AddAttribute<float, 3>(0)
-      .AddAttribute<float, 3>(1)
-      .Prepare();
-
-    const auto sphere_buffer_size = sphere_vbo_->BufferSize();
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
     std::memcpy(ptr + sphere_vbo_->Offset(0), sphere_position_buffer.data(), sphere_position_buffer.size() * sizeof(float));
     std::memcpy(ptr + sphere_vbo_->Offset(1), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
     std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
+    ptr += sphere_buffer_size;
 
     region
       .setSrcOffset(floor_buffer_size)
-      .setDstOffset(0)
       .setSize(sphere_buffer_size);
     transfer_command.copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
-
-    // Fur surface
-    fur_surface_ = std::make_unique<Surface>();
 
     auto& surface_position_buffer = fur_surface_->PositionBuffer();
     auto& surface_vx_buffer = fur_surface_->VxBuffer();
     auto& surface_vy_buffer = fur_surface_->VyBuffer();
     auto& surface_index_buffer = fur_surface_->IndexBuffer();
 
-    fur_surface_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(surface_position_buffer.size()) / 3, static_cast<int>(surface_index_buffer.size()));
-    (*fur_surface_vbo_)
-      .AddAttribute<float, 3>(0)
-      .AddAttribute<float, 3>(1)
-      .AddAttribute<float, 3>(2)
-      .Prepare();
-
-    const auto surface_buffer_size = fur_surface_vbo_->BufferSize();
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, surface_buffer_size));
     std::memcpy(ptr + fur_surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
     std::memcpy(ptr + fur_surface_vbo_->Offset(1), surface_vx_buffer.data(), surface_vx_buffer.size() * sizeof(float));
     std::memcpy(ptr + fur_surface_vbo_->Offset(2), surface_vy_buffer.data(), surface_vy_buffer.size() * sizeof(float));
     std::memcpy(ptr + fur_surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
+    ptr += surface_buffer_size;
 
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
-      .setDstOffset(0)
       .setSize(surface_buffer_size);
     transfer_command.copyBuffer(stage_buffer_.buffer, fur_surface_vbo_->Buffer(), region);
-    transfer_command.end();
+
+    device.unmapMemory(stage_buffer_.memory.device_memory);
 
     // Submit transfer commands
+    transfer_command.end();
+
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_command);
     queue.submit(submit_info, transfer_fence_);

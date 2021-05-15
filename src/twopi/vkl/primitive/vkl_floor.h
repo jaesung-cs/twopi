@@ -16,6 +16,9 @@ public:
 
   ~Floor();
 
+  const int NumVertices() const { return position_buffer_.size() / 3; }
+  const int NumIndices() const { return index_buffer_.size(); }
+
   const auto& PositionBuffer() const { return position_buffer_; }
   const auto& NormalBuffer() const { return normal_buffer_; }
   const auto& TexCoordBuffer() const { return tex_coord_buffer_; }
