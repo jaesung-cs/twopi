@@ -120,34 +120,28 @@ void Context::CreateDevice()
   physical_device_ = instance_.enumeratePhysicalDevices()[0];
 
   // Find queues
+  constexpr auto queue_flag = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute;
   const auto queue_family_properties = physical_device_.getQueueFamilyProperties();
   for (int i = 0; i < queue_family_properties.size(); i++)
   {
-    if (!graphics_queue_index_ && queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
-      graphics_queue_index_ = i;
-
-    // TODO: select unique queue family indices
-    if ((!present_queue_index_ || graphics_queue_index_ == present_queue_index_) && physical_device_.getSurfaceSupportKHR(i, surface_))
-      present_queue_index_ = i;
+    if (!queue_index_ &&
+      (queue_family_properties[i].queueFlags & queue_flag) == queue_flag &&
+      physical_device_.getSurfaceSupportKHR(i, surface_) &&
+      queue_family_properties[i].queueCount >= 2)
+    {
+      queue_index_ = i;
+      break;
+    }
   }
 
-  float queue_priority = 1.f;
-  vk::DeviceQueueCreateInfo graphics_queue_create_info;
-  graphics_queue_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value())
-    .setQueueCount(1)
-    .setQueuePriorities(queue_priority);
-
-  vk::DeviceQueueCreateInfo present_queue_create_info;
-  present_queue_create_info
-    .setQueueFamilyIndex(present_queue_index_.value())
-    .setQueueCount(1)
-    .setQueuePriorities(queue_priority);
-
-  std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {
-    graphics_queue_create_info,
-    present_queue_create_info,
+  std::vector<float> queue_priorities = {
+    1.f, 1.f
   };
+  vk::DeviceQueueCreateInfo queue_create_info;
+  queue_create_info
+    .setQueueFamilyIndex(queue_index_.value())
+    .setQueueCount(2)
+    .setQueuePriorities(queue_priorities);
 
   // Device extensions
   std::vector<const char*> extensions = {
@@ -164,13 +158,13 @@ void Context::CreateDevice()
   vk::DeviceCreateInfo device_create_info;
   device_create_info
     .setPEnabledExtensionNames(extensions)
-    .setQueueCreateInfos(queue_create_infos)
+    .setQueueCreateInfos(queue_create_info)
     .setPEnabledFeatures(&features);
 
   device_ = physical_device_.createDevice(device_create_info);
 
-  graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-  present_queue_ = device_.getQueue(present_queue_index_.value(), 0);
+  queue_ = device_.getQueue(queue_index_.value(), 0);
+  present_queue_ = device_.getQueue(queue_index_.value(), 1);
 }
 
 void Context::DestroyDevice()
@@ -183,7 +177,7 @@ void Context::CreateCommandPools()
   // Create command pools
   vk::CommandPoolCreateInfo command_pool_create_info;
   command_pool_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value())
+    .setQueueFamilyIndex(queue_index_.value())
     .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   command_pool_ = device_.createCommandPool(command_pool_create_info);
@@ -203,8 +197,7 @@ void Context::DestroyCommandPools()
 std::vector<uint32_t> Context::QueueFamilyIndices() const
 {
   return std::vector<uint32_t>{
-    graphics_queue_index_.value(),
-    present_queue_index_.value(),
+    queue_index_.value(),
   };
 }
 

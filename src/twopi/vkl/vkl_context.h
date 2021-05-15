@@ -24,12 +24,11 @@ public:
 
   auto PhysicalDevice() const { return physical_device_; }
   auto Device() const { return device_; }
-  auto GraphicsQueue() const { return graphics_queue_; }
+  auto Queue() const { return queue_; }
   auto PresentQueue() const { return present_queue_; }
   auto Surface() const { return surface_; }
 
   std::vector<uint32_t> QueueFamilyIndices() const;
-  const auto GraphicsQueueIndex() const { return graphics_queue_index_.value(); }
 
   Memory AllocateDeviceMemory(vk::Buffer buffer);
   Memory AllocateDeviceMemory(vk::Image image);
@@ -55,11 +54,10 @@ private:
 
   vk::PhysicalDevice physical_device_;
   vk::Device device_;
-  vk::Queue graphics_queue_;
+  vk::Queue queue_;
   vk::Queue present_queue_;
 
-  std::optional<uint32_t> graphics_queue_index_;
-  std::optional<uint32_t> present_queue_index_;
+  std::optional<uint32_t> queue_index_;
 
   std::unique_ptr<MemoryManager> memory_manager_;
 

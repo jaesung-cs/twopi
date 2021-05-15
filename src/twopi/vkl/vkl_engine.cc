@@ -123,7 +123,7 @@ public:
   void Draw(core::Duration duration)
   {
     const auto device = context_->Device();
-    const auto graphics_queue = context_->GraphicsQueue();
+    const auto queue = context_->Queue();
     const auto present_queue = context_->PresentQueue();
 
     auto wait_result = device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
@@ -169,7 +169,7 @@ public:
       .setCommandBuffers(draw_command_buffers_[image_index])
       .setSignalSemaphores(render_finished_semaphores_[current_frame_])
       .setWaitDstStageMask(stage_mask);
-    graphics_queue.submit(submit_info, in_flight_fences_[current_frame_]);
+    queue.submit(submit_info, in_flight_fences_[current_frame_]);
 
     std::vector<uint32_t> image_indices{ image_index };
     vk::PresentInfoKHR present_info;
@@ -853,7 +853,7 @@ private:
   {
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
-    const auto graphics_queue = context_->GraphicsQueue();
+    const auto queue = context_->Queue();
     const auto image_count = swapchain_->ImageCount();
 
     uniform_buffer_ = std::make_unique<vkl::UniformBuffer>(context_);
@@ -1081,7 +1081,7 @@ private:
     // Submit transfer commands
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(transfer_commands);
-    graphics_queue.submit(submit_info, transfer_fence_);
+    queue.submit(submit_info, transfer_fence_);
 
     const auto result = device.waitForFences(transfer_fence_, true, UINT64_MAX);
   }
