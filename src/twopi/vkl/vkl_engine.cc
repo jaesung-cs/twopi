@@ -18,6 +18,7 @@
 #include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/vkl/vkl_uniform_buffer.h>
 #include <twopi/vkl/vkl_vertex_buffer.h>
+#include <twopi/vkl/model/vkl_cubeskin.h>
 #include <twopi/vkl/primitive/vkl_sphere.h>
 #include <twopi/vkl/primitive/vkl_floor.h>
 #include <twopi/vkl/primitive/vkl_surface.h>
@@ -366,6 +367,8 @@ private:
     CreateSynchronizationObjects();
     std::cout << "Preparing descriptors" << std::endl;
     PrepareDescriptors();
+    std::cout << "Creating command buffers" << std::endl;
+    CreateDrawCommandBuffers();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
     std::cout << "Allocating draw command buffers" << std::endl;
@@ -1036,8 +1039,6 @@ private:
     vk::SemaphoreCreateInfo semaphore_create_info;
     vk::FenceCreateInfo fence_create_info;
 
-    transfer_fence_ = device.createFence(fence_create_info);
-
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
@@ -1066,8 +1067,6 @@ private:
     for (auto& fence : in_flight_fences_)
       device.destroyFence(fence);
     in_flight_fences_.clear();
-
-    device.destroyFence(transfer_fence_);
   }
 
   void PrepareDescriptors()
@@ -1163,21 +1162,21 @@ private:
     }
   }
 
+  void AllocateDrawCommandBuffers()
+  {
+    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
+  }
+
+  void FreeDrawCommandBuffers()
+  {
+    draw_command_buffers_.clear();
+  }
+
   void PrepareResources()
   {
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
     const auto queue = context_->Queue();
-
-    // Stage buffer
-    vk::BufferCreateInfo buffer_create_info;
-    buffer_create_info
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
-      .setSize(32 * 1024 * 1024); // 32MB
-    stage_buffer_.buffer = device.createBuffer(buffer_create_info);
-    stage_buffer_.memory = context_->AllocateHostMemory(stage_buffer_.buffer);
-    device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.device_memory, stage_buffer_.memory.offset);
 
     // Primitives in CPU
     constexpr float floor_range = 30.f;
@@ -1210,74 +1209,24 @@ private:
       .Prepare();
     const auto surface_buffer_size = surface_vbo_->BufferSize();
 
-    // To stage buffer
-    auto transfer_command = context_->AllocateTransientCommandBuffers(1)[0];
+    context_->ToGpu(floor_->PositionBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(0));
+    context_->ToGpu(floor_->NormalBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(1));
+    context_->ToGpu(floor_->TexCoordBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(2));
+    context_->ToGpu(floor_->IndexBuffer(), floor_vbo_->Buffer(), floor_vbo_->IndexOffset());
 
-    vk::CommandBufferBeginInfo begin_info;
-    begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    transfer_command.begin(begin_info);
+    context_->ToGpu(sphere_->PositionBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->Offset(0));
+    context_->ToGpu(sphere_->NormalBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->Offset(1));
+    context_->ToGpu(sphere_->IndexBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset());
 
-    const auto total_buffer_size = floor_buffer_size + sphere_buffer_size + surface_buffer_size;
-    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, total_buffer_size));
+    context_->ToGpu(surface_->PositionBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(0));
+    context_->ToGpu(surface_->VxBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(1));
+    context_->ToGpu(surface_->VyBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(2));
+    context_->ToGpu(surface_->IndexBuffer(), surface_vbo_->Buffer(), surface_vbo_->IndexOffset());
 
-    const auto& floor_position_buffer = floor_->PositionBuffer();
-    const auto& floor_normal_buffer = floor_->NormalBuffer();
-    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
-    const auto& floor_index_buffer = floor_->IndexBuffer();
-
-    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
-    ptr += floor_buffer_size;
-
-    vk::BufferCopy region;
-    region
-      .setSrcOffset(0)
-      .setDstOffset(0)
-      .setSize(floor_buffer_size);
-    transfer_command.copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
-
-    const auto& sphere_position_buffer = sphere_->PositionBuffer();
-    const auto& sphere_normal_buffer = sphere_->NormalBuffer();
-    const auto& sphere_index_buffer = sphere_->IndexBuffer();
-
-    std::memcpy(ptr + sphere_vbo_->Offset(0), sphere_position_buffer.data(), sphere_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vbo_->Offset(1), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    ptr += sphere_buffer_size;
-
-    region
-      .setSrcOffset(floor_buffer_size)
-      .setSize(sphere_buffer_size);
-    transfer_command.copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
-
-    auto& surface_position_buffer = surface_->PositionBuffer();
-    auto& surface_vx_buffer = surface_->VxBuffer();
-    auto& surface_vy_buffer = surface_->VyBuffer();
-    auto& surface_index_buffer = surface_->IndexBuffer();
-
-    std::memcpy(ptr + surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + surface_vbo_->Offset(1), surface_vx_buffer.data(), surface_vx_buffer.size() * sizeof(float));
-    std::memcpy(ptr + surface_vbo_->Offset(2), surface_vy_buffer.data(), surface_vy_buffer.size() * sizeof(float));
-    std::memcpy(ptr + surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
-    ptr += surface_buffer_size;
-
-    region
-      .setSrcOffset(floor_buffer_size + sphere_buffer_size)
-      .setSize(surface_buffer_size);
-    transfer_command.copyBuffer(stage_buffer_.buffer, surface_vbo_->Buffer(), region);
-
-    device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    // Submit transfer commands
-    transfer_command.end();
-
-    vk::SubmitInfo submit_info;
-    submit_info.setCommandBuffers(transfer_command);
-    queue.submit(submit_info, transfer_fence_);
-
-    const auto result = device.waitForFences(transfer_fence_, true, UINT64_MAX);
+    // Cubeskin
+    constexpr int segments = 128;
+    constexpr int depth = 32;
+    cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
   }
 
   void CleanupResources()
@@ -1291,6 +1240,8 @@ private:
     sphere_vbo_.reset();
     surface_vbo_.reset();
     uniform_buffer_.reset();
+
+    cubeskin_.reset();
   }
 
   vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
@@ -1427,9 +1378,6 @@ private:
   ModelUbo surface_model_;
   ModelUbo light_model_;
 
-  // Stage buffer
-  Buffer stage_buffer_;
-
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
@@ -1440,9 +1388,13 @@ private:
   std::unique_ptr<VertexBuffer> sphere_vbo_;
   std::unique_ptr<VertexBuffer> surface_vbo_;
 
-  // Synchronization
-  vk::Fence transfer_fence_;
+  // Model
+  std::unique_ptr<Cubeskin> cubeskin_;
 
+  // Draw command buffers
+  std::vector<vk::CommandBuffer> draw_command_buffers_;
+
+  // Synchronization
   static constexpr uint32_t max_frames_in_flight_ = 2;
   uint32_t current_frame_ = 0;
   std::vector<vk::Semaphore> image_available_semaphores_;

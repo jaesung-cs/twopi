@@ -7,6 +7,7 @@
 
 #include <twopi/vkl/vkl_memory.h>
 #include <twopi/vkl/vkl_memory_manager.h>
+#include <twopi/vkl/vkl_stage_buffer.h>
 
 namespace twopi
 {
@@ -38,6 +39,7 @@ Context::Context(GLFWwindow* glfw_window)
 
 Context::~Context()
 {
+  stage_buffer_.reset();
   memory_manager_.reset();
 
   DestroyCommandPools();
@@ -100,6 +102,9 @@ void Context::CreateInstance(GLFWwindow* glfw_window)
   VkSurfaceKHR surface_handle;
   glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface_handle);
   surface_ = surface_handle;
+
+  // Create stage buffer
+  stage_buffer_ = std::make_unique<StageBuffer>();
 }
 
 void Context::DestroyInstance()
