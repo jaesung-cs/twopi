@@ -1,5 +1,7 @@
 #include <twopi/vkl/model/vkl_cubeskin.h>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl
@@ -74,12 +76,14 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
     .setSize(vertex_buffer.size() * sizeof(float) * 2); // Double buffer
   shell_buffer_ = device.createBuffer(buffer_create_info);
   shell_memory_ = context->AllocateDeviceMemory(shell_buffer_);
+  device.bindBufferMemory(shell_buffer_, shell_memory_.device_memory, shell_memory_.offset);
 
   buffer_create_info
     .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer)
     .setSize(support_index_buffer.size() * sizeof(uint32_t));
   index_buffer_ = device.createBuffer(buffer_create_info);
   index_memory_ = context->AllocateDeviceMemory(index_buffer_);
+  device.bindBufferMemory(index_buffer_, index_memory_.device_memory, index_memory_.offset);
 
   context->ToGpu(vertex_buffer, shell_buffer_, 0);
   context->ToGpu(support_index_buffer, index_buffer_, 0);

@@ -3,6 +3,8 @@
 
 #include <twopi/vkl/vkl_object.h>
 
+#include <vulkan/vulkan.hpp>
+
 namespace twopi
 {
 namespace vkl

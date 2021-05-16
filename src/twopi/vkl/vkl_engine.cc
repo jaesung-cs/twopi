@@ -255,7 +255,7 @@ public:
   }
 
 private:
-  vk::CommandBuffer BuildDrawCommandBuffer(vk::CommandBuffer& command_buffer, int image_index)
+  void BuildDrawCommandBuffer(vk::CommandBuffer& command_buffer, int image_index)
   {
     constexpr float line_width = 1.f;
 
@@ -367,8 +367,6 @@ private:
     CreateSynchronizationObjects();
     std::cout << "Preparing descriptors" << std::endl;
     PrepareDescriptors();
-    std::cout << "Creating command buffers" << std::endl;
-    CreateDrawCommandBuffers();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
     std::cout << "Allocating draw command buffers" << std::endl;
@@ -1162,16 +1160,6 @@ private:
     }
   }
 
-  void AllocateDrawCommandBuffers()
-  {
-    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
-  }
-
-  void FreeDrawCommandBuffers()
-  {
-    draw_command_buffers_.clear();
-  }
-
   void PrepareResources()
   {
     const auto device = context_->Device();
@@ -1233,8 +1221,6 @@ private:
   {
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
-
-    device.destroyBuffer(stage_buffer_.buffer);
 
     floor_vbo_.reset();
     sphere_vbo_.reset();
@@ -1401,9 +1387,6 @@ private:
   std::vector<vk::Semaphore> render_finished_semaphores_;
   std::vector<vk::Fence> in_flight_fences_;
   std::vector<vk::Fence> images_in_flight_;
-
-  // Draw command buffers
-  std::vector<vk::CommandBuffer> draw_command_buffers_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)

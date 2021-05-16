@@ -175,10 +175,10 @@ python compile.py</Command>
     <ClCompile Include="..\..\src\twopi\scene\scene.cc" />
     <ClCompile Include="..\..\src\twopi\scene\scene_node.cc" />
     <ClCompile Include="..\..\src\twopi\scene\vr_camera.cc" />
+    <ClCompile Include="..\..\src\twopi\vkl\model\vkl_cubeskin.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_floor.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_sphere.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_surface.cc" />
-    <ClCompile Include="..\..\src\twopi\vkl\vkl_command_buffer.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_context.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_engine.cc" />
     <ClCompile Include="..\..\src\twopi\vkl\vkl_memory_manager.cc" />
@@ -218,10 +218,10 @@ python compile.py</Command>
     <ClInclude Include="..\..\src\twopi\scene\scene_node.h" />
     <ClInclude Include="..\..\src\twopi\scene\vr_camera.h" />
     <ClInclude Include="..\..\src\twopi\shader\core\light.h" />
+    <ClInclude Include="..\..\src\twopi\vkl\model\vkl_cubeskin.h" />
     <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_floor.h" />
     <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_sphere.h" />
     <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_surface.h" />
-    <ClInclude Include="..\..\src\twopi\vkl\vkl_command_buffer.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_context.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_engine.h" />
     <ClInclude Include="..\..\src\twopi\vkl\vkl_memory.h" />

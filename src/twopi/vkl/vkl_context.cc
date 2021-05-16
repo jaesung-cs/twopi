@@ -35,11 +35,14 @@ Context::Context(GLFWwindow* glfw_window)
   CreateCommandPools();
 
   memory_manager_ = std::make_unique<MemoryManager>(this);
+
+  CreateStageBuffer();
 }
 
 Context::~Context()
 {
-  stage_buffer_.reset();
+  DestroyStageBuffer();
+
   memory_manager_.reset();
 
   DestroyCommandPools();
@@ -102,9 +105,6 @@ void Context::CreateInstance(GLFWwindow* glfw_window)
   VkSurfaceKHR surface_handle;
   glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface_handle);
   surface_ = surface_handle;
-
-  // Create stage buffer
-  stage_buffer_ = std::make_unique<StageBuffer>();
 }
 
 void Context::DestroyInstance()
@@ -188,7 +188,7 @@ void Context::CreateCommandPools()
   command_pool_ = device_.createCommandPool(command_pool_create_info);
 
   command_pool_create_info
-    .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+    .setFlags(vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   transient_command_pool_ = device_.createCommandPool(command_pool_create_info);
 }
@@ -197,6 +197,27 @@ void Context::DestroyCommandPools()
 {
   device_.destroyCommandPool(command_pool_);
   device_.destroyCommandPool(transient_command_pool_);
+}
+
+void Context::CreateStageBuffer()
+{
+  // Create stage buffer
+  stage_buffer_ = std::make_unique<StageBuffer>(this);
+
+  // Transfer command buffer
+  transfer_command_buffer_ = AllocateTransientCommandBuffers(1)[0];
+
+  // Transfer fence
+  vk::FenceCreateInfo fence_create_info;
+  fence_create_info
+    .setFlags(vk::FenceCreateFlagBits::eSignaled);
+  transfer_fence_ = device_.createFence(fence_create_info);
+}
+
+void Context::DestroyStageBuffer()
+{
+  device_.destroyFence(transfer_fence_);
+  stage_buffer_.reset();
 }
 
 std::vector<uint32_t> Context::QueueFamilyIndices() const

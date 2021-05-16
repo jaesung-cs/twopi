@@ -3,12 +3,14 @@
 #include <cstring>
 #include <algorithm>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl
 {
-StageBuffer::StageBuffer(std::shared_ptr<vkl::Context> context)
-  : Object{ context }
+StageBuffer::StageBuffer(vkl::Context* context)
+  : context_(context)
 {
   constexpr vk::DeviceSize buffer_size = 32 * 1024 * 1024; // 32MB
 
@@ -23,11 +25,12 @@ StageBuffer::StageBuffer(std::shared_ptr<vkl::Context> context)
 
   memory_ = context->AllocatePersistentlyMappedMemory(buffer_);
   map_ = device.mapMemory(memory_.device_memory, memory_.offset, memory_.size);
+  device.bindBufferMemory(buffer_, memory_.device_memory, memory_.offset);
 }
 
 StageBuffer::~StageBuffer()
 {
-  const auto device = Context()->Device();
+  const auto device = context_->Device();
 
   device.unmapMemory(memory_.device_memory);
   device.freeMemory(memory_.device_memory);

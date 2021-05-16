@@ -1,12 +1,14 @@
 #ifndef TWOPI_VKL_VKL_OBJECT_H_
 #define TWOPI_VKL_VKL_OBJECT_H_
 
-#include <twopi/vkl/vkl_context.h>
+#include <memory>
 
 namespace twopi
 {
 namespace vkl
 {
+class Context;
+
 class Object
 {
 public:

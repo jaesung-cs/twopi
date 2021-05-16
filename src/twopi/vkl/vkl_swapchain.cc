@@ -2,6 +2,8 @@
 
 #include <twopi/core/error.h>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl
@@ -108,7 +110,7 @@ Swapchain::~Swapchain()
 {
   const auto device = Context()->Device();
 
-  for (auto image_view : image_views_)
+  for (auto& image_view : image_views_)
     device.destroyImageView(image_view);
   image_views_.clear();
 

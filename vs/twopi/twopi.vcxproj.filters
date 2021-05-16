@@ -162,14 +162,11 @@
     <ClCompile Include="..\..\src\twopi\vkl\primitive\vkl_surface.cc">
       <Filter>src\twopi\vkl\primitive</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vkl\model\vkl_cubeskin.cc">
-      <Filter>src\twopi\vkl\model</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\twopi\vkl\vkl_stage_buffer.cc">
       <Filter>src\twopi\vkl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\twopi\vkl\vkl_command_buffer.cc">
-      <Filter>src\twopi\vkl</Filter>
+    <ClCompile Include="..\..\src\twopi\vkl\model\vkl_cubeskin.cc">
+      <Filter>src\twopi\vkl\model</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -296,14 +293,11 @@
     <ClInclude Include="..\..\src\twopi\vkl\primitive\vkl_surface.h">
       <Filter>src\twopi\vkl\primitive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vkl\model\vkl_cubeskin.h">
-      <Filter>src\twopi\vkl\model</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\twopi\vkl\vkl_stage_buffer.h">
       <Filter>src\twopi\vkl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\twopi\vkl\vkl_command_buffer.h">
-      <Filter>src\twopi\vkl</Filter>
+    <ClInclude Include="..\..\src\twopi\vkl\model\vkl_cubeskin.h">
+      <Filter>src\twopi\vkl\model</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

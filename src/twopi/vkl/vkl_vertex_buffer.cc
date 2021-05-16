@@ -3,6 +3,8 @@
 #include <cstring>
 #include <algorithm>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl

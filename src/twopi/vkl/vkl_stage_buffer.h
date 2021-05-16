@@ -8,19 +8,23 @@ namespace twopi
 {
 namespace vkl
 {
-class StageBuffer : public Object
+class StageBuffer
 {
 public:
   StageBuffer() = delete;
 
-  StageBuffer(std::shared_ptr<vkl::Context> context);
+  explicit StageBuffer(vkl::Context* context);
 
-  ~StageBuffer() override;
+  ~StageBuffer();
+
+  auto Buffer() const { return buffer_; }
 
   operator void* const () const;
   operator void* ();
 
 private:
+  const Context* context_;
+
   vk::Buffer buffer_;
   Memory memory_;
   void* map_;
