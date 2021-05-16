@@ -312,7 +312,7 @@ private:
 
     command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
 
-    // Fur surface
+    // Surface
     switch (draw_mode_)
     {
     case DrawMode::WIREFRAME:
@@ -328,19 +328,19 @@ private:
       { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 2, 0ull });
 
     command_buffer.bindVertexBuffers(0,
-      { fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer(), fur_surface_vbo_->Buffer() },
-      { fur_surface_vbo_->Offset(0), fur_surface_vbo_->Offset(1), fur_surface_vbo_->Offset(2) });
+      { surface_vbo_->Buffer(), surface_vbo_->Buffer(), surface_vbo_->Buffer() },
+      { surface_vbo_->Offset(0), surface_vbo_->Offset(1), surface_vbo_->Offset(2) });
 
-    command_buffer.bindIndexBuffer(fur_surface_vbo_->Buffer(), fur_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
+    command_buffer.bindIndexBuffer(surface_vbo_->Buffer(), surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
 
-    command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+    command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
 
-    // Fur surface normal
+    // Surface normal
     if (draw_normal_)
     {
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
 
-      command_buffer.drawIndexed(fur_surface_vbo_->NumIndices(), 1, 0, 0, 0);
+      command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
     }
 
     command_buffer.endRenderPass();
@@ -1180,7 +1180,7 @@ private:
     floor_ = std::make_unique<Floor>(floor_range);
     constexpr int sphere_grid_size = 32;
     sphere_ = std::make_unique<Sphere>(sphere_grid_size);
-    fur_surface_ = std::make_unique<Surface>();
+    surface_ = std::make_unique<Surface>();
 
     // Vertex buffers
     floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_->NumVertices(), floor_->NumIndices());
@@ -1198,13 +1198,13 @@ private:
       .Prepare();
     const auto sphere_buffer_size = sphere_vbo_->BufferSize();
 
-    fur_surface_vbo_ = std::make_unique<VertexBuffer>(context_, fur_surface_->NumVertices(), fur_surface_->NumIndices());
-    (*fur_surface_vbo_)
+    surface_vbo_ = std::make_unique<VertexBuffer>(context_, surface_->NumVertices(), surface_->NumIndices());
+    (*surface_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .AddAttribute<float, 3>(2)
       .Prepare();
-    const auto surface_buffer_size = fur_surface_vbo_->BufferSize();
+    const auto surface_buffer_size = surface_vbo_->BufferSize();
 
     // To stage buffer
     auto transfer_command = context_->AllocateTransientCommandBuffers(1)[0];
@@ -1248,21 +1248,21 @@ private:
       .setSize(sphere_buffer_size);
     transfer_command.copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
 
-    auto& surface_position_buffer = fur_surface_->PositionBuffer();
-    auto& surface_vx_buffer = fur_surface_->VxBuffer();
-    auto& surface_vy_buffer = fur_surface_->VyBuffer();
-    auto& surface_index_buffer = fur_surface_->IndexBuffer();
+    auto& surface_position_buffer = surface_->PositionBuffer();
+    auto& surface_vx_buffer = surface_->VxBuffer();
+    auto& surface_vy_buffer = surface_->VyBuffer();
+    auto& surface_index_buffer = surface_->IndexBuffer();
 
-    std::memcpy(ptr + fur_surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + fur_surface_vbo_->Offset(1), surface_vx_buffer.data(), surface_vx_buffer.size() * sizeof(float));
-    std::memcpy(ptr + fur_surface_vbo_->Offset(2), surface_vy_buffer.data(), surface_vy_buffer.size() * sizeof(float));
-    std::memcpy(ptr + fur_surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
+    std::memcpy(ptr + surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
+    std::memcpy(ptr + surface_vbo_->Offset(1), surface_vx_buffer.data(), surface_vx_buffer.size() * sizeof(float));
+    std::memcpy(ptr + surface_vbo_->Offset(2), surface_vy_buffer.data(), surface_vy_buffer.size() * sizeof(float));
+    std::memcpy(ptr + surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
     ptr += surface_buffer_size;
 
     region
       .setSrcOffset(floor_buffer_size + sphere_buffer_size)
       .setSize(surface_buffer_size);
-    transfer_command.copyBuffer(stage_buffer_.buffer, fur_surface_vbo_->Buffer(), region);
+    transfer_command.copyBuffer(stage_buffer_.buffer, surface_vbo_->Buffer(), region);
 
     device.unmapMemory(stage_buffer_.memory.device_memory);
 
@@ -1285,7 +1285,7 @@ private:
 
     floor_vbo_.reset();
     sphere_vbo_.reset();
-    fur_surface_vbo_.reset();
+    surface_vbo_.reset();
     uniform_buffer_.reset();
   }
 
@@ -1417,12 +1417,12 @@ private:
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
-  std::unique_ptr<Surface> fur_surface_;
+  std::unique_ptr<Surface> surface_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
   std::unique_ptr<VertexBuffer> sphere_vbo_;
-  std::unique_ptr<VertexBuffer> fur_surface_vbo_;
+  std::unique_ptr<VertexBuffer> surface_vbo_;
 
   // Synchronization
   vk::Fence transfer_fence_;
