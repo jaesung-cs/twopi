@@ -123,6 +123,10 @@ public:
 
   void Draw(core::Duration duration)
   {
+    // Can be invisible, when window is minimized for example
+    if (!visible_)
+      return;
+
     const auto device = context_->Device();
     const auto queue = context_->Queue();
     const auto present_queue = context_->PresentQueue();
@@ -197,7 +201,13 @@ public:
     width_ = width;
     height_ = height;
 
-    RecreateSwapchain();
+    if (width_ <= 0 || height_ <= 0)
+      visible_ = false;
+    else
+    {
+      visible_ = true;
+      RecreateSwapchain();
+    }
   }
 
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
@@ -1348,6 +1358,7 @@ private:
   // Draw mode
   DrawMode draw_mode_ = DrawMode::SOLID;
   bool draw_normal_ = false;
+  bool visible_ = true;
 
   // Uniform buffers per swapchain framebuffer
   uint32_t num_objects_ = 0;
