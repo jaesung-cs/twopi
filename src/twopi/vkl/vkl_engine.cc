@@ -101,7 +101,7 @@ public:
 
     mip_levels_ = 3;
 
-    num_objects_ = 2; // One floor, one light
+    num_objects_ = 3; // One floor, one light, one cubeskin
 
     material_.specular = glm::vec3(1.f, 1.f, 1.f);
     material_.shininess = 64.f;
@@ -110,8 +110,12 @@ public:
     floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
 
     surface_model_.model = glm::mat4(1.f);
-    surface_model_.model[3][2] = 1.f;
+    surface_model_.model[3][2] = 3.f;
     surface_model_.model_inverse_transpose = glm::inverse(glm::transpose(surface_model_.model));
+
+    cubeskin_model_.model = glm::mat4(1.f);
+    cubeskin_model_.model[3][2] = 1.f;
+    cubeskin_model_.model_inverse_transpose = glm::inverse(glm::transpose(cubeskin_model_.model));
 
     Prepare();
   }
@@ -160,6 +164,7 @@ public:
     model_ubos_[image_index][0] = floor_model_;
     model_ubos_[image_index][1] = light_model_;
     model_ubos_[image_index][2] = surface_model_;
+    model_ubos_[image_index][3] = cubeskin_model_;
     material_ubos_[image_index] = material_;
 
     // Submit to graphics queue
@@ -353,6 +358,14 @@ private:
 
       command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
     }
+
+    // Cubeskin support lines
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, cubeskin_support_lines_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 3, 0ull });
+
+    cubeskin_->DrawSupports(command_buffer);
 
     command_buffer.endRenderPass();
   }
@@ -1026,6 +1039,54 @@ private:
     device.destroyShaderModule(tese_shader_module);
     device.destroyShaderModule(geom_shader_module);
     shader_stages.clear();
+
+    // Cubeskin support pipeline
+    binding_descriptions.clear();
+    attribute_descriptions.clear();
+
+    binding_description
+      .setBinding(0)
+      .setStride(6 * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions.push_back(binding_description);
+
+    attribute_description
+      .setBinding(0)
+      .setLocation(0)
+      .setFormat(vk::Format::eR32G32B32Sfloat)
+      .setOffset(0);
+    attribute_descriptions.push_back(attribute_description);
+
+    vertex_input_info
+      .setVertexBindingDescriptions(binding_descriptions)
+      .setVertexAttributeDescriptions(attribute_descriptions);
+
+    vert_shader_module = CreateShaderModule(base_dirpath, "cubeskin_support_lines.vert.spv");
+    frag_shader_module = CreateShaderModule(base_dirpath, "cubeskin_support_lines.frag.spv");
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setModule(vert_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    shader_stage
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setModule(frag_shader_module);
+    shader_stages.push_back(shader_stage);
+
+    graphics_pipeline_create_info
+      .setPTessellationState(nullptr)
+      .setStages(shader_stages);
+
+    input_assembly_info
+      .setTopology(vk::PrimitiveTopology::eLineStrip)
+      .setPrimitiveRestartEnable(true);
+
+    cubeskin_support_lines_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+
+    device.destroyShaderModule(vert_shader_module);
+    device.destroyShaderModule(frag_shader_module);
+    shader_stages.clear();
   }
 
   void DestroyGraphicsPipelines()
@@ -1038,6 +1099,7 @@ private:
     device.destroyPipeline(surface_tessellation_pipeline_);
     device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
     device.destroyPipeline(surface_tessellation_normal_pipeline_);
+    device.destroyPipeline(cubeskin_support_lines_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -1222,8 +1284,8 @@ private:
     context_->ToGpu(surface_->IndexBuffer(), surface_vbo_->Buffer(), surface_vbo_->IndexOffset());
 
     // Cubeskin
-    constexpr int segments = 128;
-    constexpr int depth = 32;
+    constexpr int segments = 32;
+    constexpr int depth = 16;
     cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
   }
 
@@ -1351,6 +1413,7 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
+  vk::Pipeline cubeskin_support_lines_pipeline_;
   vk::Pipeline surface_tessellation_pipeline_;
   vk::Pipeline surface_tessellation_wireframe_pipeline_;
   vk::Pipeline surface_tessellation_normal_pipeline_;
@@ -1373,6 +1436,7 @@ private:
   MaterialUbo material_;
   ModelUbo floor_model_;
   ModelUbo surface_model_;
+  ModelUbo cubeskin_model_;
   ModelUbo light_model_;
 
   // Primitives

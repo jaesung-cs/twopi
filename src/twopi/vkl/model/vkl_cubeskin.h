@@ -34,6 +34,7 @@ private:
   vk::Buffer index_buffer_;
   Memory index_memory_;
   vk::DeviceSize support_index_offset_ = 0;
+  uint32_t num_support_indices_ = 0;
 };
 }
 }

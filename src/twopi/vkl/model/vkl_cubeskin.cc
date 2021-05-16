@@ -12,18 +12,17 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
   , depth_(depth)
 {
   std::vector<float> vertex_buffer;
-  for (int i = 0; i < segments; i++)
+  for (int k = 0; k < depth; k++)
   {
-    const auto u = static_cast<float>(i) / (segments - 1);
-    const auto x = u * 2.f - 1.f;
-    for (int j = 0; j < segments; j++)
+    const auto z = static_cast<float>(k) / (depth - 1);
+    for (int i = 0; i < segments; i++)
     {
-      const auto v = static_cast<float>(j) / (segments - 1);
-      const auto y = v * 2.f - 1.f;
-      for (int k = 0; k < depth; k++)
+      const auto u = static_cast<float>(i) / (segments - 1);
+      const auto x = u * 2.f - 1.f;
+      for (int j = 0; j < segments; j++)
       {
-        const auto z = static_cast<float>(k) / depth;
-
+        const auto v = static_cast<float>(j) / (segments - 1);
+        const auto y = v * 2.f - 1.f;
         vertex_buffer.push_back(x);
         vertex_buffer.push_back(y);
         vertex_buffer.push_back(z);
@@ -36,7 +35,7 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
 
   std::vector<uint32_t> support_index_buffer;
   const auto index = [&segments](int i, int j, int k) {
-    return (k * segments + i) * segments + j;
+    return k * segments * segments + i * segments + j;
   };
 
   for (int k = 0; k < depth; k++)
@@ -47,6 +46,9 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
         support_index_buffer.push_back(index(i, j, k));
       support_index_buffer.push_back(-1);
     }
+  }
+  for (int k = 0; k < depth; k++)
+  {
     for (int j = 0; j < segments; j++)
     {
       for (int i = 0; i < segments; i++)
@@ -58,14 +60,16 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
   {
     for (int j = 0; j < segments; j++)
     {
-      for (int k=0; k<depth; k++)
+      for (int k = 0; k < depth; k++)
         support_index_buffer.push_back(index(i, j, k));
+      support_index_buffer.push_back(-1);
     }
-    support_index_buffer.push_back(-1);
   }
 
   // Delete last (-1) index
   support_index_buffer.pop_back();
+
+  num_support_indices_ = support_index_buffer.size();
 
   // Allocate gpu buffer/memory
   const auto device = context->Device();
@@ -103,7 +107,12 @@ void Cubeskin::Update(vk::CommandBuffer& command_buffer)
 
 void Cubeskin::DrawSupports(vk::CommandBuffer& command_buffer)
 {
-  // Line strip
+  command_buffer.bindVertexBuffers(0, { shell_buffer_ }, { 0 });
+
+  command_buffer.bindIndexBuffer(index_buffer_, support_index_offset_, vk::IndexType::eUint32);
+
+  command_buffer.drawIndexed(num_support_indices_, 1, 0, 0, 0);
+
 }
 }
 }
