@@ -38,6 +38,9 @@ public:
   std::vector<vk::CommandBuffer> AllocateCommandBuffers(int count);
   std::vector<vk::CommandBuffer> AllocateTransientCommandBuffers(int count);
 
+  void FreeCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers);
+  void FreeTransientCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers);
+
 private:
   void CreateInstance(GLFWwindow* glfw_window);
   void DestroyInstance();

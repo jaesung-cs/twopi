@@ -240,5 +240,19 @@ std::vector<vk::CommandBuffer> Context::AllocateTransientCommandBuffers(int coun
     .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
 }
+
+void Context::FreeCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers)
+{
+  for (auto& command_buffer : command_buffers)
+    device_.freeCommandBuffers(command_pool_, command_buffer);
+  command_buffers.clear();
+}
+
+void Context::FreeTransientCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers)
+{
+  for (auto& command_buffer : command_buffers)
+    device_.freeCommandBuffers(transient_command_pool_, command_buffer);
+  command_buffers.clear();
+}
 }
 }

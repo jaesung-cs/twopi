@@ -146,7 +146,7 @@ public:
     device.resetFences(in_flight_fences_[current_frame_]);
 
     // Rebuild command buffers
-    auto command_buffer = context_->AllocateCommandBuffers(1)[0];
+    auto& command_buffer = draw_command_buffers_[image_index];
     BuildDrawCommandBuffer(command_buffer, image_index);
 
     // Update uniforms
@@ -368,6 +368,9 @@ private:
     PrepareDescriptors();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
+    std::cout << "Allocating draw command buffers" << std::endl;
+    AllocateDrawCommandBuffers();
+
     std::cout << "Vulkan engine is ready" << std::endl;
   }
 
@@ -377,6 +380,7 @@ private:
 
     device.waitIdle();
 
+    FreeDrawCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
     DestroyGraphicsPipelines();
@@ -1355,6 +1359,18 @@ private:
       image_memory_barrier);
   }
 
+  void AllocateDrawCommandBuffers()
+  {
+    const auto image_count = swapchain_->ImageCount();
+
+    draw_command_buffers_ = context_->AllocateCommandBuffers(image_count);
+  }
+
+  void FreeDrawCommandBuffers()
+  {
+    context_->FreeCommandBuffers(std::move(draw_command_buffers_));
+  }
+
   // Context
   std::shared_ptr<vkl::Context> context_;
 
@@ -1433,6 +1449,9 @@ private:
   std::vector<vk::Semaphore> render_finished_semaphores_;
   std::vector<vk::Fence> in_flight_fences_;
   std::vector<vk::Fence> images_in_flight_;
+
+  // Draw command buffers
+  std::vector<vk::CommandBuffer> draw_command_buffers_;
 };
 
 Engine::Engine(std::shared_ptr<window::Window> window)
