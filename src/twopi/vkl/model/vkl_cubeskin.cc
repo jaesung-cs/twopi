@@ -23,9 +23,14 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
       {
         const auto v = static_cast<float>(j) / (segments - 1);
         const auto y = v * 2.f - 1.f;
+
+        // With paddings
         vertex_buffer.push_back(x);
         vertex_buffer.push_back(y);
         vertex_buffer.push_back(z);
+        vertex_buffer.push_back(0.f);
+
+        vertex_buffer.push_back(0.f);
         vertex_buffer.push_back(0.f);
         vertex_buffer.push_back(0.f);
         vertex_buffer.push_back(0.f);
@@ -71,13 +76,16 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
 
   num_support_indices_ = support_index_buffer.size();
 
+  shell_buffer_size_ = vertex_buffer.size() * sizeof(float);
+  shell_offset_ = shell_buffer_size_;
+
   // Allocate gpu buffer/memory
   const auto device = context->Device();
   vk::BufferCreateInfo buffer_create_info;
   buffer_create_info
     .setSharingMode(vk::SharingMode::eExclusive)
     .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer)
-    .setSize(vertex_buffer.size() * sizeof(float) * 2); // Double buffer
+    .setSize(shell_buffer_size_ * 2); // Double buffering
   shell_buffer_ = device.createBuffer(buffer_create_info);
   shell_memory_ = context->AllocateDeviceMemory(shell_buffer_);
   device.bindBufferMemory(shell_buffer_, shell_memory_.device_memory, shell_memory_.offset);

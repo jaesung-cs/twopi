@@ -1,0 +1,99 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+struct Cuboid
+{
+	vec4 pos; // xyz: position, w: padding
+	vec4 vel;
+};
+
+layout (std430, binding = 0) buffer InCuboid
+{
+	Cuboid in_cuboid[];
+};
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout (std430, binding = 1) buffer OutCuboid
+{
+	Cuboid out_cuboid[];
+};
+
+layout (binding = 2) uniform CubeskinSimulation
+{
+  float mass;
+  float stiffness;
+  float rest_distance_adjacent;
+  float rest_distance_diagonal;
+
+  vec3 gravity;
+  float dt;
+
+  int segments;
+  int depth;
+} params;
+
+uint to_index(ivec3 id)
+{
+	return id.z * params.segments * params.segments + id.y * params.segments + id.x;
+}
+
+vec3 spring_force(vec3 pos, vec3 spring_pos, float rest)
+{
+  const float len = length(spring_pos - pos);
+  const vec3 dir = (spring_pos - pos) / len;
+  return params.stiffness * (len - rest) * dir;
+}
+
+void main()
+{
+	const ivec3 id = ivec3(gl_GlobalInvocationID);
+
+  const uint index = to_index(id);
+
+  // Pinned
+  if (id.z != 0)
+  {
+    out_cuboid[index].pos = in_cuboid[index].pos;
+    out_cuboid[index].vel = in_cuboid[index].vel;
+    return;
+  }
+  
+	// Initial force from gravity
+	vec3 force = params.gravity.xyz * params.mass;
+
+	vec3 pos = in_cuboid[index].pos.xyz;
+	vec3 vel = in_cuboid[index].vel.xyz;
+
+  for (int dx = -1; dx <= 1; dx++)
+  {
+    for (int dy = -1; dy <= 1; dy++)
+    {
+      for (int dz = -1; dz <= 1; dz++)
+      {
+        if (dx == 0 && dy == 0 && dz == 0)
+          continue;
+
+        const ivec3 nid = id + ivec3(dx, dy, dz);
+        if (any(lessThan(nid, ivec3(0))) || any(greaterThanEqual(nid, ivec3(params.segments, params.segments, params.depth))))
+          continue;
+
+        float rest;
+        if (dx * dy * dz == 0)
+          rest = params.rest_distance_adjacent;
+        else
+          rest = params.rest_distance_diagonal;
+
+        const uint nindex = to_index(nid);
+        force += spring_force(pos, in_cuboid[nindex].pos.xyz, rest);
+      }
+    }
+  }
+
+  vec3 acc = force / params.mass;
+  vec3 out_vel = vel + acc * params.dt;
+  vec3 out_pos = pos + out_vel * params.dt;
+
+  out_cuboid[index].pos = vec4(out_pos, 1.f);
+  out_cuboid[index].vel = vec4(out_vel, 0.f);
+}

@@ -248,6 +248,7 @@ python compile.py</Command>
     <None Include="..\..\README.md" />
     <None Include="..\..\src\twopi\shader\.gitignore" />
     <None Include="..\..\src\twopi\shader\compile.py" />
+    <None Include="..\..\src\twopi\shader\cubeskin_compute.comp" />
     <None Include="..\..\src\twopi\shader\cubeskin_support_lines.frag" />
     <None Include="..\..\src\twopi\shader\cubeskin_support_lines.vert" />
     <None Include="..\..\src\twopi\shader\light_color.frag" />

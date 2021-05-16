@@ -19,6 +19,10 @@ public:
 
   ~Cubeskin();
 
+  const vk::Buffer StorageBuffer() const { return shell_buffer_; }
+  uint32_t StorageDoubleBufferOffset() { return shell_offset_; }
+  uint32_t StorageBufferSize() const { return shell_buffer_size_; }
+
   void Update(vk::CommandBuffer& command_buffer);
   void DrawSupports(vk::CommandBuffer& command_buffer);
 
@@ -29,6 +33,8 @@ private:
   // Vertex swap buffer
   vk::Buffer shell_buffer_;
   Memory shell_memory_;
+  uint32_t shell_offset_ = 0;
+  uint32_t shell_buffer_size_ = 0;
 
   // Multiple index buffers
   vk::Buffer index_buffer_;

@@ -349,5 +349,8 @@
     <None Include="..\..\src\twopi\shader\cubeskin_support_lines.vert">
       <Filter>src\twopi\shader</Filter>
     </None>
+    <None Include="..\..\src\twopi\shader\cubeskin_compute.comp">
+      <Filter>src\twopi\shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -87,6 +87,21 @@ private:
     float shininess; // Padded
   };
 
+  // Compute shader - Binding 2
+  struct CubeskinSimulationUbo
+  {
+    alignas(16) float mass;
+    float stiffness;
+    float rest_distance_adjacent;
+    float rest_distance_diagonal;
+
+    alignas(16) glm::vec3 gravity;
+    float dt;
+
+    alignas(16) int segments;
+    int depth;
+  };
+
 public:
   Impl() = delete;
 
@@ -166,6 +181,7 @@ public:
     model_ubos_[image_index][2] = surface_model_;
     model_ubos_[image_index][3] = cubeskin_model_;
     material_ubos_[image_index] = material_;
+    cubeskin_simulation_ubos_[image_index] = cubeskin_simulation_;
 
     // Submit to graphics queue
     command_buffer.end();
@@ -382,16 +398,18 @@ private:
     CreateSwapchainFramebuffers();
     std::cout << "Creating sampler" << std::endl;
     CreateSampler();
+    std::cout << "Preparing resources" << std::endl;
+    PrepareResources();
     std::cout << "Creating descriptor set" << std::endl;
     CreateDescriptorSet();
-    std::cout << "Creating pipelines" << std::endl;
+    std::cout << "Creating graphics pipelines" << std::endl;
     CreateGraphicsPipelines();
+    std::cout << "Creating compute pipelines" << std::endl;
+    CreateComputePipelines();
     std::cout << "Creating synchronization objects" << std::endl;
     CreateSynchronizationObjects();
     std::cout << "Preparing descriptors" << std::endl;
     PrepareDescriptors();
-    std::cout << "Preparing resources" << std::endl;
-    PrepareResources();
     std::cout << "Allocating draw command buffers" << std::endl;
     AllocateDrawCommandBuffers();
 
@@ -407,6 +425,7 @@ private:
     FreeDrawCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
+    DestroyComputePipelines();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
@@ -1046,7 +1065,7 @@ private:
 
     binding_description
       .setBinding(0)
-      .setStride(6 * sizeof(float))
+      .setStride(8 * sizeof(float))
       .setInputRate(vk::VertexInputRate::eVertex);
     binding_descriptions.push_back(binding_description);
 
@@ -1100,6 +1119,94 @@ private:
     device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
     device.destroyPipeline(surface_tessellation_normal_pipeline_);
     device.destroyPipeline(cubeskin_support_lines_pipeline_);
+  }
+
+  void CreateComputePipelines()
+  {
+    const auto device = context_->Device();
+
+    // Create descriptor sets
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    vk::DescriptorSetLayoutBinding binding;
+    binding
+      .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+      .setBinding(0)
+      .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    binding
+      .setBinding(1);
+    bindings.push_back(binding);
+
+    binding
+      .setBinding(2)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+    bindings.push_back(binding);
+
+    vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info;
+    descriptor_set_layout_create_info
+      .setBindings(bindings);
+
+    cubeskin_descriptor_set_layout_ = device.createDescriptorSetLayout(descriptor_set_layout_create_info);
+
+    // Cubeskin pipeline layout
+    vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
+    pipeline_layout_create_info
+      .setSetLayouts(cubeskin_descriptor_set_layout_);
+
+    cubeskin_pipeline_layout_ = device.createPipelineLayout(pipeline_layout_create_info);
+
+    // Cubeskin descriptor pool
+    const auto image_count = swapchain_->ImageCount();
+    std::vector<vk::DescriptorPoolSize> pool_sizes;
+    vk::DescriptorPoolSize pool_size;
+    pool_size
+      .setType(vk::DescriptorType::eStorageBuffer)
+      .setDescriptorCount(image_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    pool_size
+      .setType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(image_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    vk::DescriptorPoolCreateInfo descriptor_pool_create_info;
+    descriptor_pool_create_info
+      .setMaxSets(image_count * 2)
+      .setPoolSizes(pool_sizes);
+    cubeskin_descriptor_pool_ = device.createDescriptorPool(descriptor_pool_create_info);
+
+    // Create compute pipeline
+    const std::string base_dirpath = "C:\\workspace\\twopi\\src\\twopi\\shader";
+    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+
+    auto comp_shader_module = CreateShaderModule(base_dirpath, "cubeskin_compute.comp.spv");
+
+    vk::PipelineShaderStageCreateInfo shader_stage;
+    shader_stage
+      .setPName("main")
+      .setStage(vk::ShaderStageFlagBits::eCompute)
+      .setModule(comp_shader_module);
+
+    vk::ComputePipelineCreateInfo compute_pipeline_create_info;
+    compute_pipeline_create_info
+      .setLayout(cubeskin_pipeline_layout_)
+      .setStage(shader_stage);
+
+    cubeskin_compute_pipeline_ = device.createComputePipeline(nullptr, compute_pipeline_create_info).value;
+
+    device.destroyShaderModule(comp_shader_module);
+  }
+
+  void DestroyComputePipelines()
+  {
+    const auto device = context_->Device();
+
+    device.destroyPipelineLayout(cubeskin_pipeline_layout_);
+    device.destroyDescriptorSetLayout(cubeskin_descriptor_set_layout_);
+    device.destroyDescriptorPool(cubeskin_descriptor_pool_);
+    device.destroyPipeline(cubeskin_compute_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -1159,76 +1266,170 @@ private:
     for (uint32_t i = 0; i < image_count; i++)
       material_ubos_.emplace_back(uniform_buffer_->Allocate<MaterialUbo>(num_objects_));
 
-    // Allocate descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(image_count, descriptor_set_layout_);
-    vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
-    descriptor_set_allocate_info
-      .setSetLayouts(layouts)
-      .setDescriptorPool(descriptor_pool_);
-
-    descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
-
-    std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
-    std::vector<vk::DescriptorImageInfo> image_infos(1);
-    image_infos[0]
-      .setSampler(sampler_)
-      .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-    std::vector<vk::WriteDescriptorSet> writes;
-    vk::WriteDescriptorSet write;
-    write
-      .setDstBinding(0)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(1)
-      .setDstArrayElement(0);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(1)
-      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(2)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(3)
-      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
-    writes.push_back(write);
-
+    // Cubeskin uniforms
     for (uint32_t i = 0; i < image_count; i++)
+      cubeskin_simulation_ubos_.emplace_back(uniform_buffer_->Allocate<CubeskinSimulationUbo>());
+
+    // Allocate descriptor sets
     {
-      buffer_infos[0]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(camera_ubos_[i].Offset())
-        .setRange(camera_ubos_[i].Stride());
+      std::vector<vk::DescriptorSetLayout> layouts(image_count, descriptor_set_layout_);
+      vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+      descriptor_set_allocate_info
+        .setSetLayouts(layouts)
+        .setDescriptorPool(descriptor_pool_);
 
-      buffer_infos[1]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(model_ubos_[i].Offset())
-        .setRange(model_ubos_[i].Stride());
+      descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
 
-      buffer_infos[2]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(light_ubos_[i].Offset())
-        .setRange(light_ubos_[i].Stride());
+      std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
+      std::vector<vk::DescriptorImageInfo> image_infos(1);
+      image_infos[0]
+        .setSampler(sampler_)
+        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-      buffer_infos[3]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(material_ubos_[i].Offset())
-        .setRange(material_ubos_[i].Stride());
+      std::vector<vk::WriteDescriptorSet> writes;
+      vk::WriteDescriptorSet write;
+      write
+        .setDstBinding(0)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+      writes.push_back(write);
 
-      writes[0].setBufferInfo(buffer_infos[0]);
-      writes[1].setBufferInfo(buffer_infos[1]);
-      writes[2].setBufferInfo(buffer_infos[2]);
-      writes[3].setBufferInfo(buffer_infos[3]);
+      write
+        .setDstBinding(1)
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+      writes.push_back(write);
 
-      for (auto& write : writes)
-        write.setDstSet(descriptor_sets_[i]);
+      write
+        .setDstBinding(2)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+      writes.push_back(write);
 
-      device.updateDescriptorSets(writes, nullptr);
+      write
+        .setDstBinding(3)
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+      writes.push_back(write);
+
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(camera_ubos_[i].Offset())
+          .setRange(camera_ubos_[i].Stride());
+
+        buffer_infos[1]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(model_ubos_[i].Offset())
+          .setRange(model_ubos_[i].Stride());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(light_ubos_[i].Offset())
+          .setRange(light_ubos_[i].Stride());
+
+        buffer_infos[3]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(material_ubos_[i].Offset())
+          .setRange(material_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+        writes[3].setBufferInfo(buffer_infos[3]);
+
+        for (auto& write : writes)
+          write.setDstSet(descriptor_sets_[i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
+    }
+
+    // Allocate cubeskin descriptor set
+    {
+      std::vector<vk::DescriptorSetLayout> descriptor_set_layouts(image_count * 2, cubeskin_descriptor_set_layout_);
+      vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+      descriptor_set_allocate_info
+        .setSetLayouts(descriptor_set_layouts)
+        .setDescriptorPool(cubeskin_descriptor_pool_);
+
+      cubeskin_descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
+
+      std::vector<vk::WriteDescriptorSet> writes(3);
+      writes[0]
+        .setDstBinding(0)
+        .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      writes[1]
+        .setDstBinding(1)
+        .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      writes[2]
+        .setDstBinding(2)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      std::vector<vk::DescriptorBufferInfo> buffer_infos(3);
+
+      // Forward pass
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(0)
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[1]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(cubeskin_->StorageDoubleBufferOffset())
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(cubeskin_simulation_ubos_[i].Offset())
+          .setRange(cubeskin_simulation_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+
+        for (auto& write : writes)
+          write.setDstSet(cubeskin_descriptor_sets_[i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
+
+      // Backward pass
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(cubeskin_->StorageDoubleBufferOffset())
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[1]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(0)
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(cubeskin_simulation_ubos_[i].Offset())
+          .setRange(cubeskin_simulation_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+
+        for (auto& write : writes)
+          write.setDstSet(cubeskin_descriptor_sets_[3 + i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
     }
   }
 
@@ -1413,10 +1614,18 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
-  vk::Pipeline cubeskin_support_lines_pipeline_;
   vk::Pipeline surface_tessellation_pipeline_;
   vk::Pipeline surface_tessellation_wireframe_pipeline_;
   vk::Pipeline surface_tessellation_normal_pipeline_;
+
+  // Cubeskin pipeline
+  vk::DescriptorSetLayout cubeskin_descriptor_set_layout_;
+  vk::DescriptorPool cubeskin_descriptor_pool_;
+  std::vector<vk::DescriptorSet> cubeskin_descriptor_sets_;
+
+  vk::PipelineLayout cubeskin_pipeline_layout_;
+  vk::Pipeline cubeskin_support_lines_pipeline_;
+  vk::Pipeline cubeskin_compute_pipeline_;
 
   // Draw mode
   DrawMode draw_mode_ = DrawMode::SOLID;
@@ -1430,6 +1639,7 @@ private:
   std::vector<UniformBuffer::Uniform<LightUbo>> light_ubos_;
   std::vector<UniformBuffer::Uniform<ModelUbo>> model_ubos_;
   std::vector<UniformBuffer::Uniform<MaterialUbo>> material_ubos_;
+  std::vector<UniformBuffer::Uniform<CubeskinSimulationUbo>> cubeskin_simulation_ubos_;
 
   CameraUbo camera_;
   LightUbo lights_;
@@ -1438,6 +1648,7 @@ private:
   ModelUbo surface_model_;
   ModelUbo cubeskin_model_;
   ModelUbo light_model_;
+  CubeskinSimulationUbo cubeskin_simulation_;
 
   // Primitives
   std::unique_ptr<Floor> floor_;
