@@ -7,6 +7,7 @@
 
 #include <twopi/vkl/vkl_memory.h>
 #include <twopi/vkl/vkl_memory_manager.h>
+#include <twopi/vkl/vkl_stage_buffer.h>
 
 namespace twopi
 {
@@ -34,10 +35,14 @@ Context::Context(GLFWwindow* glfw_window)
   CreateCommandPools();
 
   memory_manager_ = std::make_unique<MemoryManager>(this);
+
+  CreateStageBuffer();
 }
 
 Context::~Context()
 {
+  DestroyStageBuffer();
+
   memory_manager_.reset();
 
   DestroyCommandPools();
@@ -120,34 +125,28 @@ void Context::CreateDevice()
   physical_device_ = instance_.enumeratePhysicalDevices()[0];
 
   // Find queues
+  constexpr auto queue_flag = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute;
   const auto queue_family_properties = physical_device_.getQueueFamilyProperties();
   for (int i = 0; i < queue_family_properties.size(); i++)
   {
-    if (!graphics_queue_index_ && queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)
-      graphics_queue_index_ = i;
-
-    // TODO: select unique queue family indices
-    if ((!present_queue_index_ || graphics_queue_index_ == present_queue_index_) && physical_device_.getSurfaceSupportKHR(i, surface_))
-      present_queue_index_ = i;
+    if (!queue_index_ &&
+      (queue_family_properties[i].queueFlags & queue_flag) == queue_flag &&
+      physical_device_.getSurfaceSupportKHR(i, surface_) &&
+      queue_family_properties[i].queueCount >= 2)
+    {
+      queue_index_ = i;
+      break;
+    }
   }
 
-  float queue_priority = 1.f;
-  vk::DeviceQueueCreateInfo graphics_queue_create_info;
-  graphics_queue_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value())
-    .setQueueCount(1)
-    .setQueuePriorities(queue_priority);
-
-  vk::DeviceQueueCreateInfo present_queue_create_info;
-  present_queue_create_info
-    .setQueueFamilyIndex(present_queue_index_.value())
-    .setQueueCount(1)
-    .setQueuePriorities(queue_priority);
-
-  std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {
-    graphics_queue_create_info,
-    present_queue_create_info,
+  std::vector<float> queue_priorities = {
+    1.f, 1.f
   };
+  vk::DeviceQueueCreateInfo queue_create_info;
+  queue_create_info
+    .setQueueFamilyIndex(queue_index_.value())
+    .setQueueCount(2)
+    .setQueuePriorities(queue_priorities);
 
   // Device extensions
   std::vector<const char*> extensions = {
@@ -164,13 +163,13 @@ void Context::CreateDevice()
   vk::DeviceCreateInfo device_create_info;
   device_create_info
     .setPEnabledExtensionNames(extensions)
-    .setQueueCreateInfos(queue_create_infos)
+    .setQueueCreateInfos(queue_create_info)
     .setPEnabledFeatures(&features);
 
   device_ = physical_device_.createDevice(device_create_info);
 
-  graphics_queue_ = device_.getQueue(graphics_queue_index_.value(), 0);
-  present_queue_ = device_.getQueue(present_queue_index_.value(), 0);
+  queue_ = device_.getQueue(queue_index_.value(), 0);
+  present_queue_ = device_.getQueue(queue_index_.value(), 1);
 }
 
 void Context::DestroyDevice()
@@ -183,13 +182,13 @@ void Context::CreateCommandPools()
   // Create command pools
   vk::CommandPoolCreateInfo command_pool_create_info;
   command_pool_create_info
-    .setQueueFamilyIndex(graphics_queue_index_.value())
+    .setQueueFamilyIndex(queue_index_.value())
     .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   command_pool_ = device_.createCommandPool(command_pool_create_info);
 
   command_pool_create_info
-    .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+    .setFlags(vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
   transient_command_pool_ = device_.createCommandPool(command_pool_create_info);
 }
@@ -200,11 +199,31 @@ void Context::DestroyCommandPools()
   device_.destroyCommandPool(transient_command_pool_);
 }
 
+void Context::CreateStageBuffer()
+{
+  // Create stage buffer
+  stage_buffer_ = std::make_unique<StageBuffer>(this);
+
+  // Transfer command buffer
+  transfer_command_buffer_ = AllocateTransientCommandBuffers(1)[0];
+
+  // Transfer fence
+  vk::FenceCreateInfo fence_create_info;
+  fence_create_info
+    .setFlags(vk::FenceCreateFlagBits::eSignaled);
+  transfer_fence_ = device_.createFence(fence_create_info);
+}
+
+void Context::DestroyStageBuffer()
+{
+  device_.destroyFence(transfer_fence_);
+  stage_buffer_.reset();
+}
+
 std::vector<uint32_t> Context::QueueFamilyIndices() const
 {
   return std::vector<uint32_t>{
-    graphics_queue_index_.value(),
-    present_queue_index_.value(),
+    queue_index_.value(),
   };
 }
 
@@ -246,6 +265,20 @@ std::vector<vk::CommandBuffer> Context::AllocateTransientCommandBuffers(int coun
     .setCommandPool(transient_command_pool_)
     .setCommandBufferCount(count);
   return device_.allocateCommandBuffers(allocate_info);
+}
+
+void Context::FreeCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers)
+{
+  for (auto& command_buffer : command_buffers)
+    device_.freeCommandBuffers(command_pool_, command_buffer);
+  command_buffers.clear();
+}
+
+void Context::FreeTransientCommandBuffers(std::vector<vk::CommandBuffer>&& command_buffers)
+{
+  for (auto& command_buffer : command_buffers)
+    device_.freeCommandBuffers(transient_command_pool_, command_buffer);
+  command_buffers.clear();
 }
 }
 }

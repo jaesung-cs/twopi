@@ -16,6 +16,9 @@ public:
 
   ~Sphere();
 
+  const int NumVertices() const { return static_cast<int>(position_buffer_.size() / 3); }
+  const int NumIndices() const { return static_cast<int>(index_buffer_.size()); }
+
   const auto& PositionBuffer() const { return position_buffer_; }
   const auto& NormalBuffer() const { return normal_buffer_; }
   const auto& IndexBuffer() const { return index_buffer_; }

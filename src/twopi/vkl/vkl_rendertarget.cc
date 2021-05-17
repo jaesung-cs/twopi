@@ -1,5 +1,7 @@
 #include <twopi/vkl/vkl_rendertarget.h>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl

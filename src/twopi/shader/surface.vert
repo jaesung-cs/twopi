@@ -3,7 +3,8 @@
 
 // Vertex
 layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 normal;
+layout (location = 1) in vec3 vx;
+layout (location = 2) in vec3 vy;
 
 layout (std140, binding = 1) uniform ModelUbo
 {
@@ -12,7 +13,8 @@ layout (std140, binding = 1) uniform ModelUbo
 } model;
 
 layout (location = 0) out vec3 frag_position;
-layout (location = 1) out vec3 frag_normal;
+layout (location = 1) out vec3 frag_vx;
+layout (location = 2) out vec3 frag_vy;
 
 void main()
 {
@@ -22,5 +24,7 @@ void main()
   gl_Position = p;
 
   frag_position = p.xyz / p.w;
-  frag_normal = model.model_inverse_transpose * normal;
+  
+  frag_vx = mat3(model.model) * vx;
+  frag_vy = mat3(model.model) * vy;
 }

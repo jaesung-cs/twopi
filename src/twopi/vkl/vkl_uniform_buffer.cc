@@ -1,5 +1,7 @@
 #include <twopi/vkl/vkl_uniform_buffer.h>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl

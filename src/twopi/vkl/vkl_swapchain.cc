@@ -2,6 +2,8 @@
 
 #include <twopi/core/error.h>
 
+#include <twopi/vkl/vkl_context.h>
+
 namespace twopi
 {
 namespace vkl
@@ -55,9 +57,6 @@ Swapchain::Swapchain(std::shared_ptr<vkl::Context> context, uint32_t width, uint
     extent = actual_extent;
   }
 
-  // Image sharing mode
-  const auto queue_family_indices = context->QueueFamilyIndices();
-
   // Create swapchain
   vk::SwapchainCreateInfoKHR swapchain_create_info;
   swapchain_create_info
@@ -73,8 +72,7 @@ Swapchain::Swapchain(std::shared_ptr<vkl::Context> context, uint32_t width, uint
     .setImageFormat(format.format)
     .setImageColorSpace(format.colorSpace)
     .setImageExtent(extent)
-    .setImageSharingMode(vk::SharingMode::eConcurrent)
-    .setQueueFamilyIndices(queue_family_indices);
+    .setImageSharingMode(vk::SharingMode::eExclusive);
 
   swapchain_ = device.createSwapchainKHR(swapchain_create_info);
   image_format_ = format.format;
@@ -112,7 +110,7 @@ Swapchain::~Swapchain()
 {
   const auto device = Context()->Device();
 
-  for (auto image_view : image_views_)
+  for (auto& image_view : image_views_)
     device.destroyImageView(image_view);
   image_views_.clear();
 

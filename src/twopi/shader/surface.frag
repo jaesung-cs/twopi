@@ -3,6 +3,7 @@
 
 layout (location = 0) in vec3 frag_position;
 layout (location = 1) in vec3 frag_normal;
+layout (location = 2) in vec3 frag_color;
 
 layout (set = 0, binding = 0) uniform Camera
 {
@@ -46,7 +47,7 @@ void main()
   vec3 N = normalize(frag_normal);
   vec3 V = normalize(camera.eye - frag_position);
 
-  vec3 diffuse_color = (N + 1.f) / 2.f;
+  vec3 diffuse_color = frag_color;
 
   vec3 total_color = vec3(0.f, 0.f, 0.f);
 

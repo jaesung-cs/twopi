@@ -18,9 +18,9 @@
 #include <twopi/vkl/vkl_swapchain.h>
 #include <twopi/vkl/vkl_uniform_buffer.h>
 #include <twopi/vkl/vkl_vertex_buffer.h>
+#include <twopi/vkl/model/vkl_cubeskin.h>
 #include <twopi/vkl/primitive/vkl_sphere.h>
 #include <twopi/vkl/primitive/vkl_floor.h>
-#include <twopi/vkl/primitive/vkl_halfsphere_surface.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -86,6 +86,21 @@ private:
     float shininess; // Padded
   };
 
+  // Compute shader - Binding 2
+  struct CubeskinSimulationUbo
+  {
+    alignas(16) glm::vec3 cuboid_size;
+    float stiffness;
+
+    alignas(16) glm::vec3 gravity;
+    float dt;
+
+    alignas(16) int segments;
+    int depth;
+    float mass;
+    float damping;
+  };
+
 public:
   Impl() = delete;
 
@@ -100,7 +115,7 @@ public:
 
     mip_levels_ = 3;
 
-    num_objects_ = 3; // One floor, one object, one light
+    num_objects_ = 3; // One floor, one light, one cubeskin
 
     material_.specular = glm::vec3(1.f, 1.f, 1.f);
     material_.shininess = 64.f;
@@ -108,9 +123,14 @@ public:
     floor_model_.model = glm::mat4(1.f);
     floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
 
-    mesh_model_.model = glm::rotate(glm::pi<float>() / 2.f, glm::vec3(1.f, 0.f, 0.f));
-    mesh_model_.model[3][2] = 1.f;
-    mesh_model_.model_inverse_transpose = glm::inverse(glm::transpose(mesh_model_.model));
+    cubeskin_model_.model = glm::mat4(1.f);
+    cubeskin_model_.model[3][2] = 0.1f;
+    cubeskin_model_.model_inverse_transpose = glm::inverse(glm::transpose(cubeskin_model_.model));
+
+    cubeskin_simulation_.mass = 0.00001f;
+    cubeskin_simulation_.stiffness = 1.f;
+    cubeskin_simulation_.gravity = glm::vec3{ 0.f, 0.f, -9.8f };
+    cubeskin_simulation_.damping = 0.01f;
 
     Prepare();
   }
@@ -122,8 +142,12 @@ public:
 
   void Draw(core::Duration duration)
   {
+    // Can be invisible, when window is minimized for example
+    if (!visible_)
+      return;
+
     const auto device = context_->Device();
-    const auto graphics_queue = context_->GraphicsQueue();
+    const auto queue = context_->Queue();
     const auto present_queue = context_->PresentQueue();
 
     auto wait_result = device.waitForFences(in_flight_fences_[current_frame_], true, UINT64_MAX);
@@ -146,19 +170,20 @@ public:
     device.resetFences(in_flight_fences_[current_frame_]);
 
     // Rebuild command buffers
-    if (needs_rebuild_command_buffers_)
-    {
-      BuildCommandBuffers();
-      needs_rebuild_command_buffers_ = false;
-    }
+    auto& command_buffer = draw_command_buffers_[image_index];
+    BuildDrawCommandBuffer(command_buffer, image_index);
 
     // Update uniforms
     camera_ubos_[image_index] = camera_;
     light_ubos_[image_index] = lights_;
     model_ubos_[image_index][0] = floor_model_;
     model_ubos_[image_index][1] = light_model_;
-    model_ubos_[image_index][2] = mesh_model_;
+    model_ubos_[image_index][2] = cubeskin_model_;
     material_ubos_[image_index] = material_;
+    cubeskin_simulation_ubos_[image_index] = cubeskin_simulation_;
+
+    // Submit to graphics queue
+    command_buffer.end();
 
     std::vector<vk::PipelineStageFlags> stage_mask = {
       vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -166,11 +191,12 @@ public:
     vk::SubmitInfo submit_info;
     submit_info
       .setWaitSemaphores(image_available_semaphores_[current_frame_])
-      .setCommandBuffers(draw_command_buffers_[image_index])
+      .setCommandBuffers(command_buffer)
       .setSignalSemaphores(render_finished_semaphores_[current_frame_])
       .setWaitDstStageMask(stage_mask);
-    graphics_queue.submit(submit_info, in_flight_fences_[current_frame_]);
+    queue.submit(submit_info, in_flight_fences_[current_frame_]);
 
+    // Submit to present queue
     std::vector<uint32_t> image_indices{ image_index };
     vk::PresentInfoKHR present_info;
     std::vector<vk::SwapchainKHR> swapchains = { *swapchain_ };
@@ -195,7 +221,13 @@ public:
     width_ = width;
     height_ = height;
 
-    RecreateSwapchain();
+    if (width_ <= 0 || height_ <= 0)
+      visible_ = false;
+    else
+    {
+      visible_ = true;
+      RecreateSwapchain();
+    }
   }
 
   void UpdateLights(const std::vector<std::shared_ptr<scene::Light>>& lights)
@@ -240,22 +272,165 @@ public:
   void SetDrawSolid()
   {
     draw_mode_ = DrawMode::SOLID;
-    needs_rebuild_command_buffers_ = true;
   }
 
   void SetDrawWireframe()
   {
     draw_mode_ = DrawMode::WIREFRAME;
-    needs_rebuild_command_buffers_ = true;
   }
 
   void SetDrawNormal(bool draw_normal)
   {
     draw_normal_ = draw_normal;
-    needs_rebuild_command_buffers_ = true;
   }
 
 private:
+  void BuildDrawCommandBuffer(vk::CommandBuffer& command_buffer, int image_index)
+  {
+    constexpr float line_width = 1.f;
+
+    command_buffer.reset();
+
+    vk::CommandBufferBeginInfo begin_info;
+    command_buffer.begin(begin_info);
+
+    // Update with compute shader
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, cubeskin_compute_pipeline_);
+
+    constexpr int iters = 100;
+    // TODO: set proper dt
+    cubeskin_simulation_.dt = 1.f / 144.f / 2.f / iters;
+
+    // Prepare barrier
+    const auto queue_family_index = context_->QueueFamilyIndices()[0];
+    vk::BufferMemoryBarrier barrier;
+    barrier
+      .setSrcQueueFamilyIndex(queue_family_index)
+      .setDstQueueFamilyIndex(queue_family_index)
+      .setBuffer(cubeskin_->StorageBuffer())
+      .setOffset(0)
+      .setSize(cubeskin_->StorageBufferSize() * 2)
+      .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+      .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+    for (int i = 0; i < iters; i++)
+    {
+      // Forward dispatch
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+        { cubeskin_descriptor_sets_[image_index] }, {});
+
+      command_buffer.dispatch(
+        cubeskin_simulation_.segments / 8,
+        cubeskin_simulation_.segments / 8,
+        cubeskin_simulation_.depth / 8);
+
+      // Barrier between forward and backward computes
+      command_buffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eComputeShader,
+        vk::PipelineStageFlagBits::eComputeShader,
+        vk::DependencyFlags{},
+        {}, { barrier }, {});
+
+      // Then backward dispatch
+      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+        { cubeskin_descriptor_sets_[image_index + 3] }, {});
+
+      command_buffer.dispatch(
+        cubeskin_simulation_.segments / 8,
+        cubeskin_simulation_.segments / 8,
+        cubeskin_simulation_.depth / 8);
+
+      // Barrier for next forward compute
+      if (i < iters - 1)
+      {
+        command_buffer.pipelineBarrier(
+          vk::PipelineStageFlagBits::eComputeShader,
+          vk::PipelineStageFlagBits::eComputeShader,
+          vk::DependencyFlags{},
+          {}, { barrier }, {});
+      }
+    }
+
+    // Compute to graphics barrier
+    barrier
+      .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+      .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead);
+
+    command_buffer.pipelineBarrier(
+      vk::PipelineStageFlagBits::eComputeShader,
+      vk::PipelineStageFlagBits::eVertexInput,
+      vk::DependencyFlags{},
+      {}, { barrier }, {});
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+      { cubeskin_descriptor_sets_[image_index] }, {});
+
+    command_buffer.dispatch(
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.depth / 8);
+
+    // Begin render pass
+    std::array<vk::ClearValue, 2> clear_values = {
+      vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
+      vk::ClearDepthStencilValue{ 1.f, 0u }
+    };
+
+    vk::Viewport viewport{ 0.f, 0.f, static_cast<float>(width_), static_cast<float>(height_), 0.f, 1.f };
+    command_buffer.setViewport(0, viewport);
+
+    vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
+    command_buffer.setScissor(0, scissor);
+
+    command_buffer.setLineWidth(line_width);
+
+    vk::RenderPassBeginInfo render_pass_begin_info;
+    render_pass_begin_info
+      .setClearValues(clear_values)
+      .setRenderPass(render_pass_)
+      .setFramebuffer(framebuffers_[image_index])
+      .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
+    command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+    // Sphere
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, color_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride(), 0 });
+
+    command_buffer.bindVertexBuffers(0,
+      { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
+      { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
+
+    command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+    command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
+
+    // Floor
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { 0ull, 0ull });
+
+    command_buffer.bindVertexBuffers(0,
+      { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
+      { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
+
+    command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
+
+    command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
+
+    // Cubeskin support lines
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, cubeskin_support_lines_pipeline_);
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 2, 0ull });
+
+    cubeskin_->DrawSupports(command_buffer);
+
+    command_buffer.endRenderPass();
+  }
+
   void Prepare()
   {
     context_ = std::make_shared<vkl::Context>(glfw_window_handle_);
@@ -268,16 +443,21 @@ private:
     CreateSwapchainFramebuffers();
     std::cout << "Creating sampler" << std::endl;
     CreateSampler();
-    std::cout << "Creating descriptor set" << std::endl;
-    CreateDescriptorSet();
-    std::cout << "Creating pipelines" << std::endl;
-    CreateGraphicsPipelines();
-    std::cout << "Creating synchronization objects" << std::endl;
-    CreateSynchronizationObjects();
     std::cout << "Preparing resources" << std::endl;
     PrepareResources();
-    std::cout << "Creating command buffers" << std::endl;
-    CreateCommandBuffers();
+    std::cout << "Creating descriptor set" << std::endl;
+    CreateDescriptorSet();
+    std::cout << "Creating graphics pipelines" << std::endl;
+    CreateGraphicsPipelines();
+    std::cout << "Creating compute pipelines" << std::endl;
+    CreateComputePipelines();
+    std::cout << "Creating synchronization objects" << std::endl;
+    CreateSynchronizationObjects();
+    std::cout << "Preparing descriptors" << std::endl;
+    PrepareDescriptors();
+    std::cout << "Allocating draw command buffers" << std::endl;
+    AllocateDrawCommandBuffers();
+
     std::cout << "Vulkan engine is ready" << std::endl;
   }
 
@@ -287,9 +467,10 @@ private:
 
     device.waitIdle();
 
-    DestroyCommandBuffers();
+    FreeDrawCommandBuffers();
     CleanupResources();
     DestroySynchronizationObjects();
+    DestroyComputePipelines();
     DestroyGraphicsPipelines();
     DestroyDesciptorSet();
     DestroySampler();
@@ -305,7 +486,6 @@ private:
 
     device.waitIdle();
 
-    DestroyCommandBuffers();
     DestroySwapchainFramebuffers();
     DestroyRenderPass();
     DestroySwapchain();
@@ -313,7 +493,6 @@ private:
     CreateSwapchain();
     CreateRenderPass();
     CreateSwapchainFramebuffers();
-    CreateCommandBuffers();
   }
 
   void CreateSwapchain()
@@ -785,7 +964,6 @@ private:
 
     shader_stage
       .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setPName("main")
       .setModule(frag_shader_module);
     shader_stages.push_back(shader_stage);
 
@@ -798,87 +976,51 @@ private:
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
 
-    // Tessellation shader
-    binding_descriptions.resize(2);
-    attribute_descriptions.resize(2);
+    // Cubeskin support pipeline
+    binding_descriptions.clear();
+    attribute_descriptions.clear();
+
+    binding_description
+      .setBinding(0)
+      .setStride(8 * sizeof(float))
+      .setInputRate(vk::VertexInputRate::eVertex);
+    binding_descriptions.push_back(binding_description);
+
+    attribute_description
+      .setBinding(0)
+      .setLocation(0)
+      .setFormat(vk::Format::eR32G32B32Sfloat)
+      .setOffset(0);
+    attribute_descriptions.push_back(attribute_description);
 
     vertex_input_info
       .setVertexBindingDescriptions(binding_descriptions)
       .setVertexAttributeDescriptions(attribute_descriptions);
 
-    vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
-    tessellation_stage_create_info
-      .setPatchControlPoints(4);
-
-    vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
-    vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
-    vk::ShaderModule tese_shader_module = CreateShaderModule(base_dirpath, "surface.tese.spv");
-    frag_shader_module = CreateShaderModule(base_dirpath, "surface.frag.spv");
+    vert_shader_module = CreateShaderModule(base_dirpath, "cubeskin_support_lines.vert.spv");
+    frag_shader_module = CreateShaderModule(base_dirpath, "cubeskin_support_lines.frag.spv");
 
     shader_stage
       .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setPName("main")
       .setModule(vert_shader_module);
     shader_stages.push_back(shader_stage);
 
     shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationControl)
-      .setPName("main")
-      .setModule(tesc_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationEvaluation)
-      .setPName("main")
-      .setModule(tese_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
       .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setPName("main")
       .setModule(frag_shader_module);
     shader_stages.push_back(shader_stage);
 
     graphics_pipeline_create_info
-      .setStages(shader_stages)
-      .setPTessellationState(&tessellation_stage_create_info);
-
-    rasterization_info
-      .setCullMode(vk::CullModeFlagBits::eNone);
-
-    input_assembly_info
-      .setTopology(vk::PrimitiveTopology::ePatchList);
-
-    // Polygon shader
-    surface_tessellation_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Wireframe shader
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eLine);
-
-    surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Normal shader
-    vk::ShaderModule geom_shader_module = CreateShaderModule(base_dirpath, "surface.geom.spv");
-    
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eGeometry)
-      .setPName("main")
-      .setModule(geom_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eFill);
-
-    graphics_pipeline_create_info
+      .setPTessellationState(nullptr)
       .setStages(shader_stages);
 
-    surface_tessellation_normal_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
+    input_assembly_info
+      .setTopology(vk::PrimitiveTopology::eLineStrip)
+      .setPrimitiveRestartEnable(true);
+
+    cubeskin_support_lines_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
 
     device.destroyShaderModule(vert_shader_module);
-    device.destroyShaderModule(tesc_shader_module);
-    device.destroyShaderModule(tese_shader_module);
-    device.destroyShaderModule(geom_shader_module);
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
   }
@@ -890,9 +1032,95 @@ private:
     device.destroyPipelineLayout(pipeline_layout_);
     device.destroyPipeline(color_pipeline_);
     device.destroyPipeline(floor_pipeline_);
-    device.destroyPipeline(surface_tessellation_pipeline_);
-    device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
-    device.destroyPipeline(surface_tessellation_normal_pipeline_);
+    device.destroyPipeline(cubeskin_support_lines_pipeline_);
+  }
+
+  void CreateComputePipelines()
+  {
+    const auto device = context_->Device();
+
+    // Create descriptor sets
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    vk::DescriptorSetLayoutBinding binding;
+    binding
+      .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+      .setBinding(0)
+      .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+      .setDescriptorCount(1);
+    bindings.push_back(binding);
+
+    binding
+      .setBinding(1);
+    bindings.push_back(binding);
+
+    binding
+      .setBinding(2)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+    bindings.push_back(binding);
+
+    vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info;
+    descriptor_set_layout_create_info
+      .setBindings(bindings);
+
+    cubeskin_descriptor_set_layout_ = device.createDescriptorSetLayout(descriptor_set_layout_create_info);
+
+    // Cubeskin pipeline layout
+    vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
+    pipeline_layout_create_info
+      .setSetLayouts(cubeskin_descriptor_set_layout_);
+
+    cubeskin_pipeline_layout_ = device.createPipelineLayout(pipeline_layout_create_info);
+
+    // Cubeskin descriptor pool
+    const auto image_count = swapchain_->ImageCount();
+    std::vector<vk::DescriptorPoolSize> pool_sizes;
+    vk::DescriptorPoolSize pool_size;
+    pool_size
+      .setType(vk::DescriptorType::eStorageBuffer)
+      .setDescriptorCount(image_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    pool_size
+      .setType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(image_count * 2);
+    pool_sizes.push_back(pool_size);
+
+    vk::DescriptorPoolCreateInfo descriptor_pool_create_info;
+    descriptor_pool_create_info
+      .setMaxSets(image_count * 2)
+      .setPoolSizes(pool_sizes);
+    cubeskin_descriptor_pool_ = device.createDescriptorPool(descriptor_pool_create_info);
+
+    // Create compute pipeline
+    const std::string base_dirpath = "C:\\workspace\\twopi\\src\\twopi\\shader";
+    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+
+    auto comp_shader_module = CreateShaderModule(base_dirpath, "cubeskin_compute.comp.spv");
+
+    vk::PipelineShaderStageCreateInfo shader_stage;
+    shader_stage
+      .setPName("main")
+      .setStage(vk::ShaderStageFlagBits::eCompute)
+      .setModule(comp_shader_module);
+
+    vk::ComputePipelineCreateInfo compute_pipeline_create_info;
+    compute_pipeline_create_info
+      .setLayout(cubeskin_pipeline_layout_)
+      .setStage(shader_stage);
+
+    cubeskin_compute_pipeline_ = device.createComputePipeline(nullptr, compute_pipeline_create_info).value;
+
+    device.destroyShaderModule(comp_shader_module);
+  }
+
+  void DestroyComputePipelines()
+  {
+    const auto device = context_->Device();
+
+    device.destroyPipelineLayout(cubeskin_pipeline_layout_);
+    device.destroyDescriptorSetLayout(cubeskin_descriptor_set_layout_);
+    device.destroyDescriptorPool(cubeskin_descriptor_pool_);
+    device.destroyPipeline(cubeskin_compute_pipeline_);
   }
 
   void CreateSynchronizationObjects()
@@ -901,8 +1129,6 @@ private:
 
     vk::SemaphoreCreateInfo semaphore_create_info;
     vk::FenceCreateInfo fence_create_info;
-
-    transfer_fence_ = device.createFence(fence_create_info);
 
     fence_create_info
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
@@ -932,15 +1158,11 @@ private:
     for (auto& fence : in_flight_fences_)
       device.destroyFence(fence);
     in_flight_fences_.clear();
-
-    device.destroyFence(transfer_fence_);
   }
 
-  void PrepareResources()
+  void PrepareDescriptors()
   {
     const auto device = context_->Device();
-    const auto physical_device = context_->PhysicalDevice();
-    const auto graphics_queue = context_->GraphicsQueue();
     const auto image_count = swapchain_->ImageCount();
 
     uniform_buffer_ = std::make_unique<vkl::UniformBuffer>(context_);
@@ -958,219 +1180,222 @@ private:
     for (uint32_t i = 0; i < image_count; i++)
       material_ubos_.emplace_back(uniform_buffer_->Allocate<MaterialUbo>(num_objects_));
 
-    // Allocate descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(image_count, descriptor_set_layout_);
-    vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
-    descriptor_set_allocate_info
-      .setSetLayouts(layouts)
-      .setDescriptorPool(descriptor_pool_);
-
-    descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
-
-    std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
-    std::vector<vk::DescriptorImageInfo> image_infos(1);
-    image_infos[0]
-      .setSampler(sampler_)
-      .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-    std::vector<vk::WriteDescriptorSet> writes;
-    vk::WriteDescriptorSet write;
-    write
-      .setDstBinding(0)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(1)
-      .setDstArrayElement(0);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(1)
-      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(2)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer);
-    writes.push_back(write);
-
-    write
-      .setDstBinding(3)
-      .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
-    writes.push_back(write);
-
+    // Cubeskin uniforms
     for (uint32_t i = 0; i < image_count; i++)
+      cubeskin_simulation_ubos_.emplace_back(uniform_buffer_->Allocate<CubeskinSimulationUbo>());
+
+    // Allocate descriptor sets
     {
-      buffer_infos[0]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(camera_ubos_[i].Offset())
-        .setRange(camera_ubos_[i].Stride());
+      std::vector<vk::DescriptorSetLayout> layouts(image_count, descriptor_set_layout_);
+      vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+      descriptor_set_allocate_info
+        .setSetLayouts(layouts)
+        .setDescriptorPool(descriptor_pool_);
 
-      buffer_infos[1]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(model_ubos_[i].Offset())
-        .setRange(model_ubos_[i].Stride());
+      descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
 
-      buffer_infos[2]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(light_ubos_[i].Offset())
-        .setRange(light_ubos_[i].Stride());
+      std::vector<vk::DescriptorBufferInfo> buffer_infos(4);
+      std::vector<vk::DescriptorImageInfo> image_infos(1);
+      image_infos[0]
+        .setSampler(sampler_)
+        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-      buffer_infos[3]
-        .setBuffer(uniform_buffer_->Buffer())
-        .setOffset(material_ubos_[i].Offset())
-        .setRange(material_ubos_[i].Stride());
+      std::vector<vk::WriteDescriptorSet> writes;
+      vk::WriteDescriptorSet write;
+      write
+        .setDstBinding(0)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+      writes.push_back(write);
 
-      writes[0].setBufferInfo(buffer_infos[0]);
-      writes[1].setBufferInfo(buffer_infos[1]);
-      writes[2].setBufferInfo(buffer_infos[2]);
-      writes[3].setBufferInfo(buffer_infos[3]);
+      write
+        .setDstBinding(1)
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+      writes.push_back(write);
 
-      for (auto& write : writes)
-        write.setDstSet(descriptor_sets_[i]);
+      write
+        .setDstBinding(2)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+      writes.push_back(write);
 
-      device.updateDescriptorSets(writes, nullptr);
+      write
+        .setDstBinding(3)
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+      writes.push_back(write);
+
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(camera_ubos_[i].Offset())
+          .setRange(camera_ubos_[i].Stride());
+
+        buffer_infos[1]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(model_ubos_[i].Offset())
+          .setRange(model_ubos_[i].Stride());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(light_ubos_[i].Offset())
+          .setRange(light_ubos_[i].Stride());
+
+        buffer_infos[3]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(material_ubos_[i].Offset())
+          .setRange(material_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+        writes[3].setBufferInfo(buffer_infos[3]);
+
+        for (auto& write : writes)
+          write.setDstSet(descriptor_sets_[i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
     }
 
-    // Stage buffer
-    vk::BufferCreateInfo buffer_create_info;
-    buffer_create_info
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
-      .setSize(32 * 1024 * 1024); // 32MB
-    stage_buffer_.buffer = device.createBuffer(buffer_create_info);
-    stage_buffer_.memory = context_->AllocateHostMemory(stage_buffer_.buffer);
-    device.bindBufferMemory(stage_buffer_.buffer, stage_buffer_.memory.device_memory, stage_buffer_.memory.offset);
+    // Allocate cubeskin descriptor set
+    {
+      std::vector<vk::DescriptorSetLayout> descriptor_set_layouts(image_count * 2, cubeskin_descriptor_set_layout_);
+      vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+      descriptor_set_allocate_info
+        .setSetLayouts(descriptor_set_layouts)
+        .setDescriptorPool(cubeskin_descriptor_pool_);
 
-    // Floor
+      cubeskin_descriptor_sets_ = device.allocateDescriptorSets(descriptor_set_allocate_info);
+
+      std::vector<vk::WriteDescriptorSet> writes(3);
+      writes[0]
+        .setDstBinding(0)
+        .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      writes[1]
+        .setDstBinding(1)
+        .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      writes[2]
+        .setDstBinding(2)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+        .setDescriptorCount(1)
+        .setDstArrayElement(0);
+
+      std::vector<vk::DescriptorBufferInfo> buffer_infos(3);
+
+      // Forward pass
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(0)
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[1]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(cubeskin_->StorageDoubleBufferOffset())
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(cubeskin_simulation_ubos_[i].Offset())
+          .setRange(cubeskin_simulation_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+
+        for (auto& write : writes)
+          write.setDstSet(cubeskin_descriptor_sets_[i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
+
+      // Backward pass
+      for (uint32_t i = 0; i < image_count; i++)
+      {
+        buffer_infos[0]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(cubeskin_->StorageDoubleBufferOffset())
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[1]
+          .setBuffer(cubeskin_->StorageBuffer())
+          .setOffset(0)
+          .setRange(cubeskin_->StorageBufferSize());
+
+        buffer_infos[2]
+          .setBuffer(uniform_buffer_->Buffer())
+          .setOffset(cubeskin_simulation_ubos_[i].Offset())
+          .setRange(cubeskin_simulation_ubos_[i].Stride());
+
+        writes[0].setBufferInfo(buffer_infos[0]);
+        writes[1].setBufferInfo(buffer_infos[1]);
+        writes[2].setBufferInfo(buffer_infos[2]);
+
+        for (auto& write : writes)
+          write.setDstSet(cubeskin_descriptor_sets_[3 + i]);
+
+        device.updateDescriptorSets(writes, nullptr);
+      }
+    }
+  }
+
+  void PrepareResources()
+  {
+    const auto device = context_->Device();
+    const auto physical_device = context_->PhysicalDevice();
+    const auto queue = context_->Queue();
+
+    // Primitives in CPU
     constexpr float floor_range = 30.f;
     floor_ = std::make_unique<Floor>(floor_range);
-    const auto& floor_position_buffer = floor_->PositionBuffer();
-    const auto& floor_normal_buffer = floor_->NormalBuffer();
-    const auto& floor_tex_coord_buffer = floor_->TexCoordBuffer();
-    const auto& floor_index_buffer = floor_->IndexBuffer();
+    constexpr int sphere_grid_size = 32;
+    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
 
-    floor_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(floor_position_buffer.size()) / 3, static_cast<int>(floor_index_buffer.size()));
+    // Vertex buffers
+    floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_->NumVertices(), floor_->NumIndices());
     (*floor_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .AddAttribute<float, 2>(2)
       .Prepare();
-
     const uint64_t floor_buffer_size = floor_vbo_->BufferSize();
-    auto* ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset, floor_buffer_size));
-    std::memcpy(ptr + floor_vbo_->Offset(0), floor_position_buffer.data(), floor_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(1), floor_normal_buffer.data(), floor_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->Offset(2), floor_tex_coord_buffer.data(), floor_tex_coord_buffer.size() * sizeof(float));
-    std::memcpy(ptr + floor_vbo_->IndexOffset(), floor_index_buffer.data(), floor_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    auto transfer_commands = context_->AllocateTransientCommandBuffers(4);
-
-    vk::CommandBufferBeginInfo begin_info;
-    begin_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    transfer_commands[0].begin(begin_info);
-
-    vk::BufferCopy region;
-    region
-      .setSrcOffset(0)
-      .setDstOffset(0)
-      .setSize(floor_buffer_size);
-    transfer_commands[0].copyBuffer(stage_buffer_.buffer, floor_vbo_->Buffer(), region);
-    transfer_commands[0].end();
-
-    // Sphere
-    constexpr int sphere_grid_size = 32;
-    sphere_ = std::make_unique<Sphere>(sphere_grid_size);
-    const auto& sphere_position_buffer = sphere_->PositionBuffer();
-    const auto& sphere_normal_buffer = sphere_->NormalBuffer();
-    const auto& sphere_index_buffer = sphere_->IndexBuffer();
-
-    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(sphere_position_buffer.size()) / 3, static_cast<int>(sphere_index_buffer.size()));
+    sphere_vbo_ = std::make_unique<VertexBuffer>(context_, sphere_->NumVertices(), sphere_->NumIndices());
     (*sphere_vbo_)
       .AddAttribute<float, 3>(0)
       .AddAttribute<float, 3>(1)
       .Prepare();
-
     const auto sphere_buffer_size = sphere_vbo_->BufferSize();
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size, sphere_buffer_size));
-    std::memcpy(ptr + sphere_vbo_->Offset(0), sphere_position_buffer.data(), sphere_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vbo_->Offset(1), sphere_normal_buffer.data(), sphere_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + sphere_vbo_->IndexOffset(), sphere_index_buffer.data(), sphere_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
 
-    transfer_commands[1].begin(begin_info);
-    region
-      .setSrcOffset(floor_buffer_size)
-      .setDstOffset(0)
-      .setSize(sphere_buffer_size);
-    transfer_commands[1].copyBuffer(stage_buffer_.buffer, sphere_vbo_->Buffer(), region);
-    transfer_commands[1].end();
+    context_->ToGpu(floor_->PositionBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(0));
+    context_->ToGpu(floor_->NormalBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(1));
+    context_->ToGpu(floor_->TexCoordBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(2));
+    context_->ToGpu(floor_->IndexBuffer(), floor_vbo_->Buffer(), floor_vbo_->IndexOffset());
 
-    // Mesh loading
-    const std::string mesh_filepath = "C:\\workspace\\twopi\\resources\\among_us_obj\\among us_scaled.obj";
-    const auto mesh = geometry::MeshLoader{}.Load(mesh_filepath);
+    context_->ToGpu(sphere_->PositionBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->Offset(0));
+    context_->ToGpu(sphere_->NormalBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->Offset(1));
+    context_->ToGpu(sphere_->IndexBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset());
 
-    const auto& mesh_vertices = mesh->Vertices();
-    const auto& mesh_normals = mesh->Normals();
-    const auto& mesh_tex_coords = mesh->TexCoords();
-    const auto& mesh_indices = mesh->Indices();
+    // Cubeskin
+    constexpr int segments = 32;
+    constexpr int depth = 16;
+    cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
 
-    mesh_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(mesh_vertices.size()) / 3, static_cast<int>(mesh_indices.size()));
-    (*mesh_vbo_)
-      .AddAttribute<float, 3>(0)
-      .AddAttribute<float, 3>(1)
-      .AddAttribute<float, 2>(2)
-      .Prepare();
-
-    const auto mesh_buffer_size = mesh_vbo_->BufferSize();
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size, mesh_buffer_size));
-    std::memcpy(ptr + mesh_vbo_->Offset(0), mesh_vertices.data(), mesh_vertices.size() * sizeof(float));
-    std::memcpy(ptr + mesh_vbo_->Offset(1), mesh_normals.data(), mesh_normals.size() * sizeof(float));
-    std::memcpy(ptr + mesh_vbo_->Offset(2), mesh_tex_coords.data(), mesh_tex_coords.size() * sizeof(float));
-    std::memcpy(ptr + mesh_vbo_->IndexOffset(), mesh_indices.data(), mesh_indices.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    transfer_commands[2].begin(begin_info);
-    region
-      .setSrcOffset(floor_buffer_size + sphere_buffer_size)
-      .setDstOffset(0)
-      .setSize(mesh_buffer_size);
-    transfer_commands[2].copyBuffer(stage_buffer_.buffer, mesh_vbo_->Buffer(), region);
-    transfer_commands[2].end();
-
-    // Halfsphere surface
-    halfsphere_surface_ = std::make_unique<HalfsphereSurface>();
-
-    auto& surface_position_buffer = halfsphere_surface_->PositionBuffer();
-    auto& surface_normal_buffer = halfsphere_surface_->NormalBuffer();
-    auto& surface_index_buffer = halfsphere_surface_->IndexBuffer();
-
-    halfsphere_surface_vbo_ = std::make_unique<VertexBuffer>(context_, static_cast<int>(surface_position_buffer.size()) / 3, static_cast<int>(surface_index_buffer.size()));
-    (*halfsphere_surface_vbo_)
-      .AddAttribute<float, 3>(0)
-      .AddAttribute<float, 3>(1)
-      .Prepare();
-
-    const auto surface_buffer_size = halfsphere_surface_vbo_->BufferSize();
-    ptr = static_cast<unsigned char*>(device.mapMemory(stage_buffer_.memory.device_memory, stage_buffer_.memory.offset + floor_buffer_size + sphere_buffer_size + mesh_buffer_size, surface_buffer_size));
-    std::memcpy(ptr + halfsphere_surface_vbo_->Offset(0), surface_position_buffer.data(), surface_position_buffer.size() * sizeof(float));
-    std::memcpy(ptr + halfsphere_surface_vbo_->Offset(1), surface_normal_buffer.data(), surface_normal_buffer.size() * sizeof(float));
-    std::memcpy(ptr + halfsphere_surface_vbo_->IndexOffset(), surface_index_buffer.data(), surface_index_buffer.size() * sizeof(uint32_t));
-    device.unmapMemory(stage_buffer_.memory.device_memory);
-
-    transfer_commands[3].begin(begin_info);
-    region
-      .setSrcOffset(floor_buffer_size + sphere_buffer_size + mesh_buffer_size)
-      .setDstOffset(0)
-      .setSize(surface_buffer_size);
-    transfer_commands[3].copyBuffer(stage_buffer_.buffer, halfsphere_surface_vbo_->Buffer(), region);
-    transfer_commands[3].end();
-
-    // Submit transfer commands
-    vk::SubmitInfo submit_info;
-    submit_info.setCommandBuffers(transfer_commands);
-    graphics_queue.submit(submit_info, transfer_fence_);
-
-    const auto result = device.waitForFences(transfer_fence_, true, UINT64_MAX);
+    cubeskin_simulation_.segments = segments;
+    cubeskin_simulation_.depth = depth;
+    cubeskin_simulation_.cuboid_size = glm::vec3{
+      cubeskin_->CuboidSize(0),
+      cubeskin_->CuboidSize(1),
+      cubeskin_->CuboidSize(2),
+    };
   }
 
   void CleanupResources()
@@ -1178,148 +1403,11 @@ private:
     const auto device = context_->Device();
     const auto physical_device = context_->PhysicalDevice();
 
-    device.destroyBuffer(stage_buffer_.buffer);
-
     floor_vbo_.reset();
     sphere_vbo_.reset();
-    mesh_vbo_.reset();
-    halfsphere_surface_vbo_.reset();
     uniform_buffer_.reset();
-  }
 
-  void CreateCommandBuffers()
-  {
-    const auto device = context_->Device();
-
-    draw_command_buffers_ = context_->AllocateCommandBuffers(swapchain_->ImageCount());
-
-    BuildCommandBuffers();
-  }
-
-  void BuildCommandBuffers()
-  {
-    constexpr float line_width = 1.f;
-
-    for (uint32_t i = 0; i < swapchain_->ImageCount(); i++)
-    {
-      auto& command_buffer = draw_command_buffers_[i];
-
-      command_buffer.reset();
-
-      vk::CommandBufferBeginInfo begin_info;
-      command_buffer.begin(begin_info);
-
-      std::array<vk::ClearValue, 2> clear_values = {
-        vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
-        vk::ClearDepthStencilValue{ 1.f, 0u }
-      };
-
-      vk::Viewport viewport{ 0.f, 0.f, static_cast<float>(width_), static_cast<float>(height_), 0.f, 1.f };
-      command_buffer.setViewport(0, viewport);
-
-      vk::Rect2D scissor{ { 0, 0 }, { width_, height_ } };
-      command_buffer.setScissor(0, scissor);
-
-      command_buffer.setLineWidth(line_width);
-
-      vk::RenderPassBeginInfo render_pass_begin_info;
-      render_pass_begin_info
-        .setClearValues(clear_values)
-        .setRenderPass(render_pass_)
-        .setFramebuffer(framebuffers_[i])
-        .setRenderArea(vk::Rect2D{ {0, 0}, {width_, height_} });
-      command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
-
-      // Sphere
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, color_pipeline_);
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { model_ubos_[i].Stride(), 0 });
-
-      command_buffer.bindVertexBuffers(0,
-        { sphere_vbo_->Buffer(), sphere_vbo_->Buffer() },
-        { sphere_vbo_->Offset(0), sphere_vbo_->Offset(1) });
-
-      command_buffer.bindIndexBuffer(sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(sphere_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      // Mesh
-      /*
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { model_ubos_[i].Stride() * 2, 0 });
-
-      command_buffer.bindVertexBuffers(0,
-        { mesh_vbo_->Buffer(), mesh_vbo_->Buffer(), mesh_vbo_->Buffer() },
-        { mesh_vbo_->Offset(0), mesh_vbo_->Offset(1), mesh_vbo_->Offset(2) });
-
-      command_buffer.bindIndexBuffer(mesh_vbo_->Buffer(), mesh_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(mesh_vbo_->NumIndices(), 1, 0, 0, 0);
-      */
-
-      // Surface
-      switch (draw_mode_)
-      {
-      case DrawMode::WIREFRAME:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
-        break;
-
-      case DrawMode::SOLID:
-      default:
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
-        break;
-      }
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { 0ull, 0ull });
-
-      command_buffer.bindVertexBuffers(0,
-        { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
-        { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
-
-      command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      if (draw_normal_)
-      {
-        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
-
-        command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-          { descriptor_sets_[i] }, { 0ull, 0ull });
-
-        command_buffer.bindVertexBuffers(0,
-          { halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->Buffer() },
-          { halfsphere_surface_vbo_->Offset(0), halfsphere_surface_vbo_->Offset(1) });
-
-        command_buffer.bindIndexBuffer(halfsphere_surface_vbo_->Buffer(), halfsphere_surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-        command_buffer.drawIndexed(halfsphere_surface_vbo_->NumIndices(), 1, 0, 0, 0);
-      }
-
-      // Floor
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, floor_pipeline_);
-
-      command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-        { descriptor_sets_[i] }, { 0ull, 0ull });
-
-      command_buffer.bindVertexBuffers(0,
-        { floor_vbo_->Buffer(), floor_vbo_->Buffer(), floor_vbo_->Buffer() },
-        { floor_vbo_->Offset(0), floor_vbo_->Offset(1), floor_vbo_->Offset(2) });
-
-      command_buffer.bindIndexBuffer(floor_vbo_->Buffer(), floor_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-      command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
-
-      command_buffer.endRenderPass();
-      command_buffer.end();
-    }
-  }
-
-  void DestroyCommandBuffers()
-  {
-    draw_command_buffers_.clear();
+    cubeskin_.reset();
   }
 
   vk::ShaderModule CreateShaderModule(const std::string& dirpath, const std::string& filename)
@@ -1388,6 +1476,18 @@ private:
       image_memory_barrier);
   }
 
+  void AllocateDrawCommandBuffers()
+  {
+    const auto image_count = swapchain_->ImageCount();
+
+    draw_command_buffers_ = context_->AllocateCommandBuffers(image_count);
+  }
+
+  void FreeDrawCommandBuffers()
+  {
+    context_->FreeCommandBuffers(std::move(draw_command_buffers_));
+  }
+
   // Context
   std::shared_ptr<vkl::Context> context_;
 
@@ -1421,19 +1521,20 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
-  vk::Pipeline surface_tessellation_pipeline_;
-  vk::Pipeline surface_tessellation_wireframe_pipeline_;
-  vk::Pipeline surface_tessellation_normal_pipeline_;
 
-  // Commands
-  std::vector<vk::CommandBuffer> draw_command_buffers_;
+  // Cubeskin pipeline
+  vk::DescriptorSetLayout cubeskin_descriptor_set_layout_;
+  vk::DescriptorPool cubeskin_descriptor_pool_;
+  std::vector<vk::DescriptorSet> cubeskin_descriptor_sets_;
+
+  vk::PipelineLayout cubeskin_pipeline_layout_;
+  vk::Pipeline cubeskin_support_lines_pipeline_;
+  vk::Pipeline cubeskin_compute_pipeline_;
 
   // Draw mode
   DrawMode draw_mode_ = DrawMode::SOLID;
   bool draw_normal_ = false;
-
-  // Command buffer update
-  bool needs_rebuild_command_buffers_ = false;
+  bool visible_ = true;
 
   // Uniform buffers per swapchain framebuffer
   uint32_t num_objects_ = 0;
@@ -1442,31 +1543,31 @@ private:
   std::vector<UniformBuffer::Uniform<LightUbo>> light_ubos_;
   std::vector<UniformBuffer::Uniform<ModelUbo>> model_ubos_;
   std::vector<UniformBuffer::Uniform<MaterialUbo>> material_ubos_;
+  std::vector<UniformBuffer::Uniform<CubeskinSimulationUbo>> cubeskin_simulation_ubos_;
 
   CameraUbo camera_;
   LightUbo lights_;
   MaterialUbo material_;
   ModelUbo floor_model_;
-  ModelUbo mesh_model_;
+  ModelUbo cubeskin_model_;
   ModelUbo light_model_;
-
-  // Stage buffer
-  Buffer stage_buffer_;
+  CubeskinSimulationUbo cubeskin_simulation_;
 
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
-  std::unique_ptr<HalfsphereSurface> halfsphere_surface_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
   std::unique_ptr<VertexBuffer> sphere_vbo_;
-  std::unique_ptr<VertexBuffer> mesh_vbo_;
-  std::unique_ptr<VertexBuffer> halfsphere_surface_vbo_;
+
+  // Model
+  std::unique_ptr<Cubeskin> cubeskin_;
+
+  // Draw command buffers
+  std::vector<vk::CommandBuffer> draw_command_buffers_;
 
   // Synchronization
-  vk::Fence transfer_fence_;
-
   static constexpr uint32_t max_frames_in_flight_ = 2;
   uint32_t current_frame_ = 0;
   std::vector<vk::Semaphore> image_available_semaphores_;
