@@ -21,7 +21,6 @@
 #include <twopi/vkl/model/vkl_cubeskin.h>
 #include <twopi/vkl/primitive/vkl_sphere.h>
 #include <twopi/vkl/primitive/vkl_floor.h>
-#include <twopi/vkl/primitive/vkl_surface.h>
 #include <twopi/core/error.h>
 #include <twopi/window/window.h>
 #include <twopi/window/glfw_window.h>
@@ -123,16 +122,12 @@ public:
     floor_model_.model = glm::mat4(1.f);
     floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
 
-    surface_model_.model = glm::mat4(1.f);
-    surface_model_.model[3][2] = 3.f;
-    surface_model_.model_inverse_transpose = glm::inverse(glm::transpose(surface_model_.model));
-
     cubeskin_model_.model = glm::mat4(1.f);
     cubeskin_model_.model[3][2] = 1.f;
     cubeskin_model_.model_inverse_transpose = glm::inverse(glm::transpose(cubeskin_model_.model));
 
     cubeskin_simulation_.mass = 0.00001f;
-    cubeskin_simulation_.stiffness = 0.07f;
+    cubeskin_simulation_.stiffness = 0.1f;
     cubeskin_simulation_.gravity = glm::vec3{ 0.f, 0.f, -9.8f };
 
     Prepare();
@@ -184,8 +179,7 @@ public:
     light_ubos_[image_index] = lights_;
     model_ubos_[image_index][0] = floor_model_;
     model_ubos_[image_index][1] = light_model_;
-    model_ubos_[image_index][2] = surface_model_;
-    model_ubos_[image_index][3] = cubeskin_model_;
+    model_ubos_[image_index][2] = cubeskin_model_;
     material_ubos_[image_index] = material_;
     cubeskin_simulation_ubos_[image_index] = cubeskin_simulation_;
 
@@ -412,42 +406,11 @@ private:
 
     command_buffer.drawIndexed(floor_vbo_->NumIndices(), 1, 0, 0, 0);
 
-    // Surface
-    switch (draw_mode_)
-    {
-    case DrawMode::WIREFRAME:
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_wireframe_pipeline_);
-      break;
-    case DrawMode::SOLID:
-    default:
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_pipeline_);
-      break;
-    }
-
-    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 2, 0ull });
-
-    command_buffer.bindVertexBuffers(0,
-      { surface_vbo_->Buffer(), surface_vbo_->Buffer(), surface_vbo_->Buffer() },
-      { surface_vbo_->Offset(0), surface_vbo_->Offset(1), surface_vbo_->Offset(2) });
-
-    command_buffer.bindIndexBuffer(surface_vbo_->Buffer(), surface_vbo_->IndexOffset(), vk::IndexType::eUint32);
-
-    command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
-
-    // Surface normal
-    if (draw_normal_)
-    {
-      command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, surface_tessellation_normal_pipeline_);
-
-      command_buffer.drawIndexed(surface_vbo_->NumIndices(), 1, 0, 0, 0);
-    }
-
     // Cubeskin support lines
     command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, cubeskin_support_lines_pipeline_);
 
     command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout_, 0,
-      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 3, 0ull });
+      { descriptor_sets_[image_index] }, { model_ubos_[image_index].Stride() * 2, 0ull });
 
     cubeskin_->DrawSupports(command_buffer);
 
@@ -999,134 +962,6 @@ private:
     device.destroyShaderModule(frag_shader_module);
     shader_stages.clear();
 
-    // Tessellation shader
-    binding_descriptions.clear();
-    attribute_descriptions.clear();
-
-    binding_description
-      .setBinding(0)
-      .setStride(3 * sizeof(float))
-      .setInputRate(vk::VertexInputRate::eVertex);
-    binding_descriptions.push_back(binding_description);
-
-    attribute_description
-      .setBinding(0)
-      .setLocation(0)
-      .setFormat(vk::Format::eR32G32B32Sfloat)
-      .setOffset(0);
-    attribute_descriptions.push_back(attribute_description);
-
-    binding_description
-      .setBinding(1)
-      .setStride(3 * sizeof(float))
-      .setInputRate(vk::VertexInputRate::eVertex);
-    binding_descriptions.push_back(binding_description);
-
-    attribute_description
-      .setBinding(1)
-      .setLocation(1)
-      .setFormat(vk::Format::eR32G32B32Sfloat)
-      .setOffset(0);
-    attribute_descriptions.push_back(attribute_description);
-
-    binding_description
-      .setBinding(2)
-      .setStride(3 * sizeof(float))
-      .setInputRate(vk::VertexInputRate::eVertex);
-    binding_descriptions.push_back(binding_description);
-
-    attribute_description
-      .setBinding(2)
-      .setLocation(2)
-      .setFormat(vk::Format::eR32G32B32Sfloat)
-      .setOffset(0);
-    attribute_descriptions.push_back(attribute_description);
-
-    vertex_input_info
-      .setVertexBindingDescriptions(binding_descriptions)
-      .setVertexAttributeDescriptions(attribute_descriptions);
-
-    vk::PipelineTessellationStateCreateInfo tessellation_stage_create_info;
-    tessellation_stage_create_info
-      .setPatchControlPoints(4);
-
-    vert_shader_module = CreateShaderModule(base_dirpath, "surface.vert.spv");
-    vk::ShaderModule tesc_shader_module = CreateShaderModule(base_dirpath, "surface.tesc.spv");
-    vk::ShaderModule tese_shader_module = CreateShaderModule(base_dirpath, "surface.tese.spv");
-    frag_shader_module = CreateShaderModule(base_dirpath, "surface.frag.spv");
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vert_shader_module);
-    shader_stages.push_back(shader_stage);
-    
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationControl)
-      .setModule(tesc_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eTessellationEvaluation)
-      .setModule(tese_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(frag_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    graphics_pipeline_create_info
-      .setStages(shader_stages)
-      .setPTessellationState(&tessellation_stage_create_info);
-
-    rasterization_info
-      .setCullMode(vk::CullModeFlagBits::eNone);
-
-    input_assembly_info
-      .setTopology(vk::PrimitiveTopology::ePatchList);
-
-    // Polygon shader
-    surface_tessellation_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Wireframe shader
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eLine);
-
-    surface_tessellation_wireframe_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    // Normal shader
-    vk::ShaderModule geom_shader_module = CreateShaderModule(base_dirpath, "surface.geom.spv");
-
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eGeometry)
-      .setModule(geom_shader_module);
-    shader_stages.push_back(shader_stage);
-
-    rasterization_info
-      .setPolygonMode(vk::PolygonMode::eFill);
-
-    graphics_pipeline_create_info
-      .setStages(shader_stages);
-
-    device.destroyShaderModule(frag_shader_module);
-    frag_shader_module = CreateShaderModule(base_dirpath, "surface_normal.frag.spv");
-    shader_stage
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(frag_shader_module);
-    shader_stages[3] = shader_stage;
-
-    graphics_pipeline_create_info
-      .setStages(shader_stages);
-
-    surface_tessellation_normal_pipeline_ = device.createGraphicsPipeline(nullptr, graphics_pipeline_create_info).value;
-
-    device.destroyShaderModule(vert_shader_module);
-    device.destroyShaderModule(frag_shader_module);
-    device.destroyShaderModule(tesc_shader_module);
-    device.destroyShaderModule(tese_shader_module);
-    device.destroyShaderModule(geom_shader_module);
-    shader_stages.clear();
-
     // Cubeskin support pipeline
     binding_descriptions.clear();
     attribute_descriptions.clear();
@@ -1183,9 +1018,6 @@ private:
     device.destroyPipelineLayout(pipeline_layout_);
     device.destroyPipeline(color_pipeline_);
     device.destroyPipeline(floor_pipeline_);
-    device.destroyPipeline(surface_tessellation_pipeline_);
-    device.destroyPipeline(surface_tessellation_wireframe_pipeline_);
-    device.destroyPipeline(surface_tessellation_normal_pipeline_);
     device.destroyPipeline(cubeskin_support_lines_pipeline_);
   }
 
@@ -1512,7 +1344,6 @@ private:
     floor_ = std::make_unique<Floor>(floor_range);
     constexpr int sphere_grid_size = 32;
     sphere_ = std::make_unique<Sphere>(sphere_grid_size);
-    surface_ = std::make_unique<Surface>();
 
     // Vertex buffers
     floor_vbo_ = std::make_unique<VertexBuffer>(context_, floor_->NumVertices(), floor_->NumIndices());
@@ -1530,14 +1361,6 @@ private:
       .Prepare();
     const auto sphere_buffer_size = sphere_vbo_->BufferSize();
 
-    surface_vbo_ = std::make_unique<VertexBuffer>(context_, surface_->NumVertices(), surface_->NumIndices());
-    (*surface_vbo_)
-      .AddAttribute<float, 3>(0)
-      .AddAttribute<float, 3>(1)
-      .AddAttribute<float, 3>(2)
-      .Prepare();
-    const auto surface_buffer_size = surface_vbo_->BufferSize();
-
     context_->ToGpu(floor_->PositionBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(0));
     context_->ToGpu(floor_->NormalBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(1));
     context_->ToGpu(floor_->TexCoordBuffer(), floor_vbo_->Buffer(), floor_vbo_->Offset(2));
@@ -1547,14 +1370,9 @@ private:
     context_->ToGpu(sphere_->NormalBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->Offset(1));
     context_->ToGpu(sphere_->IndexBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset());
 
-    context_->ToGpu(surface_->PositionBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(0));
-    context_->ToGpu(surface_->VxBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(1));
-    context_->ToGpu(surface_->VyBuffer(), surface_vbo_->Buffer(), surface_vbo_->Offset(2));
-    context_->ToGpu(surface_->IndexBuffer(), surface_vbo_->Buffer(), surface_vbo_->IndexOffset());
-
     // Cubeskin
-    constexpr int segments = 32;
-    constexpr int depth = 16;
+    constexpr int segments = 16;
+    constexpr int depth = 8;
     cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
 
     cubeskin_simulation_.segments = segments;
@@ -1573,7 +1391,6 @@ private:
 
     floor_vbo_.reset();
     sphere_vbo_.reset();
-    surface_vbo_.reset();
     uniform_buffer_.reset();
 
     cubeskin_.reset();
@@ -1690,9 +1507,6 @@ private:
   vk::PipelineLayout pipeline_layout_;
   vk::Pipeline color_pipeline_;
   vk::Pipeline floor_pipeline_;
-  vk::Pipeline surface_tessellation_pipeline_;
-  vk::Pipeline surface_tessellation_wireframe_pipeline_;
-  vk::Pipeline surface_tessellation_normal_pipeline_;
 
   // Cubeskin pipeline
   vk::DescriptorSetLayout cubeskin_descriptor_set_layout_;
@@ -1721,7 +1535,6 @@ private:
   LightUbo lights_;
   MaterialUbo material_;
   ModelUbo floor_model_;
-  ModelUbo surface_model_;
   ModelUbo cubeskin_model_;
   ModelUbo light_model_;
   CubeskinSimulationUbo cubeskin_simulation_;
@@ -1729,12 +1542,10 @@ private:
   // Primitives
   std::unique_ptr<Floor> floor_;
   std::unique_ptr<Sphere> sphere_;
-  std::unique_ptr<Surface> surface_;
 
   // Vertex buffers
   std::unique_ptr<VertexBuffer> floor_vbo_;
   std::unique_ptr<VertexBuffer> sphere_vbo_;
-  std::unique_ptr<VertexBuffer> surface_vbo_;
 
   // Model
   std::unique_ptr<Cubeskin> cubeskin_;
