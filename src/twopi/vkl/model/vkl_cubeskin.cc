@@ -17,17 +17,19 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
     1.f / depth,
   };
 
+  constexpr float initial_compression_factor = 0.9f;
+
   std::vector<float> vertex_buffer;
   for (int k = 0; k < depth; k++)
   {
-    const auto z = static_cast<float>(k) / (depth - 1);
+    const auto z = static_cast<float>(k) / (depth - 1) * initial_compression_factor;
     for (int i = 0; i < segments; i++)
     {
-      const auto u = static_cast<float>(i) / (segments - 1);
+      const auto u = static_cast<float>(i) / (segments - 1) * initial_compression_factor;
       const auto x = u * 2.f - 1.f;
       for (int j = 0; j < segments; j++)
       {
-        const auto v = static_cast<float>(j) / (segments - 1);
+        const auto v = static_cast<float>(j) / (segments - 1) * initial_compression_factor;
         const auto y = v * 2.f - 1.f;
 
         // With paddings
