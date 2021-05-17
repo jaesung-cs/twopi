@@ -18,11 +18,13 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
   };
 
   constexpr float initial_compression_factor = 0.9f;
+  constexpr float twist_factor = 3.141592f / 4.f;
 
   std::vector<float> vertex_buffer;
   for (int k = 0; k < depth; k++)
   {
-    const auto z = static_cast<float>(k) / (depth - 1) * initial_compression_factor;
+    const auto w = static_cast<float>(k) / (depth - 1);
+    const auto z = w * initial_compression_factor;
     for (int i = 0; i < segments; i++)
     {
       const auto u = static_cast<float>(i) / (segments - 1) * initial_compression_factor;
@@ -32,9 +34,12 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
         const auto v = static_cast<float>(j) / (segments - 1) * initial_compression_factor;
         const auto y = v * 2.f - 1.f;
 
+        const auto c = std::cos(w * twist_factor);
+        const auto s = std::sin(w * twist_factor);
+
         // With paddings
-        vertex_buffer.push_back(x);
-        vertex_buffer.push_back(y);
+        vertex_buffer.push_back(c * x - s * y);
+        vertex_buffer.push_back(s * x + c * y);
         vertex_buffer.push_back(z);
         vertex_buffer.push_back(0.f);
 

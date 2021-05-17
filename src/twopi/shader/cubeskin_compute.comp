@@ -93,6 +93,7 @@ void main()
     }
   }
 
+  // Damping
   force -= vel * params.damping;
 
   vec3 acc = force / params.mass;

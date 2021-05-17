@@ -12,5 +12,5 @@ void main()
   out_color = vec4(white, 1.f);
   */
 
-  out_color = vec4(2.f - height, 1.f, 1.f, 1.f);
+  out_color = vec4(1.f - height, 1.f, 1.f, 1.f);
 }

@@ -124,13 +124,13 @@ public:
     floor_model_.model_inverse_transpose = glm::inverse(glm::transpose(floor_model_.model));
 
     cubeskin_model_.model = glm::mat4(1.f);
-    cubeskin_model_.model[3][2] = 1.f;
+    cubeskin_model_.model[3][2] = 0.1f;
     cubeskin_model_.model_inverse_transpose = glm::inverse(glm::transpose(cubeskin_model_.model));
 
     cubeskin_simulation_.mass = 0.00001f;
     cubeskin_simulation_.stiffness = 1.f;
     cubeskin_simulation_.gravity = glm::vec3{ 0.f, 0.f, -9.8f };
-    cubeskin_simulation_.damping = 0.001f;
+    cubeskin_simulation_.damping = 0.01f;
 
     Prepare();
   }
@@ -1385,8 +1385,8 @@ private:
     context_->ToGpu(sphere_->IndexBuffer(), sphere_vbo_->Buffer(), sphere_vbo_->IndexOffset());
 
     // Cubeskin
-    constexpr int segments = 16;
-    constexpr int depth = 8;
+    constexpr int segments = 32;
+    constexpr int depth = 16;
     cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
 
     cubeskin_simulation_.segments = segments;
