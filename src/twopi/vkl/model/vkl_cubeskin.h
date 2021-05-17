@@ -23,12 +23,16 @@ public:
   uint32_t StorageDoubleBufferOffset() { return shell_offset_; }
   uint32_t StorageBufferSize() const { return shell_buffer_size_; }
 
+  const auto& CuboidSize(int index) const { return cuboid_size_[index]; }
+
   void Update(vk::CommandBuffer& command_buffer);
   void DrawSupports(vk::CommandBuffer& command_buffer);
 
 private:
   const int segments_;
   const int depth_;
+
+  std::array<float, 3> cuboid_size_{ 0.f, 0.f, 0.f };
 
   // Vertex swap buffer
   vk::Buffer shell_buffer_;

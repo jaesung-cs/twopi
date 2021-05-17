@@ -90,16 +90,15 @@ private:
   // Compute shader - Binding 2
   struct CubeskinSimulationUbo
   {
-    alignas(16) float mass;
+    alignas(16) glm::vec3 cuboid_size;
     float stiffness;
-    float rest_distance_adjacent;
-    float rest_distance_diagonal;
 
     alignas(16) glm::vec3 gravity;
     float dt;
 
     alignas(16) int segments;
     int depth;
+    float mass;
   };
 
 public:
@@ -131,6 +130,10 @@ public:
     cubeskin_model_.model = glm::mat4(1.f);
     cubeskin_model_.model[3][2] = 1.f;
     cubeskin_model_.model_inverse_transpose = glm::inverse(glm::transpose(cubeskin_model_.model));
+
+    cubeskin_simulation_.mass = 0.00001f;
+    cubeskin_simulation_.stiffness = 0.07f;
+    cubeskin_simulation_.gravity = glm::vec3{ 0.f, 0.f, -9.8f };
 
     Prepare();
   }
@@ -174,6 +177,9 @@ public:
     BuildDrawCommandBuffer(command_buffer, image_index);
 
     // Update uniforms
+    // TODO: set proper dt
+    cubeskin_simulation_.dt = 1.f / 144.f / 2.f;
+
     camera_ubos_[image_index] = camera_;
     light_ubos_[image_index] = lights_;
     model_ubos_[image_index][0] = floor_model_;
@@ -295,6 +301,68 @@ private:
     vk::CommandBufferBeginInfo begin_info;
     command_buffer.begin(begin_info);
 
+    // Update with compute shader
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, cubeskin_compute_pipeline_);
+
+    // Forward dispatch
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+      { cubeskin_descriptor_sets_[image_index] }, {});
+
+    command_buffer.dispatch(
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.depth / 8);
+
+    // Barrier between forward and backward computes
+    const auto queue_family_index = context_->QueueFamilyIndices()[0];
+    vk::BufferMemoryBarrier barrier;
+    barrier
+      .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+      .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+      .setSrcQueueFamilyIndex(queue_family_index)
+      .setDstQueueFamilyIndex(queue_family_index)
+      .setBuffer(cubeskin_->StorageBuffer())
+      .setOffset(0)
+      .setSize(cubeskin_->StorageBufferSize() * 2);
+
+    command_buffer.pipelineBarrier(
+      vk::PipelineStageFlagBits::eComputeShader,
+      vk::PipelineStageFlagBits::eComputeShader,
+      vk::DependencyFlags{},
+      {}, { barrier }, {});
+
+    // Then backward dispatch
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+      { cubeskin_descriptor_sets_[image_index + 3] }, {});
+
+    command_buffer.dispatch(
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.depth / 8);
+
+    // Compute to graphics barrier
+    barrier
+      .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+      .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
+      .setBuffer(cubeskin_->StorageBuffer())
+      .setOffset(0)
+      .setSize(cubeskin_->StorageBufferSize() * 2);
+
+    command_buffer.pipelineBarrier(
+      vk::PipelineStageFlagBits::eComputeShader,
+      vk::PipelineStageFlagBits::eVertexInput,
+      vk::DependencyFlags{},
+      {}, { barrier }, {});
+
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, cubeskin_pipeline_layout_, 0,
+      { cubeskin_descriptor_sets_[image_index] }, {});
+
+    command_buffer.dispatch(
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.segments / 8,
+      cubeskin_simulation_.depth / 8);
+
+    // Begin render pass
     std::array<vk::ClearValue, 2> clear_values = {
       vk::ClearColorValue{ std::array<float, 4>{ 0.8f, 0.8f, 0.8f, 1.f } },
       vk::ClearDepthStencilValue{ 1.f, 0u }
@@ -1488,6 +1556,14 @@ private:
     constexpr int segments = 32;
     constexpr int depth = 16;
     cubeskin_ = std::make_unique<Cubeskin>(context_, segments, depth);
+
+    cubeskin_simulation_.segments = segments;
+    cubeskin_simulation_.depth = depth;
+    cubeskin_simulation_.cuboid_size = glm::vec3{
+      cubeskin_->CuboidSize(0),
+      cubeskin_->CuboidSize(1),
+      cubeskin_->CuboidSize(2),
+    };
   }
 
   void CleanupResources()

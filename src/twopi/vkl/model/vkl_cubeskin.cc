@@ -11,6 +11,12 @@ Cubeskin::Cubeskin(std::shared_ptr<vkl::Context> context, int segments, int dept
   , segments_(segments)
   , depth_(depth)
 {
+  cuboid_size_ = {
+    2.f / segments,
+    2.f / segments,
+    1.f / depth,
+  };
+
   std::vector<float> vertex_buffer;
   for (int k = 0; k < depth; k++)
   {
