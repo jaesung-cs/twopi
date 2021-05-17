@@ -16,8 +16,12 @@ layout (std140, binding = 1) uniform ModelUbo
   mat3 model_inverse_transpose;
 } model;
 
+layout (location = 0) out float height;
+
 void main()
 {
   vec4 p = model.model * vec4(position, 1.f);
   gl_Position = camera.projection * camera.view * p;
+
+  height = p.z / p.w;
 }
