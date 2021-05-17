@@ -30,6 +30,7 @@ layout (binding = 2) uniform CubeskinSimulation
   int segments;
   int depth;
   float mass;
+  float damping;
 } params;
 
 uint to_index(ivec3 id)
@@ -91,6 +92,8 @@ void main()
       }
     }
   }
+
+  force -= vel * params.damping;
 
   vec3 acc = force / params.mass;
   vec3 out_vel = vel + acc * params.dt;
